@@ -1,6 +1,8 @@
 import { type DataSource, Not, IsNull, In, MoreThan, MoreThanOrEqual } from "typeorm";
 import {
   Sidequest,
+  SidequestRejection,
+  RejectionReason,
   Objective,
   SidequestStatus,
   User,
@@ -299,6 +301,48 @@ export class SidequestService {
 
     const result = await repo.softDelete({ id: In(ids), userId });
     return result.affected ?? 0;
+  }
+
+  /**
+   * Record a calibration-feedback rejection on a prescribed sidequest and
+   * soft-delete it so it doesn't clutter the user's queue. The rejected
+   * venue is denormalized into the rejection row so the strategist can
+   * recalibrate without reloading the sidequest.
+   *
+   * Returns null if the sidequest isn't found, not owned by the user, or
+   * has already been activated/completed (rejections only apply pre-start).
+   */
+  async recordRejection(
+    sidequestId: string,
+    userId: string,
+    reason: RejectionReason,
+    note?: string,
+  ): Promise<SidequestRejection | null> {
+    const sidequestRepo = this.dataSource.getRepository(Sidequest);
+    const sidequest = await sidequestRepo.findOne({
+      where: { id: sidequestId, userId },
+      relations: ["objectives"],
+      order: { objectives: { sortOrder: "ASC" } },
+    });
+
+    if (!sidequest || sidequest.completedAt) return null;
+
+    const firstObjective = sidequest.objectives?.[0];
+
+    const rejectionRepo = this.dataSource.getRepository(SidequestRejection);
+    const rejection = rejectionRepo.create({
+      sidequestId,
+      userId,
+      reason,
+      venueName: firstObjective?.venueName,
+      venueCategory: firstObjective?.venueCategory,
+      note,
+    });
+    await rejectionRepo.save(rejection);
+
+    await sidequestRepo.softDelete({ id: sidequestId, userId });
+
+    return rejection;
   }
 
   async generateShareToken(id: string, userId: string): Promise<string | null> {

@@ -97,12 +97,13 @@ const PERSONAS: Record<string, SimulationPersona> = {
 
 // ── CLI arg parsing ──────────────────────────────────────────
 
-function parseArgs(): { personaKey: string | null; questCount: number; seed: number; simulateReflection: boolean; configOverrides: Partial<QuestConfig> } {
+function parseArgs(): { personaKey: string | null; questCount: number; seed: number; simulateReflection: boolean; assertMode: boolean; configOverrides: Partial<QuestConfig> } {
   const args = process.argv.slice(2);
   let personaKey: string | null = null;
   let questCount = 20;
   let seed = 42;
   let simulateReflection = false;
+  let assertMode = false;
   const configOverrides: Partial<QuestConfig> = {};
 
   for (let i = 0; i < args.length; i++) {
@@ -147,6 +148,9 @@ function parseArgs(): { personaKey: string | null; questCount: number; seed: num
       case "--simulate-reflection":
         simulateReflection = true;
         break;
+      case "--assert":
+        assertMode = true;
+        break;
       case "--help":
         console.log(`
 Sidequest Journey Simulator
@@ -159,6 +163,7 @@ Options:
   --quests <n>              Number of quests to simulate (default: 20)
   --seed <n>                Random seed for reproducibility (default: 42)
   --simulate-reflection     Simulate LLM reflection analysis (depth, sentiment, tags)
+  --assert                  Run calibration-safety assertions and exit non-zero on failure
   --dfs-threshold <0-1>     Resonance threshold to trigger DFS (default: 0.7)
   --min-quests-dfs <n>      Min quests in category before DFS (default: 3)
   --pace-multiplier <pace> <n>  Override pace multiplier (e.g., --pace-multiplier gentle 0.3)
@@ -167,7 +172,85 @@ Options:
     }
   }
 
-  return { personaKey, questCount, seed, simulateReflection, configOverrides };
+  return { personaKey, questCount, seed, simulateReflection, assertMode, configOverrides };
+}
+
+// ── Calibration assertions (Slice J) ─────────────────────────
+// Persona-level invariants that catch regressions in the simulator's
+// quest-dynamics config. These run off synthetic output, so they don't
+// exercise the live LLM strategist — but they catch the class of bug
+// where pace/difficulty-tolerance plumbing silently regresses.
+
+interface AssertionFailure {
+  persona: string;
+  rule: string;
+  detail: string;
+}
+
+function runCalibrationAssertions(
+  personaKey: string,
+  result: SimulationResult,
+): AssertionFailure[] {
+  const failures: AssertionFailure[] = [];
+  const persona = result.persona;
+  const quests = result.quests;
+  if (quests.length === 0) return failures;
+
+  // Rule 1: no quest difficulty should exceed 10 (absurd-value guard).
+  const maxDiff = Math.max(...quests.map((q) => q.difficulty));
+  if (maxDiff > 10) {
+    failures.push({
+      persona,
+      rule: "difficulty-bound",
+      detail: `max difficulty ${maxDiff} exceeds sane upper bound of 10`,
+    });
+  }
+
+  // Rule 2: early quests must match pace. Gentle personas should not see
+  // average difficulty > 4 in the first 5 quests. Pushes back on any
+  // regression where the simulator stops honoring the pace multiplier.
+  const earlyQuests = quests.slice(0, 5);
+  if (earlyQuests.length === 5) {
+    const avgEarly = earlyQuests.reduce((s, q) => s + q.difficulty, 0) / earlyQuests.length;
+    if (personaKey === "shy-sarah" || personaKey === "burned-out-ben") {
+      if (avgEarly > 4) {
+        failures.push({
+          persona,
+          rule: "gentle-early-difficulty",
+          detail: `avg difficulty in first 5 quests was ${avgEarly.toFixed(2)} — gentle personas should see ≤ 4`,
+        });
+      }
+    }
+  }
+
+  // Rule 3: difficulty whiplash. No two consecutive quests should jump by
+  // more than 5 points — that's the no-stack-multiple-stretches principle.
+  for (let i = 1; i < quests.length; i++) {
+    const jump = Math.abs(quests[i].difficulty - quests[i - 1].difficulty);
+    if (jump > 5) {
+      failures.push({
+        persona,
+        rule: "no-whiplash",
+        detail: `difficulty jumped ${quests[i - 1].difficulty}→${quests[i].difficulty} between quests ${i} and ${i + 1}`,
+      });
+      break; // one per persona is enough
+    }
+  }
+
+  // Rule 4: burned-out-ben should hit very-low difficulty reps often.
+  // At least 40% of the first 10 quests should be difficulty ≤ 2.
+  if (personaKey === "burned-out-ben" && quests.length >= 10) {
+    const easyCount = quests.slice(0, 10).filter((q) => q.difficulty <= 2).length;
+    if (easyCount < 4) {
+      failures.push({
+        persona,
+        rule: "low-tolerance-respected",
+        detail: `only ${easyCount}/10 early quests were difficulty ≤ 2; burned-out persona needs more low-effort reps`,
+      });
+    }
+  }
+
+  return failures;
 }
 
 // ── Output formatting ────────────────────────────────────────
@@ -255,7 +338,7 @@ function printResult(result: SimulationResult, simulateReflection = false): void
 // ── Main ─────────────────────────────────────────────────────
 
 function main(): void {
-  const { personaKey, questCount, seed, simulateReflection, configOverrides } = parseArgs();
+  const { personaKey, questCount, seed, simulateReflection, assertMode, configOverrides } = parseArgs();
 
   const sim = new SimulationService({});
   const personasToRun = personaKey
@@ -270,9 +353,10 @@ function main(): void {
 
   console.log(`\nSidequest Journey Simulator`);
   console.log(`Config overrides: ${Object.keys(configOverrides).length > 0 ? JSON.stringify(configOverrides, null, 2) : "none"}`);
-  console.log(`Quests per persona: ${questCount} | Seed: ${seed}${simulateReflection ? " | Reflection: ON" : ""}`);
+  console.log(`Quests per persona: ${questCount} | Seed: ${seed}${simulateReflection ? " | Reflection: ON" : ""}${assertMode ? " | Assertions: ON" : ""}`);
 
-  for (const [, persona] of Object.entries(personasToRun)) {
+  const allFailures: AssertionFailure[] = [];
+  for (const [key, persona] of Object.entries(personasToRun)) {
     const result = sim.runSimulation({
       config: configOverrides,
       persona,
@@ -281,6 +365,27 @@ function main(): void {
       simulateReflection,
     });
     printResult(result, simulateReflection);
+
+    if (assertMode) {
+      const failures = runCalibrationAssertions(key, result);
+      allFailures.push(...failures);
+    }
+  }
+
+  if (assertMode) {
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`  Calibration Assertions`);
+    console.log(`${"=".repeat(60)}`);
+    if (allFailures.length === 0) {
+      console.log(`\n  \u2713 All personas passed calibration safety checks.\n`);
+    } else {
+      console.log(`\n  \u2717 ${allFailures.length} failure(s):\n`);
+      for (const f of allFailures) {
+        console.log(`    [${f.persona}] ${f.rule}: ${f.detail}`);
+      }
+      console.log("");
+      process.exit(1);
+    }
   }
 }
 

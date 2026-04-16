@@ -3,7 +3,9 @@ import QuestCompass, {
   MiniCompassPreview,
 } from "@/components/Itinerary/QuestCompass";
 import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
+import { CalibrationBar } from "@/components/Itinerary/CalibrationBar";
 import PredictionCaptureModal from "@/components/Quest/PredictionCaptureModal";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
@@ -50,7 +52,10 @@ import {
 import type {
   ObjectiveResponse,
   SidequestResponse,
+  RejectionReason,
+  CompletedVersion,
 } from "@/services/api/modules/sidequests";
+import { CAPACITY_TRACK_LABELS } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useUIStore } from "@/stores/useUIStore";
 import {
@@ -263,7 +268,7 @@ const AmbientGlow: React.FC = React.memo(() => {
 AmbientGlow.displayName = "AmbientGlow";
 
 const ItineraryDetailScreen = () => {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, version } = useLocalSearchParams<{ id: string; version?: string }>();
   const router = useRouter();
   const colors = useColors();
 
@@ -296,7 +301,19 @@ const ItineraryDetailScreen = () => {
     suggestedActivities: string[];
     actionItems: string[];
     journalPrompt?: string;
+    hasSmaller: boolean;
+    hasTiny: boolean;
   } | null>(null);
+
+  // Slice A — which rep variant the user has chosen to attempt. Defaults to
+  // full; mobile-side state only (no backend persistence until check-in).
+  // Slice D — "Make it gentler" from the home screen deep-links with a
+  // ?version=smaller|tiny query param, which pre-selects the variant here.
+  const initialVersion: CompletedVersion =
+    version === "smaller" || version === "tiny" || version === "full"
+      ? (version as CompletedVersion)
+      : "full";
+  const [selectedVersion, setSelectedVersion] = useState<CompletedVersion>(initialVersion);
   const [showPrediction, setShowPrediction] = useState(false);
   const { userLocation, startLocationTracking, stopLocationTracking } =
     useUserLocation();
@@ -385,6 +402,8 @@ const ItineraryDetailScreen = () => {
               suggestedActivities: objective.suggestedActivities ?? [],
               actionItems: objective.actionItems ?? [],
               journalPrompt: objective.journalPrompt,
+              hasSmaller: !!objective.smallerRep,
+              hasTiny: !!objective.tinyRep,
             });
           }
         }
@@ -436,6 +455,33 @@ const ItineraryDetailScreen = () => {
     setShowPrediction(true);
   }, [itinerary]);
 
+  const { trackJob } = useJobProgressContext();
+
+  const handleReject = useCallback(
+    async (reason: RejectionReason) => {
+      if (!id || !userLocation) return;
+      const [lng, lat] = userLocation;
+      try {
+        const { jobId } = await apiClient.sidequests.rejectQuest(id, {
+          reason,
+          latitude: lat,
+          longitude: lng,
+        });
+        trackJob(jobId);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace("/itineraries");
+      } catch (err) {
+        console.error("[ItineraryDetail] Reject failed:", err);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          "Couldn't recalibrate",
+          err instanceof Error ? err.message : "Please try again.",
+        );
+      }
+    },
+    [id, userLocation, trackJob, router],
+  );
+
   const handlePredictionComplete = useCallback(async () => {
     setShowPrediction(false);
     if (!itinerary) return;
@@ -480,6 +526,8 @@ const ItineraryDetailScreen = () => {
         suggestedActivities: first.suggestedActivities ?? [],
         actionItems: first.actionItems ?? [],
         journalPrompt: first.journalPrompt,
+        hasSmaller: !!first.smallerRep,
+        hasTiny: !!first.tinyRep,
       });
     }
   }, [id, displaySidequest, markCheckedIn, confirmCheckin]);
@@ -506,6 +554,8 @@ const ItineraryDetailScreen = () => {
           suggestedActivities: objective.suggestedActivities ?? [],
           actionItems: objective.actionItems ?? [],
           journalPrompt: objective.journalPrompt,
+          hasSmaller: !!objective.smallerRep,
+          hasTiny: !!objective.tinyRep,
         });
       }
 
@@ -703,6 +753,17 @@ const ItineraryDetailScreen = () => {
             <Text style={styles.heroTitle}>
               {itinerary?.title ?? "Quest"}
             </Text>
+            {/* Slice C — capacity rep attribution */}
+            {displaySidequest?.capacityTrack && (
+              <View style={styles.capacityBlock}>
+                <Text style={styles.capacityLabel}>
+                  BUILDING · {CAPACITY_TRACK_LABELS[displaySidequest.capacityTrack]}
+                </Text>
+                {displaySidequest.repIntent && (
+                  <Text style={styles.capacityIntent}>{displaySidequest.repIntent}</Text>
+                )}
+              </View>
+            )}
           </Animated.View>
 
           {/* Venue card — compact info block */}
@@ -758,13 +819,59 @@ const ItineraryDetailScreen = () => {
           >
             <Text style={styles.playbookLabel}>YOUR PLAYBOOK</Text>
 
-            {/* Description as the main instruction */}
-            {objectives[0]?.description && (
-              <LinkedText
-                text={objectives[0].description}
-                style={styles.playbookDescription}
-              />
-            )}
+            {/* Slice A — version selector. Only render if variants exist. */}
+            {(() => {
+              const obj = objectives[0];
+              if (!obj) return null;
+              const versions: { key: CompletedVersion; label: string; text?: string }[] = [
+                { key: "full", label: "Full", text: obj.description },
+                { key: "smaller", label: "Smaller", text: obj.smallerRep },
+                { key: "tiny", label: "Tiny", text: obj.tinyRep },
+              ];
+              const available = versions.filter((v) => v.text && v.text.trim().length > 0);
+              if (available.length <= 1) {
+                // Legacy prescription pre-Slice-A — show description only.
+                return obj.description ? (
+                  <LinkedText text={obj.description} style={styles.playbookDescription} />
+                ) : null;
+              }
+              const current = available.find((v) => v.key === selectedVersion) ?? available[0];
+              return (
+                <>
+                  <View style={styles.versionRow}>
+                    {available.map(({ key, label }) => {
+                      const isActive = selectedVersion === key;
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setSelectedVersion(key);
+                          }}
+                          style={({ pressed }) => [
+                            styles.versionChip,
+                            isActive && styles.versionChipActive,
+                            pressed && !isActive && styles.versionChipPressed,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.versionChipText,
+                              isActive && styles.versionChipTextActive,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {current.text && (
+                    <LinkedText text={current.text} style={styles.playbookDescription} />
+                  )}
+                </>
+              );
+            })()}
 
             {/* Suggested activities as clear steps */}
             {(objectives[0]?.suggestedActivities ?? []).length > 0 && (
@@ -774,6 +881,24 @@ const ItineraryDetailScreen = () => {
                     <Text style={styles.playbookStepText}>{step}</Text>
                   </View>
                 ))}
+              </View>
+            )}
+
+            {/* Slice A — minimum viable win + exit ramp */}
+            {(objectives[0]?.minViableWin || objectives[0]?.exitRamp) && (
+              <View style={styles.safetyBlock}>
+                {objectives[0]?.minViableWin && (
+                  <View style={styles.safetyRow}>
+                    <Text style={styles.safetyLabel}>COUNTS AS DONE</Text>
+                    <Text style={styles.safetyText}>{objectives[0].minViableWin}</Text>
+                  </View>
+                )}
+                {objectives[0]?.exitRamp && (
+                  <View style={styles.safetyRow}>
+                    <Text style={styles.safetyLabel}>EXIT RAMP</Text>
+                    <Text style={styles.safetyText}>{objectives[0].exitRamp}</Text>
+                  </View>
+                )}
               </View>
             )}
           </Animated.View>
@@ -1028,32 +1153,37 @@ const ItineraryDetailScreen = () => {
               </View>
             </>
           ) : (
-            <View style={styles.buttonRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.startButton,
-                  styles.rowButton,
-                  pressed && styles.startButtonPressed,
-                  isActivating && styles.startButtonDisabled,
-                ]}
-                onPress={handleActivate}
-                disabled={isActivating}
-              >
-                <Text style={styles.startButtonText}>
-                  {isActivating ? "Activating..." : "Start"}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.deleteButton,
-                  styles.rowButton,
-                  pressed && styles.deleteButtonPressed,
-                ]}
-                onPress={handleDelete}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </Pressable>
-            </View>
+            <>
+              <View style={styles.buttonRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.startButton,
+                    styles.rowButton,
+                    pressed && styles.startButtonPressed,
+                    isActivating && styles.startButtonDisabled,
+                  ]}
+                  onPress={handleActivate}
+                  disabled={isActivating}
+                >
+                  <Text style={styles.startButtonText}>
+                    {isActivating ? "Activating..." : "Start"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    styles.rowButton,
+                    pressed && styles.deleteButtonPressed,
+                  ]}
+                  onPress={handleDelete}
+                >
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </Pressable>
+              </View>
+              {!itinerary.completedAt && (
+                <CalibrationBar onReject={handleReject} accentHex={accentHex} />
+              )}
+            </>
           )}
         </Animated.View>
       </PullToActionScrollView>
@@ -1090,6 +1220,9 @@ const ItineraryDetailScreen = () => {
         actionItems={captureObjective?.actionItems ?? []}
         journalPrompt={captureObjective?.journalPrompt}
         mode={isChallenge ? "challenge" : "venue"}
+        initialVersion={selectedVersion}
+        hasSmaller={captureObjective?.hasSmaller ?? false}
+        hasTiny={captureObjective?.hasTiny ?? false}
         onDismiss={() => {
           const capturedId = captureObjective?.id;
           setCaptureObjective(null);
@@ -1290,6 +1423,27 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       letterSpacing: 1,
     },
 
+    // Slice C — capacity rep
+    capacityBlock: {
+      marginTop: spacing.sm,
+      gap: 4,
+    },
+    capacityLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: accentHex,
+      letterSpacing: 1.5,
+    },
+    capacityIntent: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      fontStyle: "italic" as const,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+
     // ── Venue card ──
     venueCard: {
       flexDirection: "row" as const,
@@ -1355,6 +1509,64 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       lineHeight: 20,
+    },
+
+    // ── Slice A — variant selector + safety block ──
+    versionRow: {
+      flexDirection: "row" as const,
+      gap: 6,
+      marginBottom: 4,
+    },
+    versionChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      backgroundColor: "transparent",
+    },
+    versionChipActive: {
+      borderColor: accentHex,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
+    },
+    versionChipPressed: {
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
+    },
+    versionChipText: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.secondary,
+      letterSpacing: 0.8,
+      textTransform: "uppercase" as const,
+    },
+    versionChipTextActive: {
+      color: accentHex,
+      fontWeight: fontWeight.bold,
+    },
+    safetyBlock: {
+      marginTop: spacing.sm,
+      gap: spacing.xs,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.subtle,
+    },
+    safetyRow: {
+      gap: 2,
+    },
+    safetyLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1.2,
+    },
+    safetyText: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.secondary,
+      lineHeight: 19,
     },
 
     // ── Journal prompt ──

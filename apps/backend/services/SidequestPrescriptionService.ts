@@ -3,6 +3,7 @@ import {
   Sidequest,
   Objective,
   SidequestStatus,
+  CapacityTrack,
   User,
 } from "../entities";
 import { normalizeCity } from "./shared/geo/cityUtils";
@@ -42,6 +43,8 @@ import {
   buildSocialSituationContext,
   computeFearLadderReadiness,
   determineIndividualQuestRole,
+  loadRecentRejections,
+  detectRejectionPattern,
   type PrescriptionContextDeps,
   type FearLadderReadiness,
   type BlockerDetectionResult,
@@ -104,6 +107,11 @@ interface LLMItemRaw {
   jp: string | null;
   df: number | null;
   act: string | null;
+  // Slice A — rep variants
+  sr?: string | null;
+  tr?: string | null;
+  mvw?: string | null;
+  er?: string | null;
 }
 
 interface LLMResponseRaw {
@@ -128,6 +136,11 @@ interface LLMItem {
   journalPrompt: string | null;
   difficulty: number | null;
   actionability: "actionable" | "suggestive" | "milestone" | null;
+  // Slice A — rep variants
+  smallerRep: string | null;
+  tinyRep: string | null;
+  minViableWin: string | null;
+  exitRamp: string | null;
 }
 
 interface LLMResponse {
@@ -157,6 +170,10 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
       journalPrompt: i.jp ?? null,
       difficulty: i.df ?? null,
       actionability: (["actionable", "suggestive", "milestone"].includes(i.act ?? "") ? i.act : "suggestive") as LLMItem["actionability"],
+      smallerRep: i.sr ?? null,
+      tinyRep: i.tr ?? null,
+      minViableWin: i.mvw ?? null,
+      exitRamp: i.er ?? null,
     })),
   };
 }
@@ -329,6 +346,31 @@ export class SidequestPrescriptionService {
       user.behavioralProfile ?? null,
       resolveGoalTags(user.comfortProfile),
     );
+
+    // 2a. Calibration feedback (Slice B) — if the user just rejected a prescription,
+    // surface the most recent reason so the strategist and validator can recalibrate.
+    // Anything older than 15 minutes is history, not an active lever.
+    // Slice F — also pull up to 5 rejections to detect recurring patterns.
+    const recentRejections = await loadRecentRejections(this.dataSource, userId, 5);
+    const freshRejection = recentRejections.find((r) => r.ageMinutes <= 15) ?? null;
+    const lastRejection = freshRejection
+      ? {
+          reason: freshRejection.reason,
+          venueName: freshRejection.venueName,
+          venueCategory: freshRejection.venueCategory,
+          ageMinutes: freshRejection.ageMinutes,
+        }
+      : null;
+    const rejectionPattern = detectRejectionPattern(recentRejections);
+    if (rejectionPattern) {
+      console.log(`[prescribeQuest] Rejection pattern detected: ${rejectionPattern.reason} × ${rejectionPattern.count}${rejectionPattern.categories.length ? ` (categories: ${rejectionPattern.categories.join(", ")})` : ""}`);
+    }
+
+    // Slice E — early calibration mode. First 5 completed quests get tighter
+    // guardrails: stay inside the user's radius, keep social load low, ensure
+    // a tiny version and exit ramp exist. Trust is the product here, not growth.
+    const completedQuestCount = await this.countCompletedQuests(userId);
+    const isEarlyCalibration = completedQuestCount < 5;
 
     // 2b. Compute fear ladder readiness from actual user feedback
     const fearLadderReadiness = await computeFearLadderReadiness(this.dataSource, userId);
@@ -509,6 +551,16 @@ export class SidequestPrescriptionService {
         isStretch,
         isEnjoy,
         siblingContext: siblingContext ?? null,
+        lastRejection,
+        isEarlyCalibration,
+        completedQuestCount,
+        rejectionPattern: rejectionPattern
+          ? {
+              reason: rejectionPattern.reason,
+              count: rejectionPattern.count,
+              categories: rejectionPattern.categories,
+            }
+          : null,
       };
 
       // ── Multi-agent pipeline ────────────────────────────────
@@ -534,6 +586,7 @@ export class SidequestPrescriptionService {
       const agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
       const allVenues = strategyResult.allVenues;
       const allTrails = strategyResult.allTrails;
+      const strategyBrief = strategyResult.brief;
 
       const llmResult = expandLLMResponse(agentRaw);
 
@@ -609,6 +662,10 @@ export class SidequestPrescriptionService {
           journalPrompt: vi.item.journalPrompt ?? undefined,
           difficulty: vi.item.difficulty ?? undefined,
           actionability: vi.item.actionability ?? undefined,
+          smallerRep: vi.item.smallerRep ?? undefined,
+          tinyRep: vi.item.tinyRep ?? undefined,
+          minViableWin: vi.item.minViableWin ?? undefined,
+          exitRamp: vi.item.exitRamp ?? undefined,
         }),
       );
       await objectiveRepo.save(objectives);
@@ -620,6 +677,9 @@ export class SidequestPrescriptionService {
       sidequest.status = SidequestStatus.READY;
       // Rarity stays null until "Seal Memory" (promote) — computed from resonance + reflection tags
       sidequest.distanceFromHome = distanceFromHome;
+      // Slice C — capacity rep attribution
+      sidequest.capacityTrack = strategyBrief.capacityTrack;
+      sidequest.repIntent = strategyBrief.repIntent;
 
       // Generate category tags inline so the client always has them
       try {
@@ -991,6 +1051,12 @@ Respond with JSON:
       const hour = now.getHours();
       const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
 
+      // Slice E — challenges share the same early-calibration signal as
+      // venue quests. A new user picking a challenge shouldn't get "host
+      // a dinner party" as quest 2.
+      const completedChallengeCount = await this.countCompletedQuests(userId);
+      const isEarlyCalibration = completedChallengeCount < 5;
+
       // Build prompt via registry (challenge version)
       const promptCtx: PrescriptionPromptContext = {
         user: {
@@ -1026,6 +1092,8 @@ Respond with JSON:
         isEnjoy: false,
         siblingContext: null,
         challengeCategory: input.challengeCategory ?? "social_reach",
+        isEarlyCalibration,
+        completedQuestCount: completedChallengeCount,
       };
 
       const promptOutput = this.promptRegistry.build("v1-challenge", promptCtx);
@@ -1054,7 +1122,11 @@ Respond with JSON:
                   type: "object",
                   properties: {
                     t: { type: "string", description: "Challenge title" },
-                    d: { type: "string", description: "What to do — concrete and specific" },
+                    d: { type: "string", description: "Full rep — what to do, concrete and specific" },
+                    sr: { type: "string", description: "Smaller rep — reduced-intensity fallback version" },
+                    tr: { type: "string", description: "Tiny rep — minimum viable action, almost impossible to fail" },
+                    mvw: { type: "string", description: "Minimum viable win — one short line describing what counts as done" },
+                    er: { type: "string", description: "Exit ramp — one short line describing how to leave without failure" },
                     e: { type: "string", description: "Emoji" },
                     vc: { type: "string", description: "Challenge category (social_reach, vulnerability, hosting, reconnection)" },
                     hook: { type: "string", description: "Why this challenge matters for their growth" },
@@ -1066,7 +1138,7 @@ Respond with JSON:
                     jp: { type: "string", description: "Journal prompt — reflective question for after completing the challenge" },
                     df: { type: "number", description: "Difficulty 1-10 (social/emotional difficulty)" },
                   },
-                  required: ["t", "d", "e", "vc", "hook", "sa", "jp", "df"],
+                  required: ["t", "d", "sr", "tr", "mvw", "er", "e", "vc", "hook", "sa", "jp", "df"],
                 },
                 maxItems: 1,
                 minItems: 1,
@@ -1114,6 +1186,24 @@ Respond with JSON:
 
       const llmResult = expandLLMResponse(agentResult.result);
 
+      // Slice A: backfill rep variants if the challenge writer dropped any field.
+      // Mirrors the venue writer's safety net — every prescription must ship with
+      // a graceful downgrade path.
+      for (const item of llmResult.items) {
+        if (!item.smallerRep?.trim()) {
+          item.smallerRep = "A lighter version of the same action. Do less, not nothing.";
+        }
+        if (!item.tinyRep?.trim()) {
+          item.tinyRep = "The smallest possible step in the same direction — opening the app, drafting without sending, reading back.";
+        }
+        if (!item.minViableWin?.trim()) {
+          item.minViableWin = "You started.";
+        }
+        if (!item.exitRamp?.trim()) {
+          item.exitRamp = "You can stop anytime. Starting counts.";
+        }
+      }
+
       // Save objectives (no venue validation needed)
       const objectives = llmResult.items.map((item, idx) =>
         objectiveRepo.create({
@@ -1129,6 +1219,10 @@ Respond with JSON:
           journalPrompt: item.journalPrompt ?? undefined,
           difficulty: item.difficulty ?? undefined,
           actionability: "suggestive",
+          smallerRep: item.smallerRep ?? undefined,
+          tinyRep: item.tinyRep ?? undefined,
+          minViableWin: item.minViableWin ?? undefined,
+          exitRamp: item.exitRamp ?? undefined,
         }),
       );
       await objectiveRepo.save(objectives);
@@ -1138,6 +1232,18 @@ Respond with JSON:
       sidequest.summary = llmResult.summary;
       sidequest.strategyNote = llmResult.strategyNote ?? undefined;
       sidequest.status = SidequestStatus.READY;
+      // Slice C — map challenge category to a capacity track. Rough mapping;
+      // can be LLM-chosen later if challenge prompts learn to emit it.
+      const challengeCategoryToTrack: Record<string, CapacityTrack> = {
+        social_reach: CapacityTrack.MICRO_INTERACTION,
+        vulnerability: CapacityTrack.RECOVERY,
+        hosting: CapacityTrack.SOCIAL_EXTENSION,
+        reconnection: CapacityTrack.RETURNABILITY,
+      };
+      sidequest.capacityTrack =
+        challengeCategoryToTrack[input.challengeCategory ?? "social_reach"] ??
+        CapacityTrack.MICRO_INTERACTION;
+      sidequest.repIntent = llmResult.strategyNote ?? llmResult.summary ?? undefined;
 
       // Generate category tags
       try {

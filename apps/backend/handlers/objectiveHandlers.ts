@@ -86,9 +86,10 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
       photoBase64?: string;
       socialContext?: string;
       wouldReturn?: boolean;
+      completedVersion?: string;
     }>();
 
-    if (!body.journalEntry && !body.completedActivity && !body.photoBase64 && !body.socialContext && body.wouldReturn == null) {
+    if (!body.journalEntry && !body.completedActivity && !body.photoBase64 && !body.socialContext && body.wouldReturn == null && !body.completedVersion) {
       return c.json({ error: "At least one field is required" }, 400);
     }
 
@@ -104,6 +105,10 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     const validSocialContexts = ["solo", "with_someone", "met_someone_new", "group_activity"];
     if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {
       return c.json({ error: `socialContext must be one of: ${validSocialContexts.join(", ")}` }, 400);
+    }
+    const validVersions = ["full", "smaller", "tiny"] as const;
+    if (body.completedVersion && !validVersions.includes(body.completedVersion as (typeof validVersions)[number])) {
+      return c.json({ error: `completedVersion must be one of: ${validVersions.join(", ")}` }, 400);
     }
 
     // Upload photo to S3 if provided
@@ -133,6 +138,7 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
         photoUrl,
         socialContext: body.socialContext,
         wouldReturn: body.wouldReturn,
+        completedVersion: body.completedVersion as "full" | "smaller" | "tiny" | undefined,
       },
     );
 

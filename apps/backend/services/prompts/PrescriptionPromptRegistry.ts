@@ -75,6 +75,31 @@ export interface PrescriptionPromptContext {
   socialMicroRepContext: string;
   socialSituationContext: string;
 
+  // Calibration feedback (Slice B) — present when the user just rejected a prescription
+  // and this generation is a recalibration. The strategist uses this to acknowledge
+  // the lever and avoid repeating the rejected venue.
+  lastRejection?: {
+    reason: string;
+    venueName: string | null;
+    venueCategory: string | null;
+    ageMinutes: number;
+  } | null;
+
+  // Early calibration mode (Slice E) — first 3-5 quests, optimize for trust
+  // over growth. Short, nearby, low-social, one stretch dimension max.
+  isEarlyCalibration?: boolean;
+  /** Completed quest count — used to drive the early-calibration phase flag. */
+  completedQuestCount?: number;
+
+  // Rejection pattern (Slice F) — populated when the user has rejected the
+  // same reason 3+ times in the last 5. Signals systemic miscalibration on
+  // a specific dimension; the strategist + validator dampen that dimension.
+  rejectionPattern?: {
+    reason: string;
+    count: number;
+    categories: string[];
+  } | null;
+
   // Challenge quests
   challengeCategory?: string;
 
@@ -296,6 +321,12 @@ export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
   const category = challengeCategory ?? "social_reach";
   const ladder = CHALLENGE_LADDERS[category] ?? CHALLENGE_LADDERS.social_reach;
 
+  const earlyCalibrationGuard = ctx.isEarlyCalibration
+    ? `EARLY CALIBRATION MODE — READ FIRST:
+This user has completed ${ctx.completedQuestCount ?? 0} of their first 5 quests. Stay on rung 1–2 of the ladder. The tiny version must be something like "open the chat and read old messages" — no-send, no-commit. Trust is the product here, not courage.
+
+` : "";
+
   const ladderContext = ladder.rungs
     .map((rung, i) => `  ${i + 1}. ${rung}`)
     .join("\n");
@@ -304,7 +335,7 @@ export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
     .map(([key, l]) => `${l.label} (${key}):\n${l.rungs.map((r, i) => `  ${i + 1}. ${r}`).join("\n")}`)
     .join("\n\n");
 
-  const instructions = `You are a Social Life Architect. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
+  const instructions = `${earlyCalibrationGuard}You are a Social Life Architect. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
 
 YOUR APPROACH:
 - Progress through courage, not mileage. The goal is to get the user to do something interpersonally uncomfortable in a healthy, growth-oriented way.
@@ -347,6 +378,13 @@ CONSTRAINTS:
 - jp (journal prompt): A reflective question for AFTER they complete the challenge. This is crucial — completion is gated on writing a reflection. Make it a question that invites genuine introspection, not just "how did it go?" Examples: "What surprised you about how they responded?", "What were you afraid would happen, and what actually happened?", "Did this change how you see this relationship?"
 - vc (challenge category): "${category}"
 - df (difficulty): 1-10 based on social/emotional difficulty for THIS user. 1=trivially easy (texting a close friend), 3=mild discomfort (calling someone), 5=real vulnerability (sharing something honest), 7=significant courage (admitting struggle), 10=maximum social exposure (hosting a large group event).
+- sr (smaller rep), tr (tiny rep), mvw (minimum viable win), er (exit ramp): REQUIRED. Every challenge ships with graceful downgrades. Examples:
+    - Full: "Call an old friend and ask how they've been."
+    - Smaller (sr): "Send them a text — 'hey, been thinking about you.'"
+    - Tiny (tr): "Open their chat and read back through old messages."
+    - mvw: "You sent something."
+    - er: "You can close the app anytime. Opening counts."
+  The tiny rep should be almost impossible to fail. Never stack stretches.
 ${difficultyGuidance}`;
 
   const initialMessage = `Prescribe a ${ladder.label.toLowerCase()} challenge for this user.

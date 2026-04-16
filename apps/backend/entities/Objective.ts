@@ -169,4 +169,26 @@ export class Objective {
 
   @Column({ name: "would_return", type: "boolean", nullable: true })
   wouldReturn?: boolean;
+
+  // ── Rep variants (Slice A) ──
+  // The prescription ships with three difficulty levels. `description` is the
+  // full rep; `smallerRep` and `tinyRep` are graceful-downgrade versions.
+  // `minViableWin` defines what counts as "I did the thing" at the tiniest
+  // level; `exitRamp` describes how the user can leave without failure.
+
+  @Column({ name: "smaller_rep", type: "text", nullable: true })
+  smallerRep?: string;
+
+  @Column({ name: "tiny_rep", type: "text", nullable: true })
+  tinyRep?: string;
+
+  @Column({ name: "min_viable_win", type: "varchar", length: 500, nullable: true })
+  minViableWin?: string;
+
+  @Column({ name: "exit_ramp", type: "varchar", length: 500, nullable: true })
+  exitRamp?: string;
+
+  /** Which version the user actually completed: "full" | "smaller" | "tiny". */
+  @Column({ name: "completed_version", type: "varchar", length: 10, nullable: true })
+  completedVersion?: "full" | "smaller" | "tiny";
 }

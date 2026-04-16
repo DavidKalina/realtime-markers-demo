@@ -44,6 +44,7 @@ import { getUserTimezone } from "@/utils/dateTimeFormatting";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import DeckHandSection from "./DeckHandSection";
+import TodaysRepCard from "./TodaysRepCard";
 import PendingReflectionCard from "./PendingReflectionCard";
 import PendingCaptureCard from "./PendingCaptureCard";
 import PendingConceptsCard from "./PendingConceptsCard";
@@ -361,27 +362,41 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </View>
         </ParallaxWidget>
 
-        {/* 1. Active Quest Banner */}
+        {/* 1. Active Quest Banner — shown when a quest is in progress */}
         <ParallaxWidget scrollY={scrollY} index={1} delay={80}>
           <ActiveQuestBanner />
         </ParallaxWidget>
 
+        {/* Slice D — Today's Rep. The featured undone prescription. Leads
+            the home screen above analytics and the rest of the deck. Skipped
+            when a quest is already active (ActiveQuestBanner covers that). */}
+        {!activeItinerary && deckQuests[0] && (
+          <ParallaxWidget scrollY={scrollY} index={1} delay={100}>
+            <TodaysRepCard quest={deckQuests[0]} />
+          </ParallaxWidget>
+        )}
+
         {/* 1.2 Pending Concepts — pick your quest */}
         {hasPendingConcepts && (
-          <ParallaxWidget scrollY={scrollY} index={1} delay={90}>
+          <ParallaxWidget scrollY={scrollY} index={1} delay={120}>
             <PendingConceptsCard />
           </ParallaxWidget>
         )}
 
-        {/* 1.5 Your Hand — show deck of quest cards */}
-        {deckQuests.length > 0 && (
-          <ParallaxWidget scrollY={scrollY} index={2} delay={100}>
-            <DeckHandSection
-              quests={deckQuests}
-              activeQuestId={activeItinerary?.id}
-            />
-          </ParallaxWidget>
-        )}
+        {/* 1.5 Your Hand — the rest of the deck (first quest is featured above) */}
+        {(() => {
+          const remainingDeck = activeItinerary
+            ? deckQuests
+            : deckQuests.slice(1);
+          return remainingDeck.length > 0 ? (
+            <ParallaxWidget scrollY={scrollY} index={2} delay={140}>
+              <DeckHandSection
+                quests={remainingDeck}
+                activeQuestId={activeItinerary?.id}
+              />
+            </ParallaxWidget>
+          ) : null;
+        })()}
 
         {/* 1.7 Pending Reflections — unrated completed quests */}
         {unratedQuests.map((q, i) => (
@@ -439,7 +454,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <SectionMark
             icon={"\uD83D\uDCCA"}
             tint="rgba(125, 211, 252, 0.5)"
-            label="Growth"
+            label="Growth Signal"
             side="right"
             trailing={!hasTier1 ? "Calibrating" : undefined}
             trailingColor={colors.text.secondary}
@@ -490,7 +505,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 7. Pathway Momentum — unlocks at tier 3 */}
         {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
           <ParallaxWidget scrollY={scrollY} index={7} delay={520}>
-            <SectionMark icon={"\uD83D\uDEE4\uFE0F"} tint="rgba(56, 189, 248, 0.5)" label="Pathways" side="left" />
+            <SectionMark icon={"\uD83D\uDEE4\uFE0F"} tint="rgba(56, 189, 248, 0.5)" label="Your Arcs" side="left" />
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
           </ParallaxWidget>
         )}

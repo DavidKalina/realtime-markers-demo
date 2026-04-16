@@ -66,10 +66,12 @@ export interface GrowthScoreHeroProps {
 
 // ── Helpers ────────────────────────────────────────────────────
 
+// Momentum labels are framed as accompaniment, not measurement. "Cooling"
+// was swapped for "Resting" — a week off isn't a failure state, it's a pause.
 const MOMENTUM_CONFIG = {
-  rising: { arrow: "\u2191", label: "Rising" },
+  rising: { arrow: "\u2191", label: "Building" },
   steady: { arrow: "\u2192", label: "Steady" },
-  cooling: { arrow: "\u2193", label: "Cooling" },
+  cooling: { arrow: "\u2192", label: "Resting" },
 };
 
 const SUB_SCORES = [
@@ -96,8 +98,8 @@ const SUB_SCORES = [
 ];
 
 const OVERALL_SCORE_INFO = {
-  title: "Social Growth Score",
-  body: "A composite of how consistently you're getting out, how well the outings match you, how much you're expanding your world, and how deeply you're engaging socially.",
+  title: "Growth Signal",
+  body: "A rough read on how well recent outings are landing — a blend of consistency, resonance, expansion, and depth. It's a signal, not a verdict. Missed weeks don't pull it down; they just don't push it up.",
 };
 
 function buildSparkline(history: GrowthHistoryPoint[]): string | null {

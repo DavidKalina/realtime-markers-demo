@@ -21,6 +21,7 @@ import {
   promoteSidequestHandler,
   searchSidequestsHandler,
   prescribeQuestHandler,
+  rejectQuestHandler,
 } from "../handlers/sidequestHandlers";
 import {
   objectiveJournalHandler,
@@ -139,6 +140,7 @@ sidequestRouter.post(
 
 sidequestRouter.post("/:id/share", shareSidequestHandler);
 sidequestRouter.post("/:id/activate", activateSidequestHandler);
+sidequestRouter.post("/:id/reject", rejectQuestHandler);
 sidequestRouter.post("/:id/rate", rateSidequestHandler);
 sidequestRouter.post("/:id/promote", promoteSidequestHandler);
 sidequestRouter.post(

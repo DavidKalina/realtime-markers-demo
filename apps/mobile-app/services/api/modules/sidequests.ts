@@ -1,5 +1,30 @@
 import { BaseApiClient } from "../base/ApiClient";
 
+export type CompletedVersion = "full" | "smaller" | "tiny";
+
+export type CapacityTrack =
+  | "ACTIVATION"
+  | "PUBLIC_PRESENCE"
+  | "NOVELTY_TOLERANCE"
+  | "STAYING_POWER"
+  | "RETURNABILITY"
+  | "MICRO_INTERACTION"
+  | "SOCIAL_EXTENSION"
+  | "RECOVERY"
+  | "IDENTITY_EVIDENCE";
+
+export const CAPACITY_TRACK_LABELS: Record<CapacityTrack, string> = {
+  ACTIVATION: "Activation",
+  PUBLIC_PRESENCE: "Public Presence",
+  NOVELTY_TOLERANCE: "Novelty Tolerance",
+  STAYING_POWER: "Staying Power",
+  RETURNABILITY: "Returnability",
+  MICRO_INTERACTION: "Micro-Interaction",
+  SOCIAL_EXTENSION: "Social Extension",
+  RECOVERY: "Recovery",
+  IDENTITY_EVIDENCE: "Identity Evidence",
+};
+
 export interface ObjectiveResponse {
   id: string;
   sortOrder: number;
@@ -28,6 +53,12 @@ export interface ObjectiveResponse {
   reflectionTags?: string[];
   reflectionDepth?: number;
   reflectionSentiment?: number;
+  // Rep variants (Slice A)
+  smallerRep?: string;
+  tinyRep?: string;
+  minViableWin?: string;
+  exitRamp?: string;
+  completedVersion?: CompletedVersion;
 }
 
 export interface SidequestResponse {
@@ -66,6 +97,9 @@ export interface SidequestResponse {
   timesAdopted?: number;
   strategyNote?: string;
   aiReflection?: string;
+  // Capacity rep (Slice C)
+  capacityTrack?: CapacityTrack;
+  repIntent?: string;
 }
 
 export interface BrowseSidequestResponse {
@@ -128,6 +162,25 @@ export interface ChosenConcept {
   searchQueries: string[];
   difficulty: number;
 }
+
+export type RejectionReason =
+  | "TOO_SOCIAL"
+  | "TOO_FAR"
+  | "TOO_PUBLIC"
+  | "TOO_MUCH_EFFORT"
+  | "NOT_MY_VIBE"
+  | "BAD_TIMING"
+  | "NEED_GENTLER";
+
+export const REJECTION_REASONS: { value: RejectionReason; label: string }[] = [
+  { value: "TOO_SOCIAL", label: "Too social" },
+  { value: "TOO_FAR", label: "Too far" },
+  { value: "TOO_PUBLIC", label: "Too public" },
+  { value: "TOO_MUCH_EFFORT", label: "Too much effort" },
+  { value: "NOT_MY_VIBE", label: "Not my vibe" },
+  { value: "BAD_TIMING", label: "Bad timing" },
+  { value: "NEED_GENTLER", label: "Need gentler" },
+];
 
 export class SidequestsModule {
   constructor(protected readonly client: BaseApiClient) {}
@@ -240,6 +293,7 @@ export class SidequestsModule {
       journalEntry: string;
       completedActivity?: string;
       socialContext?: string;
+      completedVersion?: CompletedVersion;
     },
   ): Promise<{ success: boolean; checkedInAt?: string }> {
     const response = await this.client.fetchWithAuth(
@@ -340,14 +394,6 @@ export class SidequestsModule {
     return this.client.handleResponse<SidequestResponse>(response);
   }
 
-  async adopt(id: string): Promise<SidequestResponse> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/${id}/adopt`,
-      { method: "POST" },
-    );
-    return this.client.handleResponse<SidequestResponse>(response);
-  }
-
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
     const params = new URLSearchParams({
       city: encodeURIComponent(city),
@@ -400,6 +446,27 @@ export class SidequestsModule {
       },
     );
     return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
+  }
+
+  async rejectQuest(
+    id: string,
+    params: {
+      reason: RejectionReason;
+      latitude: number;
+      longitude: number;
+      timezone?: string;
+      note?: string;
+    },
+  ): Promise<{ jobId: string; streamUrl: string; rejectionId: string }> {
+    const response = await this.client.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/${id}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.client.handleResponse<{ jobId: string; streamUrl: string; rejectionId: string }>(response);
   }
 
   async getComfortZone(): Promise<ComfortZoneResponse> {
@@ -489,6 +556,7 @@ export class SidequestsModule {
       photoBase64?: string;
       socialContext?: string;
       wouldReturn?: boolean;
+      completedVersion?: CompletedVersion;
     },
   ): Promise<{ success: boolean }> {
     const response = await this.client.fetchWithAuth(

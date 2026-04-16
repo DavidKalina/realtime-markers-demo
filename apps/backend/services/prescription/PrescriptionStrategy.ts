@@ -6,12 +6,13 @@ import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptReg
 import type { SidequestProgressCallback } from "../SidequestPrescriptionService";
 import type { VerifiedVenue } from "../shared/GoogleGeocodingService";
 import type { Trail } from "../shared/OverpassService";
+import type { CapacityTrack } from "../../entities/Sidequest";
 
 // ── LLM Response types (shared output contract) ─────────────
 
 export interface LLMItemRaw {
   t: string;    // title
-  d: string;    // description
+  d: string;    // description (the full rep)
   e: string;    // emoji
   ec: number | null; // estimated cost
   vn: string;   // venue name
@@ -24,6 +25,11 @@ export interface LLMItemRaw {
   jp: string | null;   // journal prompt
   df: number;   // difficulty
   act: string;  // actionability
+  // ── Rep variants (Slice A) ─────────────────────────────
+  sr?: string | null;  // smaller rep — reduced-intensity version
+  tr?: string | null;  // tiny rep — minimum viable action
+  mvw?: string | null; // minimum viable win — what counts as "I did the thing"
+  er?: string | null;  // exit ramp — how to leave without failure
 }
 
 export interface LLMResponseRaw {
@@ -53,6 +59,9 @@ export interface PrescriptionStrategyResult {
   raw: LLMResponseRaw;
   allVenues: VerifiedVenue[];
   allTrails: Trail[];
+  /** Slice C — capacity rep picked by the strategist. Persisted onto the
+   *  sidequest so downstream UI + analytics can attribute the completion. */
+  brief: StrategyBrief;
 }
 
 // ── Quest concept (lightweight pre-selection) ──────────────
@@ -81,6 +90,10 @@ export interface ChosenConcept {
 // ── Multi-agent intermediate types ──────────────────────────
 
 export interface StrategyBrief {
+  /** Slice C — capacity muscle being trained. Picked BEFORE the venue. */
+  capacityTrack: CapacityTrack;
+  /** One-line description of the specific rep, in capacity terms. */
+  repIntent: string;
   experienceType: string;
   suggestedCategories: string[];
   targetCity: string;

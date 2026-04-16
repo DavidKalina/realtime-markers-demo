@@ -106,9 +106,9 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
   if (sorted.length === 0) {
     return (
       <View style={s.container}>
-        <Text style={s.sectionLabel}>Pathway Momentum</Text>
+        <Text style={s.sectionLabel}>Your Arcs</Text>
         <View style={s.emptyCard}>
-          <Text style={s.emptyText}>Complete quests to reveal your pathways</Text>
+          <Text style={s.emptyText}>Complete a few reps to reveal your arcs</Text>
         </View>
       </View>
     );
@@ -116,7 +116,7 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>Pathway Momentum</Text>
+      <Text style={s.sectionLabel}>Your Arcs</Text>
 
       {sorted.map((p) => {
         const isDfs = p.phase === "dfs";
@@ -137,7 +137,9 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
               </Text>
               <View style={[s.badge, { borderColor: `${accent}44` }]}>
                 <Text style={[s.badgeText, { color: accent }]}>
-                  {isDfs ? "Groove" : "Exploring"}
+                  {/* Slice G — BFS/DFS are internal mechanics; user sees human arcs.
+                      "Becoming a regular" beats "DFS"; "Still looking" beats "BFS". */}
+                  {isDfs ? "Becoming a Regular" : "Still Looking"}
                 </Text>
               </View>
             </View>

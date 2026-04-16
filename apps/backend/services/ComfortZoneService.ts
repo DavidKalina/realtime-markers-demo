@@ -398,6 +398,7 @@ export class ComfortZoneService {
       photoUrl?: string;
       socialContext?: string;
       wouldReturn?: boolean;
+      completedVersion?: "full" | "smaller" | "tiny";
     },
   ): Promise<boolean> {
     // Verify ownership via sidequest
@@ -419,6 +420,7 @@ export class ComfortZoneService {
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
     if (updates.socialContext !== undefined) fields.socialContext = updates.socialContext;
     if (updates.wouldReturn !== undefined) fields.wouldReturn = updates.wouldReturn;
+    if (updates.completedVersion !== undefined) fields.completedVersion = updates.completedVersion;
 
     if (Object.keys(fields).length > 0) {
       await this.dataSource

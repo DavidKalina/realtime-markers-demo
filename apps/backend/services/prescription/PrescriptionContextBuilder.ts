@@ -13,6 +13,113 @@ import type { ComfortZoneService } from "../ComfortZoneService";
 import type { CoverageService } from "../CoverageService";
 import type { ResonanceService } from "../ResonanceService";
 import type { PathwayService } from "../PathwayService";
+import type { RejectionReason } from "../../entities/SidequestRejection";
+
+// ─── Calibration feedback (Slice B) ────────────────────────────────
+
+export interface RecentRejection {
+  reason: RejectionReason;
+  venueName: string | null;
+  venueCategory: string | null;
+  rejectedAt: Date;
+  /** Minutes since rejection (for recency filtering downstream). */
+  ageMinutes: number;
+}
+
+/**
+ * Load recent rejection feedback for a user. Returns most-recent first.
+ * The first entry (if fresh — within the last 15 minutes) is what the
+ * strategist treats as an active recalibration signal.
+ */
+export async function loadRecentRejections(
+  dataSource: DataSource,
+  userId: string,
+  limit = 5,
+): Promise<RecentRejection[]> {
+  const rows: { reason: RejectionReason; venue_name: string | null; venue_category: string | null; rejected_at: Date }[] =
+    await dataSource.query(
+      `SELECT reason, venue_name, venue_category, rejected_at
+       FROM sidequest_rejections
+       WHERE user_id = $1
+       ORDER BY rejected_at DESC
+       LIMIT $2`,
+      [userId, limit],
+    );
+
+  const now = Date.now();
+  return rows.map((r) => {
+    const rejectedAt = new Date(r.rejected_at);
+    return {
+      reason: r.reason,
+      venueName: r.venue_name,
+      venueCategory: r.venue_category,
+      rejectedAt,
+      ageMinutes: Math.max(0, Math.round((now - rejectedAt.getTime()) / 60000)),
+    };
+  });
+}
+
+function formatRejectionAge(ageMinutes: number): string {
+  if (ageMinutes < 1) return "just now";
+  if (ageMinutes < 60) return `${ageMinutes}m ago`;
+  const hours = Math.round(ageMinutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+/** Renders a terse calibration-feedback block for the strategist prompt. */
+export function buildRejectionFeedbackBlock(rejections: RecentRejection[]): string {
+  if (rejections.length === 0) return "";
+  const lines = rejections.map(
+    (r) =>
+      `- ${r.reason}${r.venueName ? ` @ "${r.venueName}"` : ""} — ${formatRejectionAge(r.ageMinutes)}`,
+  );
+  return `\nRECENT CALIBRATION FEEDBACK (last ${rejections.length}):\n${lines.join("\n")}\nAcknowledge the most recent reason in the "why this rep" framing and adjust the prescription to address that specific lever.\n`;
+}
+
+/**
+ * Slice F — rejection pattern detection.
+ *
+ * A "pattern" is the same rejection reason appearing 3+ times in the last 5
+ * rejections. When present, the strategist (and validator) should not just
+ * address the most recent rejection — they should treat the dimension as
+ * systematically miscalibrated and dampen it for this prescription.
+ */
+export interface RejectionPattern {
+  reason: RejectionReason;
+  count: number;
+  /** Categories seen across the repeating rejections — used to avoid repeat
+   *  prescriptions in the same bucket for NOT_MY_VIBE patterns. */
+  categories: string[];
+}
+
+const PATTERN_THRESHOLD = 3;
+const PATTERN_WINDOW = 5;
+
+export function detectRejectionPattern(
+  rejections: RecentRejection[],
+): RejectionPattern | null {
+  if (rejections.length < PATTERN_THRESHOLD) return null;
+
+  const window = rejections.slice(0, PATTERN_WINDOW);
+  const countByReason = new Map<RejectionReason, { count: number; categories: Set<string> }>();
+  for (const r of window) {
+    const bucket = countByReason.get(r.reason) ?? { count: 0, categories: new Set<string>() };
+    bucket.count += 1;
+    if (r.venueCategory) bucket.categories.add(r.venueCategory);
+    countByReason.set(r.reason, bucket);
+  }
+
+  // Return the reason with the highest count, if any meet the threshold.
+  let best: RejectionPattern | null = null;
+  for (const [reason, { count, categories }] of countByReason.entries()) {
+    if (count >= PATTERN_THRESHOLD && (!best || count > best.count)) {
+      best = { reason, count, categories: [...categories] };
+    }
+  }
+  return best;
+}
 
 // ─── Interfaces ────────────────────────────────────────────────────
 
@@ -305,6 +412,10 @@ export async function buildPrescriptionContext(
     );
   const anchorBlock = buildAnchorVenueBlock(anchorCandidates, completedQuestCount);
 
+  // Recent calibration feedback (Slice B) — rejection reasons feed the strategist
+  const recentRejections = await loadRecentRejections(dataSource, userId, 5);
+  const rejectionFeedbackBlock = buildRejectionFeedbackBlock(recentRejections);
+
   // "Would NOT return" blocklist — venues the user explicitly rejected
   const rejectedVenues: { venue_name: string; venue_category: string }[] =
     await dataSource.query(
@@ -410,6 +521,7 @@ MOST RECENT QUESTS (avoid repeating these):
 ${recentList || "(none)"}
 ${pendingBlock}
 ${rejectedBlock}
+${rejectionFeedbackBlock}
 ${distressBlock}
 ${categoryDiversityBlock}
 ${categoryDampeningBlock}
@@ -437,6 +549,7 @@ ${recentList}
 ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 ${pendingBlock}
 ${rejectedBlock}
+${rejectionFeedbackBlock}
 ${distressBlock}
 ${categoryDiversityBlock}
 ${categoryDampeningBlock}

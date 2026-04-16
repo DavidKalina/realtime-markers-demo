@@ -19,6 +19,7 @@ import type {
   ScoutCandidate,
   ScoutResult,
 } from "./PrescriptionStrategy";
+import { CapacityTrack } from "../../entities/Sidequest";
 import type { OpenAIResponsesAgent, AgentToolResult } from "../shared/OpenAIResponsesAgent";
 import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
@@ -26,6 +27,19 @@ import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
 import type { GooglePlacesService, VerifiedVenue } from "../shared/GooglePlacesService";
 import type { OverpassService, Trail } from "../shared/OverpassService";
 import type { PrescriptionPromptRegistry } from "../prompts/PrescriptionPromptRegistry";
+
+// ── Small geo helper (Slice E validator) ────────────────────
+
+function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3958.8; // Earth radius in miles
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // ── Category normalization ──────────────────────────────────
 
@@ -128,8 +142,12 @@ export class MultiAgentStrategy {
     let brief: StrategyBrief;
 
     if (input.chosenConcept) {
-      // User already picked a concept — construct brief directly
+      // User already picked a concept — construct brief directly.
+      // Concept-picker is a deprecated path (slice I retirement), so we
+      // default capacity to NOVELTY_TOLERANCE — the user chose something new.
       brief = {
+        capacityTrack: CapacityTrack.NOVELTY_TOLERANCE,
+        repIntent: `Try something you picked yourself: "${input.chosenConcept.title}".`,
         experienceType: input.chosenConcept.experienceType,
         suggestedCategories: input.chosenConcept.suggestedCategories,
         targetCity: input.chosenConcept.targetCity,
@@ -150,7 +168,80 @@ export class MultiAgentStrategy {
     } else {
       if (onProgress) await onProgress(10, "Planning your quest strategy...");
       brief = await this.runStrategist(input);
-      console.log(`[multi-agent] Strategist: ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
+      console.log(`[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
+
+      // Slice E — enforce early-calibration guardrails as code. The prompt
+      // asks the LLM to obey these, but we hard-clamp the brief so a single
+      // rogue token can't push a new user to a crowded meetup on quest 2.
+      if (promptContext.isEarlyCalibration) {
+        const before = {
+          maxDistance: brief.maxDistanceMiles,
+          social: brief.socialChallengeLevel,
+          diffMax: brief.difficultyRange[1],
+        };
+        if (brief.maxDistanceMiles > input.radius) {
+          brief.maxDistanceMiles = input.radius;
+        }
+        if (brief.socialChallengeLevel === "medium" || brief.socialChallengeLevel === "high") {
+          brief.socialChallengeLevel = "low";
+        }
+        if (brief.difficultyRange[1] > 5) {
+          brief.difficultyRange = [Math.min(brief.difficultyRange[0], 5), 5];
+        }
+        const changed =
+          before.maxDistance !== brief.maxDistanceMiles ||
+          before.social !== brief.socialChallengeLevel ||
+          before.diffMax !== brief.difficultyRange[1];
+        if (changed) {
+          console.log(`[multi-agent] Early-calibration clamp: distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}`);
+        }
+      }
+
+      // Slice F — recurring-rejection pattern clamps. Hard guarantee the
+      // dimension gets dampened even if the strategist fails to obey the
+      // prompt guidance above.
+      const pattern = promptContext.rejectionPattern;
+      if (pattern) {
+        const before = {
+          maxDistance: brief.maxDistanceMiles,
+          social: brief.socialChallengeLevel,
+          diffMax: brief.difficultyRange[1],
+          avoidCats: brief.avoidCategories.length,
+        };
+        switch (pattern.reason) {
+          case "TOO_SOCIAL":
+            brief.socialChallengeLevel = "none";
+            break;
+          case "TOO_FAR":
+            brief.maxDistanceMiles = Math.min(brief.maxDistanceMiles, input.radius * 0.5);
+            break;
+          case "TOO_MUCH_EFFORT":
+          case "NEED_GENTLER":
+            brief.difficultyRange = [1, Math.min(3, brief.difficultyRange[1])];
+            if (pattern.reason === "NEED_GENTLER") {
+              brief.socialChallengeLevel = "none";
+            }
+            break;
+          case "NOT_MY_VIBE":
+            // Add the recurring-rejection categories to the avoid list so the
+            // Scout skips them and the Validator hard-blocks any drift.
+            for (const cat of pattern.categories) {
+              if (cat && !brief.avoidCategories.includes(cat)) {
+                brief.avoidCategories.push(cat);
+              }
+            }
+            break;
+          // TOO_PUBLIC + BAD_TIMING are prompt-only — no mechanical clamp.
+        }
+        const changed =
+          before.maxDistance !== brief.maxDistanceMiles ||
+          before.social !== brief.socialChallengeLevel ||
+          before.diffMax !== brief.difficultyRange[1] ||
+          before.avoidCats !== brief.avoidCategories.length;
+        if (changed) {
+          console.log(`[multi-agent] Rejection-pattern clamp (${pattern.reason} × ${pattern.count}): distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}, avoidCats ${before.avoidCats}→${brief.avoidCategories.length}`);
+        }
+      }
     }
 
     // ── 2. Scout + Validator loop ──────────────────────────
@@ -200,6 +291,7 @@ export class MultiAgentStrategy {
       raw,
       allVenues: scoutResult.allVenues,
       allTrails: scoutResult.allTrails,
+      brief,
     };
   }
 
@@ -208,7 +300,63 @@ export class MultiAgentStrategy {
   private async runStrategist(input: PrescriptionStrategyInput): Promise<StrategyBrief> {
     const ctx = input.promptContext;
 
-    const systemPrompt = `You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
+    const patternGuidance: Record<string, string> = {
+      TOO_SOCIAL: `The user has rejected TOO_SOCIAL ${ctx.rejectionPattern?.count ?? 0} times. Social density is systematically miscalibrated. Force socialChallengeLevel="none". Pick a solo capacity track — ACTIVATION or PUBLIC_PRESENCE, never MICRO_INTERACTION or SOCIAL_EXTENSION. Acknowledge this shift in the rationale: "You've told me this a few times — let's go solo today."`,
+      TOO_FAR: `The user has rejected TOO_FAR ${ctx.rejectionPattern?.count ?? 0} times. Distance is systematically miscalibrated. Halve your maxDistanceMiles — stay well inside their radius. Acknowledge in rationale.`,
+      TOO_PUBLIC: `The user has rejected TOO_PUBLIC ${ctx.rejectionPattern?.count ?? 0} times. Pick a low-traffic venue, off-peak timing (weekday morning, early afternoon). Avoid bars, events, or anywhere dense.`,
+      TOO_MUCH_EFFORT: `The user has rejected TOO_MUCH_EFFORT ${ctx.rejectionPattern?.count ?? 0} times. Activation cost is systematically miscalibrated. Cap difficultyRange at [1,3]. No paid signups, no gear, no planning ahead. Something they can walk into.`,
+      NOT_MY_VIBE: `The user has rejected NOT_MY_VIBE ${ctx.rejectionPattern?.count ?? 0} times${ctx.rejectionPattern?.categories?.length ? ` across categories: ${ctx.rejectionPattern.categories.join(", ")}` : ""}. Pick a DIFFERENT category than any of those. Lean on their onboarding interests instead of inferring.`,
+      BAD_TIMING: `The user has rejected BAD_TIMING ${ctx.rejectionPattern?.count ?? 0} times. Shift the suggestedTiming significantly — if you've been sending evenings, try a weekend morning, or vice versa.`,
+      NEED_GENTLER: `The user has rejected NEED_GENTLER ${ctx.rejectionPattern?.count ?? 0} times. They are systematically overstretched. Cap difficultyRange at [1,3] and force socialChallengeLevel="none". Stay with ACTIVATION or PUBLIC_PRESENCE.`,
+    };
+    const rejectionPatternBlock = ctx.rejectionPattern
+      ? `RECURRING REJECTION PATTERN — READ FIRST:
+${patternGuidance[ctx.rejectionPattern.reason] ?? `The user has rejected ${ctx.rejectionPattern.reason} ${ctx.rejectionPattern.count} times. Treat this dimension as systematically miscalibrated and dampen it.`}
+
+` : "";
+
+    const earlyCalibrationBlock = ctx.isEarlyCalibration
+      ? `EARLY CALIBRATION MODE — READ FIRST:
+This user has completed ${ctx.completedQuestCount ?? 0} of their first 5 quests. Trust is more important than growth right now — the first promise is "this app gets me enough that I can trust the next suggestion." Your job is to make this prescription almost impossible to fail.
+
+HARD RULES (these are enforced by code — violating them means your brief gets overwritten):
+- Stay INSIDE the user's comfort radius (${ctx.radius.toFixed(1)} mi). Do NOT push distance.
+- socialChallengeLevel MUST be "none" or "low". No medium or high.
+- difficultyRange upper bound MUST be 5 or less.
+- Pick ONE gentle stretch dimension at most — if you're nudging category novelty, stay close; if you're nudging distance, stay in a familiar category. Never both.
+- Favor capacity tracks that don't require interaction: ACTIVATION or PUBLIC_PRESENCE are strongly preferred. Reserve SOCIAL_EXTENSION, MICRO_INTERACTION, and SOCIAL_REACH for after quest 5.
+
+` : "";
+
+    const recalibrationBlock = ctx.lastRejection
+      ? `RECALIBRATION — READ FIRST:
+The user just rejected the previous prescription ${ctx.lastRejection.ageMinutes}m ago with reason: ${ctx.lastRejection.reason}${ctx.lastRejection.venueName ? ` (at "${ctx.lastRejection.venueName}")` : ""}.
+Your new prescription MUST:
+  (a) address that specific lever — TOO_SOCIAL → more solo / lower density; TOO_FAR → closer to home; TOO_PUBLIC → lower-traffic venue or off-peak timing; TOO_MUCH_EFFORT → lower activation cost, no gear/paid signup; NOT_MY_VIBE → different category; BAD_TIMING → different time-of-day; NEED_GENTLER → the gentlest version you can justify.
+  (b) pick a DIFFERENT venue${ctx.lastRejection.venueName ? ` than "${ctx.lastRejection.venueName}"` : ""}.
+  (c) explicitly acknowledge the adjustment in the "rationale" field, e.g. "Good signal — that was too social. Trying a solo-friendly version." Keep it warm and specific, not clinical.
+
+` : "";
+
+    const systemPrompt = `${rejectionPatternBlock}${earlyCalibrationBlock}${recalibrationBlock}You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
+
+CAPACITY REP — DECIDE THIS FIRST:
+Every prescription trains ONE capacity muscle. Pick the muscle BEFORE you pick a venue type — the venue is the environment; the rep is the prescription.
+
+The nine capacity tracks:
+- ACTIVATION — getting ready, leaving the house, starting despite inertia. For users who skip weeks or describe themselves as "stuck at home."
+- PUBLIC_PRESENCE — being visible in public without fleeing. For users who feel exposed or rush to hide in corners.
+- NOVELTY_TOLERANCE — entering unfamiliar places. For users stuck in the same 2–3 venues.
+- STAYING_POWER — remaining long enough for anxiety to settle. For users who check in and leave in under 10 minutes.
+- RETURNABILITY — going back until a place feels familiar. For users who have a spot they like but won't return.
+- MICRO_INTERACTION — ordering, asking, thanking, eye contact, small talk. For users building from zero social contact.
+- SOCIAL_EXTENSION — joining, chatting, flirting, following up. For users ready past solo presence.
+- RECOVERY — reflecting, regulating, trying again after awkwardness. For users after a recent negative experience.
+- IDENTITY_EVIDENCE — collecting proof that "I am someone who does this." For users at milestones or rebuilding identity.
+
+Pick ONE track per prescription. Never stack multiple muscles. In the early quests (first 3–5) prefer ACTIVATION or PUBLIC_PRESENCE — low-social, trust-building. Save SOCIAL_EXTENSION and MICRO_INTERACTION for users who've demonstrated the foundational muscles.
+
+"repIntent" is your one-line plain-English description of what specific rep they are training, e.g. "Stay in public for at least 10 minutes after arriving" or "Return to a place you've been before and linger." Keep it under 20 words.
 
 USER PROFILE:
 - Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
@@ -273,6 +421,8 @@ ${ctx.blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked
 
 ${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSON:
 {
+  "capacityTrack": "ACTIVATION" | "PUBLIC_PRESENCE" | "NOVELTY_TOLERANCE" | "STAYING_POWER" | "RETURNABILITY" | "MICRO_INTERACTION" | "SOCIAL_EXTENSION" | "RECOVERY" | "IDENTITY_EVIDENCE",
+  "repIntent": "<one-line rep description in capacity terms, under 20 words>",
   "experienceType": "<what kind of experience, e.g. 'hands-on creative workshop with strangers', 'casual trivia night at a brewery in a bigger city'>",
   "suggestedCategories": ["<2-3 specific venue categories to search for>"],
   "targetCity": "<specific city or area to search in, e.g. 'Longmont, CO' or 'Boulder Pearl Street area' — can be their home city if appropriate>",
@@ -284,7 +434,7 @@ ${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSO
   "avoidVenues": ["<venue names to avoid from history>"],
   "avoidCategories": ["<categories that are overrepresented>"],
   "suggestedTiming": "<when to do this quest — be specific, e.g. 'weekday evening after 6pm', 'Saturday morning', 'Sunday afternoon'. Factor in user's schedule and venue hours>",
-  "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this location>"
+  "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this capacity track + location>"
 }`;
 
     const userMessage = `What experience should this user have next? Think about what would genuinely move them toward their goal.`;
@@ -303,7 +453,20 @@ ${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSO
     const text = response.choices[0]?.message?.content?.trim() ?? "{}";
     const parsed = JSON.parse(text);
 
+    // Slice C — normalize capacity track. Fall back to NOVELTY_TOLERANCE if the
+    // strategist drops the field or emits an unknown value. That's a weak
+    // default but keeps downstream persistence type-safe.
+    const rawTrack = typeof parsed.capacityTrack === "string" ? parsed.capacityTrack.toUpperCase() : "";
+    const capacityTrack = (Object.values(CapacityTrack) as string[]).includes(rawTrack)
+      ? (rawTrack as CapacityTrack)
+      : CapacityTrack.NOVELTY_TOLERANCE;
+    const repIntent: string = typeof parsed.repIntent === "string" && parsed.repIntent.trim()
+      ? parsed.repIntent.trim()
+      : "Show up and see what happens.";
+
     return {
+      capacityTrack,
+      repIntent,
       experienceType: parsed.experienceType ?? "general exploration",
       suggestedCategories: parsed.suggestedCategories ?? [],
       targetCity: parsed.targetCity ?? input.city,
@@ -550,6 +713,8 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
     const rejectionReasons: string[] = [];
     const validCandidates: ScoutCandidate[] = [];
 
+    const justRejectedVenue = ctx.lastRejection?.venueName?.toLowerCase() ?? null;
+
     for (const c of candidates) {
       const nameLower = c.venueName.toLowerCase();
 
@@ -557,6 +722,36 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
       if (!c.venueName || nameLower.includes("unknown") || nameLower.includes("tbd") || nameLower.includes("no verified")) {
         rejectionReasons.push(`"${c.venueName}" is not a real venue`);
         continue;
+      }
+
+      // Slice B: hard-block the venue the user just rejected on the prior prescription
+      if (justRejectedVenue && nameLower === justRejectedVenue) {
+        rejectionReasons.push(`"${c.venueName}" was just rejected by the user — pick a different venue`);
+        continue;
+      }
+
+      // Slice F: for a recurring NOT_MY_VIBE pattern, hard-block the categories
+      // the user has repeatedly rejected. The Scout is told to avoid them, but
+      // sometimes drifts — this catches it.
+      if (
+        ctx.rejectionPattern?.reason === "NOT_MY_VIBE" &&
+        ctx.rejectionPattern.categories.length > 0 &&
+        c.venueCategory &&
+        ctx.rejectionPattern.categories.some((cat) => cat.toLowerCase() === c.venueCategory.toLowerCase())
+      ) {
+        rejectionReasons.push(`"${c.venueName}" is in category "${c.venueCategory}" — user has a NOT_MY_VIBE pattern against this category (${ctx.rejectionPattern.count}× rejections)`);
+        continue;
+      }
+
+      // Slice E — early calibration guard: candidate must be inside radius.
+      // The Scout sometimes drifts outside the brief's maxDistance when it
+      // finds a good match, so we enforce the constraint here too.
+      if (ctx.isEarlyCalibration && typeof c.latitude === "number" && typeof c.longitude === "number") {
+        const distMiles = haversineMiles(ctx.homeLat, ctx.homeLng, c.latitude, c.longitude);
+        if (distMiles > ctx.radius) {
+          rejectionReasons.push(`"${c.venueName}" is ${distMiles.toFixed(1)}mi away — outside the user's ${ctx.radius.toFixed(1)}mi radius (early-calibration phase)`);
+          continue;
+        }
       }
 
       // Hard-block venues the user said "would not return" to
@@ -626,10 +821,13 @@ ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.ba
 ${ctx.user.onboardingProfile?.activities?.length ? `- Interests: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
 
 STRATEGY CONTEXT:
+- Capacity rep (THE primary thing being trained): ${brief.capacityTrack} — "${brief.repIntent}"
 - Experience type: ${brief.experienceType}
 - Social challenge: ${brief.socialChallengeLevel}
 - Suggested timing: ${brief.suggestedTiming || "flexible"}
 - Rationale: ${brief.rationale}
+
+The venue is the environment. The rep is the prescription. Your title, description, smaller/tiny versions, minimum viable win, and hook should all reinforce the capacity rep above — not just describe the venue.
 ${input.chosenConcept ? `
 USER CHOSE THIS CONCEPT: "${input.chosenConcept.title}"
 Honor their choice — your quest title and framing should align with what they picked. They chose this because it resonated, so lean into that direction.` : ""}
@@ -647,6 +845,17 @@ VENUE:
 - Category: ${venue.venueCategory}
 ${venue.notes ? `- Why chosen: ${venue.notes}` : ""}
 
+REP VARIANTS — IMPORTANT:
+Every prescription MUST ship with three versions, a minimum viable win, and an exit ramp. This is how we make failure safe.
+
+- "d" (full rep): the target version — what you'd ideally like them to do.
+- "sr" (smaller rep): a reduced-intensity fallback. Same venue, same capacity direction, lower demand. Example if full is "attend the 45-minute class": smaller could be "walk in, stay for 10 minutes, leave when you want."
+- "tr" (tiny rep): the minimum viable action. Still counts. Example: "walk to the entrance and decide whether to go in. Either answer is fine."
+- "mvw" (minimum viable win): one short line describing what counts as "I did the thing." The bar for calling it done. Example: "You made it through the door." or "You stayed for one song."
+- "er" (exit ramp): one short line describing how they can leave without failure. Example: "Leave anytime — no penalty, no explanation owed." or "If it feels off in the first 5 minutes, walk out."
+
+The tiny rep should be almost impossible to fail. The full rep can stretch. Never prescribe multiple dimensions of stretch at once (not both distance AND social intensity — pick one).
+
 Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
 {
   "t": "<title, 3-6 words, warm and encouraging>",
@@ -654,7 +863,11 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
   "sn": "<strategy note: 1-2 sentences explaining WHY you chose this quest for this user right now. Write like a thoughtful friend explaining their reasoning. Reference specific things — their visit count, comfort progression, social tier, or growth phase. Examples: 'You've been here twice — a third visit is when staff start recognizing you.', 'This is a group class because you've proven you can go places solo. Time to be around people.'>",
   "items": [{
     "t": "<stop title>",
-    "d": "<2-3 sentences max. What to do — concrete and direct. No URLs or phone numbers here>",
+    "d": "<FULL REP. 2-3 sentences max. What to do — concrete and direct. No URLs or phone numbers here>",
+    "sr": "<SMALLER REP. 1-2 sentences. Reduced intensity, same direction of growth. Required.>",
+    "tr": "<TINY REP. 1-2 sentences. The minimum viable action — should feel almost impossible to fail. Required.>",
+    "mvw": "<MINIMUM VIABLE WIN. One short line. What counts as 'done'. Required.>",
+    "er": "<EXIT RAMP. One short line. How to leave without failure. Required.>",
     "e": "<emoji>",
     "ec": <estimated cost or null>,
     "vn": "${venue.venueName}",
@@ -684,7 +897,7 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
     const text = response.choices[0]?.message?.content?.trim() ?? "";
     if (!text) {
       console.error(`[multi-agent] Writer returned empty response. Finish reason: ${response.choices[0]?.finish_reason}`);
-      // Fallback: build a minimal quest
+      // Fallback: build a minimal quest with graceful-degradation variants.
       return {
         t: `Visit ${venue.venueName}`,
         s: brief.rationale,
@@ -692,6 +905,10 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
         items: [{
           t: venue.venueName,
           d: `Head to ${venue.venueName} and explore what catches your eye.`,
+          sr: `Walk to ${venue.venueName}, step inside, stay for five minutes. Leave when you're ready.`,
+          tr: `Walk to the entrance and decide whether to go in. Either answer counts.`,
+          mvw: "You made it to the door.",
+          er: "Leave anytime — no penalty, no explanation owed.",
           e: "📍",
           ec: null,
           vn: venue.venueName,
@@ -739,6 +956,29 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
       (parsed as any).items[0].vn = venue.venueName;
       (parsed as any).items[0].va = venue.venueAddress;
       (parsed as any).items[0].vc = venue.venueCategory;
+
+      // Slice A: backfill rep variants if the Writer dropped any field.
+      // A bad prescription is a trust break — never ship one without a graceful
+      // downgrade path and a minimum viable win.
+      const item = (parsed as any).items[0];
+      const fullText: string = item.d ?? `Visit ${venue.venueName}.`;
+      if (!item.sr || typeof item.sr !== "string" || !item.sr.trim()) {
+        item.sr = `Go to ${venue.venueName}, stay about ten minutes, leave when you want.`;
+      }
+      if (!item.tr || typeof item.tr !== "string" || !item.tr.trim()) {
+        item.tr = `Walk to the entrance of ${venue.venueName} and decide whether to go in. Either answer counts.`;
+      }
+      if (!item.mvw || typeof item.mvw !== "string" || !item.mvw.trim()) {
+        item.mvw = "You made it to the door.";
+      }
+      if (!item.er || typeof item.er !== "string" || !item.er.trim()) {
+        item.er = "Leave anytime — no penalty, no explanation owed.";
+      }
+      // Keep d (full rep) honest: if the writer emitted something shorter than the
+      // smaller version, the variants are inverted. Don't try to repair — just log.
+      if (item.sr && fullText && fullText.length < item.sr.length) {
+        console.warn(`[multi-agent] Writer variants may be inverted — full (${fullText.length} chars) shorter than smaller (${item.sr.length} chars)`);
+      }
     }
 
     return parsed as unknown as LLMResponseRaw;

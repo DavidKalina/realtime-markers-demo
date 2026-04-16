@@ -26,6 +26,44 @@ export enum SidequestTier {
   BEST = "BEST",
 }
 
+/**
+ * Capacity tracks (Slice C). Every prescription trains one capacity muscle —
+ * the strategist picks this BEFORE choosing a venue. Venue is the environment;
+ * track + rep intent are the prescription.
+ */
+export enum CapacityTrack {
+  /** Getting ready, leaving the house, starting despite inertia. */
+  ACTIVATION = "ACTIVATION",
+  /** Being visible in public without fleeing. */
+  PUBLIC_PRESENCE = "PUBLIC_PRESENCE",
+  /** Entering unfamiliar places. */
+  NOVELTY_TOLERANCE = "NOVELTY_TOLERANCE",
+  /** Remaining somewhere long enough for anxiety to settle. */
+  STAYING_POWER = "STAYING_POWER",
+  /** Going back until a place feels familiar. */
+  RETURNABILITY = "RETURNABILITY",
+  /** Ordering, asking, thanking, eye contact, small talk. */
+  MICRO_INTERACTION = "MICRO_INTERACTION",
+  /** Joining, chatting, flirting, following up. */
+  SOCIAL_EXTENSION = "SOCIAL_EXTENSION",
+  /** Reflecting, regulating, trying again after awkwardness. */
+  RECOVERY = "RECOVERY",
+  /** Collecting proof that "I am someone who does this." */
+  IDENTITY_EVIDENCE = "IDENTITY_EVIDENCE",
+}
+
+export const CAPACITY_TRACK_LABELS: Record<CapacityTrack, string> = {
+  [CapacityTrack.ACTIVATION]: "Activation",
+  [CapacityTrack.PUBLIC_PRESENCE]: "Public Presence",
+  [CapacityTrack.NOVELTY_TOLERANCE]: "Novelty Tolerance",
+  [CapacityTrack.STAYING_POWER]: "Staying Power",
+  [CapacityTrack.RETURNABILITY]: "Returnability",
+  [CapacityTrack.MICRO_INTERACTION]: "Micro-Interaction",
+  [CapacityTrack.SOCIAL_EXTENSION]: "Social Extension",
+  [CapacityTrack.RECOVERY]: "Recovery",
+  [CapacityTrack.IDENTITY_EVIDENCE]: "Identity Evidence",
+};
+
 @Entity("sidequests")
 export class Sidequest {
   @PrimaryGeneratedColumn("uuid")
@@ -178,6 +216,22 @@ export class Sidequest {
 
   @Column({ name: "ai_reflection", type: "text", nullable: true })
   aiReflection?: string;
+
+  // ── Capacity rep (Slice C) ──
+  // The strategist picks ONE capacity track per prescription before selecting
+  // a venue. `repIntent` is the strategist's one-line description of what
+  // specific rep the user is training — distinct from the venue description.
+
+  @Column({
+    name: "capacity_track",
+    type: "enum",
+    enum: CapacityTrack,
+    nullable: true,
+  })
+  capacityTrack?: CapacityTrack;
+
+  @Column({ name: "rep_intent", type: "varchar", length: 500, nullable: true })
+  repIntent?: string;
 
   @Column({
     name: "distance_from_home",

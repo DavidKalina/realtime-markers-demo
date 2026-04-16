@@ -27,6 +27,7 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { apiClient } from "@/services/ApiClient";
+import type { CompletedVersion } from "@/services/api/modules/sidequests";
 import {
   fontFamily,
   fontWeight,
@@ -51,6 +52,11 @@ interface CheckinCaptureModalProps {
   journalPrompt?: string;
   /** "venue" (default) shows full capture UI; "challenge" hides photo, requires journal, uses completeChallenge API */
   mode?: "venue" | "challenge";
+  /** Version the user selected pre-start — prefills the version picker */
+  initialVersion?: CompletedVersion;
+  /** Hide the version picker if the prescription didn't ship with smaller/tiny variants */
+  hasSmaller?: boolean;
+  hasTiny?: boolean;
   onDismiss: () => void;
   onComplete: () => void;
 }
@@ -93,6 +99,9 @@ export function CheckinCaptureModal({
   actionItems,
   journalPrompt,
   mode = "venue",
+  initialVersion,
+  hasSmaller,
+  hasTiny,
   onDismiss,
   onComplete,
 }: CheckinCaptureModalProps) {
@@ -108,6 +117,7 @@ export function CheckinCaptureModal({
   const [socialContext, setSocialContext] = useState<string | null>(null);
   const [journalText, setJournalText] = useState("");
   const [wouldReturn, setWouldReturn] = useState<boolean | null>(null);
+  const [completedVersion, setCompletedVersion] = useState<CompletedVersion>(initialVersion ?? "full");
   const [saving, setSaving] = useState(false);
 
   const reset = useCallback(() => {
@@ -118,9 +128,10 @@ export function CheckinCaptureModal({
     setSocialContext(null);
     setWouldReturn(null);
     setJournalText("");
+    setCompletedVersion(initialVersion ?? "full");
     setSaving(false);
     scrollY.value = 0;
-  }, [scrollY]);
+  }, [scrollY, initialVersion]);
 
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -196,6 +207,7 @@ export function CheckinCaptureModal({
           journalEntry: journal!,
           completedActivity: activity,
           socialContext: socialContext ?? undefined,
+          completedVersion,
         });
       } else {
         // Venue: save journal separately (check-in already happened via proximity)
@@ -205,6 +217,7 @@ export function CheckinCaptureModal({
           photoBase64,
           socialContext: socialContext ?? undefined,
           wouldReturn: wouldReturn ?? undefined,
+          completedVersion,
         });
       }
 
@@ -216,7 +229,7 @@ export function CheckinCaptureModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSaving(false);
     }
-  }, [isChallenge, sidequestId, objectiveId, selectedActivities, customActivity, journalText, photoUri, socialContext, journalMeetsMinimum, reset, onComplete]);
+  }, [isChallenge, sidequestId, objectiveId, selectedActivities, customActivity, journalText, photoUri, socialContext, wouldReturn, completedVersion, journalMeetsMinimum, reset, onComplete]);
 
   const handleSkip = useCallback(() => {
     reset();
@@ -296,6 +309,36 @@ export function CheckinCaptureModal({
                     <Text style={s.photoButtonText}>Take a photo</Text>
                   </Pressable>
                 )}
+              </ParallaxWidget>
+            )}
+
+            {/* ── Completed version (Slice A) ── */}
+            {(hasSmaller || hasTiny) && (
+              <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={250}>
+                <Text style={s.widgetLabel}>WHICH VERSION DID YOU DO?</Text>
+                <View style={s.socialGrid}>
+                  {([
+                    { key: "full" as const, label: "Full", available: true },
+                    { key: "smaller" as const, label: "Smaller", available: hasSmaller },
+                    { key: "tiny" as const, label: "Tiny", available: hasTiny },
+                  ]).filter((v) => v.available).map(({ key, label }) => {
+                    const isActive = completedVersion === key;
+                    return (
+                      <Pressable
+                        key={key}
+                        style={[s.chip, { borderRadius: radius.full }, isActive && s.chipActive]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setCompletedVersion(key);
+                        }}
+                      >
+                        <Text style={[s.chipText, isActive && s.chipTextActive]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </ParallaxWidget>
             )}
 

@@ -6,6 +6,7 @@ import {
 import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
+import { RejectionReason } from "../entities/SidequestRejection";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -241,6 +242,7 @@ export const completeChallengeHandler: Handler = withErrorHandling(
       journalEntry: string;
       completedActivity?: string;
       socialContext?: string;
+      completedVersion?: string;
     }>();
 
     // Reflection gate: require a meaningful journal entry
@@ -259,6 +261,10 @@ export const completeChallengeHandler: Handler = withErrorHandling(
     if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {
       return c.json({ error: `socialContext must be one of: ${validSocialContexts.join(", ")}` }, 400);
     }
+    const validVersions = ["full", "smaller", "tiny"] as const;
+    if (body.completedVersion && !validVersions.includes(body.completedVersion as (typeof validVersions)[number])) {
+      return c.json({ error: `completedVersion must be one of: ${validVersions.join(", ")}` }, 400);
+    }
 
     // 1. Save journal entry (triggers async LLM reflection analysis)
     const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
@@ -269,6 +275,7 @@ export const completeChallengeHandler: Handler = withErrorHandling(
         journalEntry: body.journalEntry,
         completedActivity: body.completedActivity,
         socialContext: body.socialContext,
+        completedVersion: body.completedVersion as "full" | "smaller" | "tiny" | undefined,
       },
     );
 
@@ -526,5 +533,67 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   );
 });
 
+export const rejectQuestHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const body = await c.req.json<{
+    reason: string;
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+    note?: string;
+  }>();
+
+  if (!body.reason || !Object.values(RejectionReason).includes(body.reason as RejectionReason)) {
+    return c.json(
+      { error: `reason must be one of: ${Object.values(RejectionReason).join(", ")}` },
+      400,
+    );
+  }
+  if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+    return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+  if (body.note && body.note.length > 500) {
+    return c.json({ error: "note must be 500 characters or fewer" }, 400);
+  }
+
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const rejection = await sidequestService.recordRejection(
+    id,
+    userId,
+    body.reason as RejectionReason,
+    body.note,
+  );
+
+  if (!rejection) {
+    return c.json({ error: "Sidequest not found or already started" }, 404);
+  }
+
+  // Recalibration: enqueue a fresh prescription. Rejections bypass the daily
+  // limit — the user isn't adding a quest, they're asking for a better one.
+  const jobQueue = c.get("jobQueue");
+  const jobId = await jobQueue.enqueue("prescribe_quest", {
+    userId,
+    creatorId: userId,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    ...(body.timezone && { timezone: body.timezone }),
+  });
+
+  return c.json(
+    {
+      jobId,
+      streamUrl: `/api/jobs/${jobId}/stream`,
+      rejectionId: rejection.id,
+    },
+    202,
+  );
+});
 
 
