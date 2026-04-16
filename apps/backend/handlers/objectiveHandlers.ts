@@ -4,6 +4,7 @@ import {
   type Handler,
 } from "../utils/handlerUtils";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
+import type { SidequestService } from "../services/SidequestService";
 import type { StorageService } from "../services/shared/StorageService";
 import { User } from "../entities";
 
@@ -144,6 +145,22 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
 
     if (!updated) {
       return c.json({ error: "Objective not found or not authorized" }, 404);
+    }
+
+    // Completion fires a provisional learning update; this capture is the
+    // richer signal (journal, social context, would-return, completed version).
+    // Re-run resonance + pathway detection now that the real data is saved.
+    // Skip if the sidequest isn't completed yet — mid-quest captures can wait.
+    if (updated.sidequestCompleted) {
+      const sidequestService = c.get("sidequestService") as SidequestService;
+      sidequestService
+        .computeResonanceAndPathway(updated.sidequestId, user.id)
+        .catch((err) => {
+          console.error(
+            `[objectiveJournalHandler] Post-capture resonance/pathway update failed for ${updated.sidequestId}:`,
+            err,
+          );
+        });
     }
 
     return c.json({ success: true });

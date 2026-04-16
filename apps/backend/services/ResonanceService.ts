@@ -120,7 +120,7 @@ export function computeResonance(
     difficultyAlignment,
   };
 
-  const rawScore = clamp(
+  const score = clamp(
     ratingSignal * w.rating +
     journalDepth * w.journalDepth +
     sentimentSignal * w.sentiment +
@@ -131,12 +131,14 @@ export function computeResonance(
     1,
   );
 
-  // Slice A — scale by completed version. Doing the tiny rep is a real win
-  // and earns resonance, but it shouldn't signal "this pathway is deeply
-  // resonant" as strongly as a full completion would. Legacy completions
-  // (null) are treated as full for backwards compatibility.
-  const versionMultiplier = completedVersionMultiplier(input.completedVersion);
-  const score = clamp(rawScore * versionMultiplier, 0, 1);
+  // NOTE on completedVersion: an earlier pass multiplied the score by
+  // {full: 1.0, smaller: 0.75, tiny: 0.5}. That collapsed two distinct
+  // signals — "capacity evidence" (did they show up and do something) and
+  // "deep resonance" (did it actually land) — into one number, and it
+  // starved pathway formation for anxious users who consistently chose
+  // tiny reps. We keep resonance pure here. The tiny/smaller/full breakdown
+  // lives on the Objective and in the Reps-Built aggregate, where it's
+  // displayed as evidence without weighting.
 
   return {
     score,
@@ -144,19 +146,6 @@ export function computeResonance(
     venueCategory: input.venueCategory,
     reflectionTags: input.reflectionTags ?? undefined,
   };
-}
-
-function completedVersionMultiplier(version: ResonanceInput["completedVersion"]): number {
-  switch (version) {
-    case "tiny":
-      return 0.5;
-    case "smaller":
-      return 0.75;
-    case "full":
-    case null:
-    default:
-      return 1.0;
-  }
 }
 
 // ── Component functions ──────────────────────────────────────

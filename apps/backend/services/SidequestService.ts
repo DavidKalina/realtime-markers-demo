@@ -156,7 +156,10 @@ export class SidequestService {
     if (status === "completed") {
       qb.andWhere("s.completedAt IS NOT NULL");
     } else if (status === "upcoming") {
+      // Must be READY — a GENERATING shell is not a real prescription yet
+      // and would leak into Today's Rep / the deck as an empty row.
       qb.andWhere("s.completedAt IS NULL");
+      qb.andWhere("s.status = :readyStatus", { readyStatus: SidequestStatus.READY });
     }
 
     if (sort === "oldest") {
@@ -808,6 +811,8 @@ export class SidequestService {
       lastCompletedAt: string | null;
     }[]
   > {
+    // Join only the primary objective (sort_order = 0) so legacy multi-objective
+    // quests don't overcount as multiple reps. One sidequest = one rep.
     const rows: {
       track: string;
       count: string;
@@ -818,13 +823,13 @@ export class SidequestService {
     }[] = await this.dataSource.query(
       `SELECT
          s.capacity_track AS track,
-         COUNT(*) AS count,
+         COUNT(DISTINCT s.id) AS count,
          SUM(CASE WHEN o.completed_version = 'full' THEN 1 ELSE 0 END) AS full_count,
          SUM(CASE WHEN o.completed_version = 'smaller' THEN 1 ELSE 0 END) AS smaller_count,
          SUM(CASE WHEN o.completed_version = 'tiny' THEN 1 ELSE 0 END) AS tiny_count,
          MAX(s.completed_at) AS last_completed_at
        FROM sidequests s
-       LEFT JOIN objectives o ON o.sidequest_id = s.id
+       LEFT JOIN objectives o ON o.sidequest_id = s.id AND o.sort_order = 0
        WHERE s.user_id = $1
          AND s.completed_at IS NOT NULL
          AND s.deleted_at IS NULL
@@ -847,7 +852,14 @@ export class SidequestService {
   // prescribeQuest and its helpers have been extracted to SidequestPrescriptionService
 
 
-  private async computeResonanceAndPathway(
+  /**
+   * Compute resonance + detect/update pathway for a sidequest. Public so
+   * capture/journal handlers can trigger a richer recompute AFTER the user
+   * saves their journal data — otherwise the first trigger (at completion
+   * time) sees mostly empty signal. Idempotent at the DB layer; safe to
+   * call multiple times per quest (completion, capture, rating).
+   */
+  async computeResonanceAndPathway(
     sidequestId: string,
     userId: string,
   ): Promise<void> {

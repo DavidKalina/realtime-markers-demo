@@ -400,17 +400,17 @@ export class ComfortZoneService {
       wouldReturn?: boolean;
       completedVersion?: "full" | "smaller" | "tiny";
     },
-  ): Promise<boolean> {
+  ): Promise<{ sidequestId: string; sidequestCompleted: boolean } | null> {
     // Verify ownership via sidequest
     const objective = await this.dataSource.getRepository(Objective).findOne({
       where: { id: objectiveId },
       relations: ["sidequest"],
     });
 
-    if (!objective) return false;
+    if (!objective) return null;
 
     const sidequest = objective.sidequest as Sidequest;
-    if (sidequest.userId !== userId) return false;
+    if (sidequest.userId !== userId) return null;
 
     const fields: Record<string, unknown> = {};
     if (updates.journalEntry !== undefined)
@@ -436,7 +436,10 @@ export class ComfortZoneService {
       );
     }
 
-    return true;
+    return {
+      sidequestId: sidequest.id,
+      sidequestCompleted: sidequest.completedAt != null,
+    };
   }
 
   async updateObjectivePrediction(
