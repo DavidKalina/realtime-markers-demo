@@ -33,6 +33,9 @@ Parse the user's arguments to build the command. The script supports these flags
 | `--rating-bias <0-1>` | | Override rating bias |
 | `--challenge-mix <n>` | | Every Nth quest is a challenge quest (e.g. 3 = every 3rd) |
 | `--week-packs` | | Use week-pack prescription (3 quests per pack) instead of individual |
+| `--skip-progressive` | | Front-load onboarding (old behavior). By default, onboarding phases unlock post-quest: phase 1 (social-situation) after quest 1, phase 2 (fear-ladder) after quest 2, phase 3 after quest 3. |
+| `--abandon <0-1>` | 0.18 | Probability a venue quest is abandoned after `/activate` (fires `/deactivate`, loops for a fresh prescription). Set to 0 to disable. |
+| `--promote-prob <0-1>` | 0.3 | Probability of "Seal Memory" (`/:id/promote`) on venue quests with rating ≥ 4. |
 
 ### Seeded accounts and passwords
 
@@ -74,9 +77,23 @@ When `--blocker` is used, the output includes:
 
 The backend's `buildBlockerContext` runs after 5+ completed quests and feeds detected patterns to the Strategist. Watch for quest prescriptions shifting after quest 6-7.
 
+### Tick-based flow (default)
+
+The sim runs on a tick cursor — one "tick" per outer-loop iteration. Each completion queues its rating for `tick+1` (70%) or `tick+2` (30%), mirroring the UI's PendingReflectionCard flow. Draining happens at the top of each tick and again after the main loop, so ratings land on a different tick than check-ins.
+
+Output notes:
+- `⌛ Checked in on tick N; rate scheduled for tick N+1/N+2.` — quest completed, rating queued.
+- `[rate tick N, completed tX→tY]` — deferred rating being processed. Resonance, pathway fetch, and goal pacing all fire at rate-time, matching server-side triggers on `/rate`.
+- `🚪 Abandoning quest (...) mid-flight — calling /deactivate.` — abandonment fired (venue quests only).
+- `▷ Progressive onboarding: phase N (...)` — onboarding phase advanced between quests.
+- `★ Sealed Memory (promoted)` — quest promoted via `/promote`.
+- `🗑  Batch-deleted N low-rated quest(s)` — periodic deck cleanup (every 5 completions).
+
+Because abandoned quests don't count as completions, the sim may make up to `ceil(questCount * 1.4)` attempts to hit the target. The final summary reports attempts vs completions, abandonments, total ticks, sealed memories, culled quests, location spoofs, and final onboarding phase.
+
 ### Cost note
 
-Each quest costs ~$0.02-0.05 (LLM + Google Places). Mention the estimated cost from the script output.
+Each quest costs ~$0.02-0.05 (LLM + Google Places). Abandoned quests count toward cost since they still prescribe. Mention the estimated cost from the script output.
 
 ## Summarize results
 
