@@ -368,6 +368,9 @@ function parseArgs() {
   let ratingBiasOverride: number | null = null;
   let blockerOverride = "";
   let challengeMix = 0;
+  let skipProgressive = false;
+  let abandonmentProb = 0.18;
+  let promoteProb = 0.3;
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case "--email": email = args[++i]; break;
@@ -384,6 +387,9 @@ function parseArgs() {
       case "--rating-bias": ratingBiasOverride = parseFloat(args[++i]); break;
       case "--blocker": blockerOverride = args[++i]; break;
       case "--challenge-mix": challengeMix = parseInt(args[++i], 10); break;
+      case "--skip-progressive": skipProgressive = true; break;
+      case "--abandon": abandonmentProb = Math.max(0, Math.min(1, parseFloat(args[++i]))); break;
+      case "--promote-prob": promoteProb = Math.max(0, Math.min(1, parseFloat(args[++i]))); break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -405,6 +411,9 @@ Options:
   --strategy <name>      Prescription strategy: "monolithic" or "multi-agent"
   --rating-bias <0-1>    Override rating bias (0.2 = mostly 1-2 stars, 0.5 = mixed, 0.8 = mostly 4-5)
   --challenge-mix <n>    Prescribe every Nth quest as a challenge quest (e.g. 4 = every 4th quest)
+  --skip-progressive     Front-load all onboarding (disables phased onboarding across quests)
+  --abandon <0-1>        Abandonment probability after /activate (default: 0.18). 0 disables.
+  --promote-prob <0-1>   Probability of "Seal Memory" promote on ratings >= 4 (default: 0.3)
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -419,7 +428,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride, challengeMix };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride, challengeMix, skipProgressive, abandonmentProb, promoteProb };
 }
 
 /**
@@ -994,7 +1003,8 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride, challengeMix } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride, challengeMix, skipProgressive, abandonmentProb, promoteProb } = parseArgs();
+  const progressiveOnboarding = !skipProgressive && !skipProfile;
 
   let persona: LivePersona | undefined;
 
@@ -1053,6 +1063,14 @@ async function main() {
   let simFearScore = 0.5;
   let generatedScenarios: { id: string; text: string; dimension: string }[] | null = null;
   let generatedDimensions: string[] | null = null;
+  let pendingFearLadder: {
+    overallScore: number;
+    dimensionScores: Record<string, number>;
+    responses: Record<string, number>;
+    scenarios: { id: string; text: string; dimension: string }[];
+    dimensions: string[];
+    derivedPace: string;
+  } | null = null;
 
   if (!skipProfile && persona) {
     // 2a. Submit onboarding profile
@@ -1108,7 +1126,7 @@ async function main() {
           console.log(`    ${s.text.padEnd(55)} ${r}/5 (${label})`);
         }
 
-        // 5. Score and save
+        // 5. Score locally (simFearScore drives rating/journal/social biases).
         const scored = scoreFearLadder(ratings, generatedScenarios!, generatedDimensions!);
         simFearScore = scored.overallScore;
 
@@ -1116,7 +1134,16 @@ async function main() {
         console.log(`  Derived pace: ${scored.derivedPace}`);
         console.log(`  Dimension scores: ${Object.entries(scored.dimensionScores).map(([d, s]) => `${d}=${s.toFixed(2)}`).join(", ")}`);
 
-        // Save to comfort profile
+        pendingFearLadder = {
+          overallScore: scored.overallScore,
+          dimensionScores: scored.dimensionScores,
+          responses: ratings,
+          scenarios: generatedScenarios!,
+          dimensions: generatedDimensions!,
+          derivedPace: scored.derivedPace,
+        };
+
+        // Phase 0: comfort profile without fear ladder (progressive) OR with fear ladder (legacy).
         await api("PUT", "/api/sidequests/comfort-profile", token, {
           pacePreference: scored.derivedPace,
           comfortProfile: {
@@ -1127,13 +1154,17 @@ async function main() {
             goalTags: persona.goalTags,
             primaryGoal: persona.primaryGoal,
           },
-          fearLadder: {
-            overallScore: scored.overallScore,
-            dimensionScores: scored.dimensionScores,
-            responses: ratings,
-            scenarios: generatedScenarios,
-            dimensions: generatedDimensions,
-          },
+          ...(progressiveOnboarding
+            ? { onboardingPhase: 0 }
+            : {
+                fearLadder: {
+                  overallScore: scored.overallScore,
+                  dimensionScores: scored.dimensionScores,
+                  responses: ratings,
+                  scenarios: generatedScenarios,
+                  dimensions: generatedDimensions,
+                },
+              }),
         });
       } else {
         console.log(`  Fear ladder generation failed (${ladderRes.status}), using defaults`);
@@ -1148,6 +1179,7 @@ async function main() {
             goalTags: persona.goalTags,
             primaryGoal: persona.primaryGoal,
           },
+          ...(progressiveOnboarding && { onboardingPhase: 0 }),
         });
       }
     } else {
@@ -1162,6 +1194,7 @@ async function main() {
           goalTags: persona.goalTags,
           primaryGoal: persona.primaryGoal,
         },
+        ...(progressiveOnboarding && { onboardingPhase: 0 }),
       });
     }
 
@@ -1223,6 +1256,273 @@ async function main() {
   let blockerResolvedAtQuest: number | null = null;
   const blockerResolveThreshold = activeBlocker?.resolveAfterSuccesses ?? 3;
 
+  // Tick-based flow state: rating is deferred to a future tick so the sim
+  // exercises the same /unrated → /rate path the UI's "pending reflection"
+  // card drives. `tick` advances once per outer-loop iteration.
+  let tick = 0;
+  let completedCount = 0;
+  let attempts = 0;
+  let abandonmentCount = 0;
+  let promoteCount = 0;
+  let batchDeleteCount = 0;
+  let locationSpoofCount = 0;
+  let currentOnboardingPhase = progressiveOnboarding ? 0 : 3;
+  const maxAttempts = Math.max(questCount + 3, Math.ceil(questCount * 1.4));
+
+  interface PendingRate {
+    scheduledRateTick: number;
+    completeTick: number;
+    completionIndex: number;
+    attemptIndex: number;
+    sidequestId: string;
+    quest: any;
+    obj: any;
+    rating: number;
+    journalEntry: string | null;
+    socialContext: string;
+    completedActivity: string;
+    wouldReturn: boolean | undefined;
+    predictedAnxiety: number | null;
+    predictedDifficulty: number | null;
+    blockerTriggered: boolean;
+    isBreakthrough: boolean;
+    rejections: RejectionReason[];
+  }
+  const pendingRates: PendingRate[] = [];
+
+  // Processes a deferred rate: hits /rate, fetches pathways/pacing, pushes
+  // to journey. Mirrors the post-completion block that used to run inline.
+  const processRate = async (pr: PendingRate, nowTick: number): Promise<void> => {
+    const { sidequestId, quest, obj, rating, journalEntry, socialContext, completedActivity, wouldReturn, predictedAnxiety, predictedDifficulty, blockerTriggered, isBreakthrough, rejections, completionIndex } = pr;
+
+    await api("POST", `/api/sidequests/${sidequestId}/rate`, token, { rating });
+
+    const resonanceInput: ResonanceInput = {
+      rating,
+      journalEntry,
+      socialContext,
+      completedActivity,
+      difficulty: obj.difficulty ?? null,
+      checkedInAt: new Date(),
+      questCreatedAt: new Date(quest.createdAt),
+      venueCategory: obj.venueCategory ?? null,
+      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : null,
+      userPace: persona?.pace ?? "steady",
+      previousSocialContexts: [...previousSocialContexts],
+      reflectionDepth: null,
+      reflectionSentiment: null,
+      reflectionTags: null,
+      completedVersion: null,
+    };
+    const resonance = computeResonance(resonanceInput, DEFAULT_QUEST_CONFIG);
+
+    if (socialContext) previousSocialContexts.push(socialContext);
+
+    const czRes = await api("GET", "/api/sidequests/comfort-zone", token);
+    const comfortRadius = czRes.data?.comfortRadiusMiles ?? 0;
+
+    console.log(`│  [rate tick ${nowTick}, completed ${completeTickLabel(pr)}] ${blockerTriggered ? ">> BLOCKED " : isBreakthrough ? "★★ BREAKTHROUGH " : ""}Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`);
+    console.log(`│  Social: ${socialContext}`);
+    if (blockerTriggered || isBreakthrough) {
+      console.log(`│  Activity: ${completedActivity}`);
+    }
+    console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`);
+    if (wouldReturn !== undefined) {
+      console.log(`│  Would return: ${wouldReturn ? "✅ yes" : "❌ no"}`);
+    }
+    console.log(`│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`);
+    console.log(`│  Comfort radius: ${comfortRadius.toFixed?.(1) ?? "?"} mi`);
+
+    const pathwayRes = await api("GET", "/api/users/me/pathways", token);
+    if (pathwayRes.data?.pathways) {
+      const pw = pathwayRes.data;
+      console.log(`│`);
+      console.log(`│  Pathways (phase: ${pw.globalPhase}):`);
+      for (const p of pw.pathways.slice(0, 5)) {
+        const bar = "▓".repeat(Math.round(p.avgResonance * 10));
+        console.log(`│    ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${bar.padEnd(10)} quests=${p.questCount}`);
+      }
+      pathwaySnapshots.push({
+        questIndex: completionIndex,
+        globalPhase: pw.globalPhase,
+        pathways: pw.pathways.map((p: any) => ({
+          theme: p.theme,
+          themeLabel: p.themeLabel,
+          phase: p.phase,
+          avgResonance: p.avgResonance,
+          questCount: p.questCount,
+        })),
+      });
+    }
+
+    if (!skipProfile) {
+      const pacingRes = await api("GET", "/api/sidequests/goal-pacing", token);
+      if (pacingRes.data?.hasTimeline) {
+        const p = pacingRes.data;
+        console.log(`│  Timeline: ${p.percentElapsed}% elapsed, ${p.remainingDays}d remaining, milestone: ${p.milestone ?? "none"}`);
+
+        if (p.milestone && p.milestone !== lastMilestone) {
+          console.log(`│  ★ NEW MILESTONE: ${p.milestone}`);
+
+          const checkInRes = await api("GET", "/api/sidequests/goal-check-in", token);
+          if (checkInRes.data?.isDue) {
+            console.log(`│  Goal check-in due! Prompt: "${(checkInRes.data.journalPrompt ?? "").slice(0, 60)}..."`);
+
+            let reflectionJournal = `Reflecting on my progress at the ${p.milestone} milestone. I've completed ${p.completedQuestCount ?? completionIndex + 1} quests so far.`;
+            if (persona && process.env.OPENAI_API_KEY) {
+              const llmReflection = await llmComplete(
+                `You are "${persona.name}" pursuing: "${persona.primaryGoal}". You've completed ${completionIndex + 1} quests. You're at the "${p.milestone}" milestone (${p.percentElapsed}% of your timeline elapsed, ${p.remainingDays} days left). Write a 2-3 sentence goal reflection.`,
+                checkInRes.data.journalPrompt ?? `Reflect on your progress so far. How are you feeling about your goal?`,
+                150,
+              );
+              if (llmReflection) reflectionJournal = llmReflection;
+            }
+
+            const reflRes = await api("POST", "/api/sidequests/goal-reflection", token, {
+              milestone: p.milestone,
+              journalEntry: reflectionJournal,
+              journalPrompt: checkInRes.data.journalPrompt ?? undefined,
+              percentElapsed: p.percentElapsed,
+              remainingDays: p.remainingDays,
+              completedQuestCount: p.completedQuestCount ?? completionIndex + 1,
+            });
+
+            const saved = reflRes.status === 200 || reflRes.status === 201;
+            console.log(`│  Goal reflection ${saved ? "saved" : "failed"}: "${reflectionJournal.slice(0, 60)}..."`);
+
+            milestoneEvents.push({
+              questIndex: completionIndex,
+              milestone: p.milestone,
+              percentElapsed: p.percentElapsed,
+              remainingDays: p.remainingDays,
+              reflectionSaved: saved,
+            });
+          }
+
+          lastMilestone = p.milestone;
+        }
+      }
+    }
+
+    journey.push({
+      index: completionIndex,
+      title: quest.title ?? "",
+      venueName: obj.venueName ?? "",
+      venueCategory: obj.venueCategory ?? "other",
+      difficulty: obj.difficulty ?? 0,
+      rating,
+      resonance: resonance.score,
+      resonanceComponents: resonance.components,
+      socialContext,
+      journalSnippet: journalEntry ? journalEntry.slice(0, 40) : null,
+      hook: obj.hook ?? "",
+      rarity: quest.rarity ?? "?",
+      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : 0,
+      comfortRadius: typeof comfortRadius === "number" ? comfortRadius : 0,
+      predictedAnxiety,
+      predictedDifficulty,
+      actionability: obj.actionability ?? null,
+      blockerTriggered,
+      isBreakthrough,
+      questType: quest.questType ?? "venue",
+      questRole: quest.questRole ?? null,
+      rejections,
+    });
+
+    if (predictedAnxiety != null) {
+      predictionHistory.push({
+        predicted: predictedAnxiety,
+        actual: obj.difficulty ?? 3,
+        title: quest.title ?? "",
+      });
+    }
+
+    // Promote ("Seal Memory") on well-rated quests — mirrors /app/deck.tsx.
+    const isVenueQ = (quest.questType ?? "venue") === "venue";
+    if (isVenueQ && rating >= 4 && rand() < promoteProb) {
+      const promoRes = await api("POST", `/api/sidequests/${sidequestId}/promote`, token);
+      if (promoRes.status === 200) {
+        promoteCount++;
+        console.log(`│  ★ Sealed Memory (promoted)`);
+      }
+    }
+
+    // Periodic deck cleanup — mirrors batch-delete from /app/itineraries.
+    if (journey.length > 0 && journey.length % 5 === 0) {
+      const completedRes = await api("GET", "/api/sidequests/completed?limit=25", token);
+      const completedList: any[] = completedRes.data?.data ?? [];
+      const lowRated = completedList
+        .filter((s: any) => typeof s.rating === "number" && s.rating <= 2)
+        .slice(0, 2)
+        .map((s: any) => s.id);
+      if (lowRated.length > 0) {
+        const delRes = await api("POST", "/api/sidequests/batch-delete", token, { ids: lowRated });
+        if (delRes.status === 200) {
+          const n = delRes.data?.deletedCount ?? 0;
+          batchDeleteCount += n;
+          console.log(`│  🗑  Batch-deleted ${n} low-rated quest(s)`);
+        }
+      }
+    }
+  };
+
+  // Advances progressive onboarding based on completedCount. Phases mirror
+  // /app/progressive-onboarding.tsx: 1=social-context, 2=fear-ladder.
+  const maybeAdvanceOnboarding = async (): Promise<void> => {
+    if (!progressiveOnboarding || !persona) return;
+
+    if (currentOnboardingPhase < 1 && completedCount >= 1) {
+      console.log(`│  ▷ Progressive onboarding: phase 1 (social-situation)`);
+      const res = await api("PUT", "/api/sidequests/comfort-profile", token, {
+        socialSituation: {
+          ageRange: "25-34",
+          gender: "",
+          timeInArea: "",
+          currentSocialLife: "",
+          lookingFor: [],
+          workSituation: "",
+          livingSituation: "",
+          dailyRoutine: "work_from_home",
+          transportation: "car",
+          budget: "moderate",
+        },
+        onboardingPhase: 1,
+      });
+      if (res.status === 200 || res.status === 201) {
+        currentOnboardingPhase = 1;
+      }
+    }
+
+    if (currentOnboardingPhase < 2 && completedCount >= 2 && pendingFearLadder) {
+      console.log(`│  ▷ Progressive onboarding: phase 2 (fear-ladder)`);
+      const res = await api("PUT", "/api/sidequests/comfort-profile", token, {
+        pacePreference: pendingFearLadder.derivedPace,
+        fearLadder: {
+          overallScore: pendingFearLadder.overallScore,
+          dimensionScores: pendingFearLadder.dimensionScores,
+          responses: pendingFearLadder.responses,
+          scenarios: pendingFearLadder.scenarios,
+          dimensions: pendingFearLadder.dimensions,
+        },
+        onboardingPhase: 2,
+      });
+      if (res.status === 200 || res.status === 201) {
+        currentOnboardingPhase = 2;
+      }
+    }
+
+    if (currentOnboardingPhase < 3 && completedCount >= 3) {
+      const res = await api("PUT", "/api/sidequests/comfort-profile", token, {
+        onboardingPhase: 3,
+      });
+      if (res.status === 200 || res.status === 201) {
+        currentOnboardingPhase = 3;
+      }
+    }
+  };
+
+  const completeTickLabel = (pr: PendingRate): string => `t${pr.completeTick}→t${pr.scheduledRateTick}`;
+
   console.log(`\n${"─".repeat(60)}`);
   console.log(`  Starting ${questCount}-quest simulation...`);
   console.log(`${"─".repeat(60)}\n`);
@@ -1230,8 +1530,33 @@ async function main() {
   let challengeCount = 0;
   const predictionHistory: { predicted: number; actual: number; title: string }[] = [];
 
-  for (let i = 0; i < questCount; i++) {
-    console.log(`\n╭─ Quest ${i + 1}/${questCount} ${"─".repeat(40)}`);
+  while (completedCount < questCount && attempts < maxAttempts) {
+    tick++;
+
+    // Drain any ratings that are due this tick (FIFO by scheduledRateTick).
+    const dueRates = pendingRates
+      .filter((p) => p.scheduledRateTick <= tick)
+      .sort((a, b) => a.scheduledRateTick - b.scheduledRateTick || a.completionIndex - b.completionIndex);
+    if (dueRates.length > 0) {
+      for (let k = pendingRates.length - 1; k >= 0; k--) {
+        if (pendingRates[k].scheduledRateTick <= tick) pendingRates.splice(k, 1);
+      }
+      for (const pr of dueRates) {
+        await processRate(pr, tick);
+      }
+    }
+
+    await maybeAdvanceOnboarding();
+
+    // Stop starting new quests once we've queued enough.
+    if (completedCount + pendingRates.length >= questCount) {
+      if (pendingRates.length === 0) break;
+      continue;
+    }
+
+    attempts++;
+    const i = attempts - 1;
+    console.log(`\n╭─ Attempt ${attempts} (completed ${completedCount}/${questCount}, tick ${tick}) ${"─".repeat(20)}`);
 
     // Determine quest type for this iteration
     const isChallenge = challengeMix > 0 && ((i + 1) % challengeMix === 0);
@@ -1381,8 +1706,24 @@ async function main() {
     // Activate
     await api("POST", `/api/sidequests/${sidequestId}/activate`, token);
 
-    // Checkin (venue quests) or complete-challenge (challenge quests)
+    // Abandonment check — real users drop ~15-20% of accepted quests mid-flight.
+    // Deactivates the active slot and loops to prescribe a fresh one.
+    // Venue quests are abandonable; challenges run fixed so we don't drop them.
     const isActualChallenge = (quest.questType ?? "venue") === "challenge";
+    if (!isActualChallenge && abandonmentProb > 0 && rand() < abandonmentProb) {
+      console.log(`│`);
+      console.log(`│  🚪 Abandoning quest ("${quest.title}") mid-flight — calling /deactivate.`);
+      const deacRes = await api("POST", "/api/sidequests/deactivate", token);
+      if (deacRes.status === 200 || deacRes.status === 204) {
+        abandonmentCount++;
+      } else {
+        console.log(`│  Deactivate returned ${deacRes.status}; proceeding as if abandoned.`);
+      }
+      console.log(`╰${"─".repeat(55)}`);
+      continue;
+    }
+
+    // Checkin (venue quests) or complete-challenge (challenge quests)
     console.log(`│`);
     if (isActualChallenge) {
       console.log(`│  Completing challenge...`);
@@ -1399,6 +1740,15 @@ async function main() {
         socialContext: "solo",
       });
     } else {
+      // Location spoof: mirror tasks/backgroundLocationTask.ts — UI posts
+      // /users/location from expo-task-manager, which triggers proximity
+      // matching. Send the venue coords so the server sees the "arrival".
+      const spoofRes = await api("POST", "/api/users/location", token, {
+        lat: Number(obj.latitude),
+        lng: Number(obj.longitude),
+      });
+      if (spoofRes.status === 200) locationSpoofCount++;
+
       console.log(`│  Checking in...`);
       await api("POST", `/api/sidequests/${sidequestId}/objectives/${obj.id}/checkin`, token, {
         latitude: Number(obj.latitude),
@@ -1528,7 +1878,8 @@ async function main() {
       else wouldReturn = false;
     }
 
-    // Save journal + social context + would-return
+    // Save journal + social context + would-return (always fires immediately;
+    // rating is deferred below).
     await api("PUT", `/api/sidequests/objectives/${obj.id}/journal`, token, {
       journalEntry: journalEntry ?? undefined,
       socialContext,
@@ -1536,164 +1887,56 @@ async function main() {
       ...(wouldReturn !== undefined && { wouldReturn }),
     });
 
-    // Rate (triggers resonance + pathway detection)
-    await api("POST", `/api/sidequests/${sidequestId}/rate`, token, { rating });
-
-    // Compute resonance locally
-    const resonanceInput: ResonanceInput = {
+    // Queue the rate for a future tick. Matches the UI's PendingReflectionCard
+    // — the user checks in now, rates later. 70% next-tick, 30% two-tick.
+    const delayTicks = rand() < 0.7 ? 1 : 2;
+    const thisCompletionIndex = completedCount;
+    completedCount++;
+    pendingRates.push({
+      scheduledRateTick: tick + delayTicks,
+      completeTick: tick,
+      completionIndex: thisCompletionIndex,
+      attemptIndex: i,
+      sidequestId: sidequestId!,
+      quest,
+      obj,
       rating,
       journalEntry,
       socialContext,
       completedActivity,
-      difficulty: obj.difficulty ?? null,
-      checkedInAt: new Date(),
-      questCreatedAt: new Date(quest.createdAt),
-      venueCategory: obj.venueCategory ?? null,
-      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : null,
-      userPace: persona?.pace ?? "steady",
-      previousSocialContexts: [...previousSocialContexts],
-      reflectionDepth: null,
-      reflectionSentiment: null,
-      reflectionTags: null,
-      completedVersion: null,
-    };
-    const resonance = computeResonance(resonanceInput, DEFAULT_QUEST_CONFIG);
-
-    if (socialContext) previousSocialContexts.push(socialContext);
-
-    // Fetch comfort zone
-    const czRes = await api("GET", "/api/sidequests/comfort-zone", token);
-    const comfortRadius = czRes.data?.comfortRadiusMiles ?? 0;
-
-    console.log(`│  ${blockerTriggered ? ">> BLOCKED " : isBreakthrough ? "★★ BREAKTHROUGH " : ""}Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`);
-    console.log(`│  Social: ${socialContext}`);
-    if (blockerTriggered || isBreakthrough) {
-      console.log(`│  Activity: ${completedActivity}`);
-    }
-    console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`);
-    if (wouldReturn !== undefined) {
-      console.log(`│  Would return: ${wouldReturn ? "✅ yes" : "❌ no"}`);
-    }
-    console.log(`│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`);
-    console.log(`│  Comfort radius: ${comfortRadius.toFixed?.(1) ?? "?"} mi`);
-
-    // ── Pathway inspection ────────────────────────────────
-    const pathwayRes = await api("GET", "/api/users/me/pathways", token);
-    if (pathwayRes.data?.pathways) {
-      const pw = pathwayRes.data;
-      console.log(`│`);
-      console.log(`│  Pathways (phase: ${pw.globalPhase}):`);
-      for (const p of pw.pathways.slice(0, 5)) {
-        const bar = "▓".repeat(Math.round(p.avgResonance * 10));
-        console.log(`│    ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${bar.padEnd(10)} quests=${p.questCount}`);
-      }
-      pathwaySnapshots.push({
-        questIndex: i,
-        globalPhase: pw.globalPhase,
-        pathways: pw.pathways.map((p: any) => ({
-          theme: p.theme,
-          themeLabel: p.themeLabel,
-          phase: p.phase,
-          avgResonance: p.avgResonance,
-          questCount: p.questCount,
-        })),
-      });
-    }
-
-    // ── Goal pacing / milestone check ─────────────────────
-    if (!skipProfile) {
-      const pacingRes = await api("GET", "/api/sidequests/goal-pacing", token);
-      if (pacingRes.data?.hasTimeline) {
-        const p = pacingRes.data;
-        console.log(`│  Timeline: ${p.percentElapsed}% elapsed, ${p.remainingDays}d remaining, milestone: ${p.milestone ?? "none"}`);
-
-        // Check if a milestone transition happened
-        if (p.milestone && p.milestone !== lastMilestone) {
-          console.log(`│  ★ NEW MILESTONE: ${p.milestone}`);
-
-          // Check if goal check-in is due
-          const checkInRes = await api("GET", "/api/sidequests/goal-check-in", token);
-          if (checkInRes.data?.isDue) {
-            console.log(`│  Goal check-in due! Prompt: "${(checkInRes.data.journalPrompt ?? "").slice(0, 60)}..."`);
-
-            // Generate and save a goal reflection
-            let reflectionJournal = `Reflecting on my progress at the ${p.milestone} milestone. I've completed ${p.completedQuestCount ?? i + 1} quests so far.`;
-            if (persona && process.env.OPENAI_API_KEY) {
-              const llmReflection = await llmComplete(
-                `You are "${persona.name}" pursuing: "${persona.primaryGoal}". You've completed ${i + 1} quests. You're at the "${p.milestone}" milestone (${p.percentElapsed}% of your timeline elapsed, ${p.remainingDays} days left). Write a 2-3 sentence goal reflection.`,
-                checkInRes.data.journalPrompt ?? `Reflect on your progress so far. How are you feeling about your goal?`,
-                150,
-              );
-              if (llmReflection) reflectionJournal = llmReflection;
-            }
-
-            const reflRes = await api("POST", "/api/sidequests/goal-reflection", token, {
-              milestone: p.milestone,
-              journalEntry: reflectionJournal,
-              journalPrompt: checkInRes.data.journalPrompt ?? undefined,
-              percentElapsed: p.percentElapsed,
-              remainingDays: p.remainingDays,
-              completedQuestCount: p.completedQuestCount ?? i + 1,
-            });
-
-            const saved = reflRes.status === 200 || reflRes.status === 201;
-            console.log(`│  Goal reflection ${saved ? "saved" : "failed"}: "${reflectionJournal.slice(0, 60)}..."`);
-
-            milestoneEvents.push({
-              questIndex: i,
-              milestone: p.milestone,
-              percentElapsed: p.percentElapsed,
-              remainingDays: p.remainingDays,
-              reflectionSaved: saved,
-            });
-          }
-
-          lastMilestone = p.milestone;
-        }
-      }
-    }
-
-    // Track journey
-    journey.push({
-      index: i,
-      title: quest.title ?? "",
-      venueName: obj.venueName ?? "",
-      venueCategory: obj.venueCategory ?? "other",
-      difficulty: obj.difficulty ?? 0,
-      rating,
-      resonance: resonance.score,
-      resonanceComponents: resonance.components,
-      socialContext,
-      journalSnippet: journalEntry ? journalEntry.slice(0, 40) : null,
-      hook: obj.hook ?? "",
-      rarity: quest.rarity ?? "?",
-      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : 0,
-      comfortRadius: typeof comfortRadius === "number" ? comfortRadius : 0,
+      wouldReturn,
       predictedAnxiety,
       predictedDifficulty,
-      actionability: obj.actionability ?? null,
       blockerTriggered,
       isBreakthrough,
-      questType: quest.questType ?? "venue",
-      questRole: quest.questRole ?? null,
       rejections: rejectionsThisSlot,
     });
-
-    // Track prediction accuracy for calibration feedback
-    if (predictedAnxiety != null) {
-      predictionHistory.push({
-        predicted: predictedAnxiety,
-        actual: obj.difficulty ?? 3,
-        title: quest.title ?? "",
-      });
-    }
-
+    console.log(`│  ⌛ Checked in on tick ${tick}; rate scheduled for tick ${tick + delayTicks}.`);
     console.log(`╰${"─".repeat(55)}`);
 
-    // Small delay between quests
-    if (i < questCount - 1) {
-      await new Promise((r) => setTimeout(r, 1000));
+    // Small delay between iterations
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // Drain any remaining deferred ratings.
+  while (pendingRates.length > 0) {
+    tick++;
+    const due = pendingRates
+      .filter((p) => p.scheduledRateTick <= tick)
+      .sort((a, b) => a.scheduledRateTick - b.scheduledRateTick || a.completionIndex - b.completionIndex);
+    if (due.length === 0) {
+      // No ratings due yet — just advance the tick counter until the next one.
+      const next = Math.min(...pendingRates.map((p) => p.scheduledRateTick));
+      tick = next - 1;
+      continue;
     }
+    for (let k = pendingRates.length - 1; k >= 0; k--) {
+      if (pendingRates[k].scheduledRateTick <= tick) pendingRates.splice(k, 1);
+    }
+    for (const pr of due) {
+      await processRate(pr, tick);
+    }
+    await maybeAdvanceOnboarding();
   }
 
   // 5. Final summary
@@ -1707,10 +1950,16 @@ async function main() {
   const avgResonance = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
   const peakResonance = allScores.length > 0 ? Math.max(...allScores) : 0;
 
-  console.log(`\n  Quests: ${journey.length}`);
+  console.log(`\n  Quests: ${journey.length} completed (${attempts} attempts, ${abandonmentCount} abandoned across ${tick} ticks)`);
   console.log(`  Avg Resonance: ${avgResonance.toFixed(3)}`);
   console.log(`  Peak Resonance: ${peakResonance.toFixed(3)}`);
   console.log(`  Comfort Radius: ${journey[0]?.comfortRadius.toFixed(1) ?? "?"} mi → ${journey[journey.length - 1]?.comfortRadius.toFixed(1) ?? "?"} mi`);
+  console.log(`  Sealed memories (promoted): ${promoteCount}`);
+  console.log(`  Low-rated quests culled:    ${batchDeleteCount}`);
+  console.log(`  Location spoofs sent:       ${locationSpoofCount}`);
+  if (progressiveOnboarding) {
+    console.log(`  Onboarding reached phase:   ${currentOnboardingPhase}`);
+  }
 
   // Blocker stats
   const blockerCount = journey.filter((j) => j.blockerTriggered).length;
