@@ -547,11 +547,14 @@ export class ComfortZoneService {
       // Positive = they thought it'd be scarier than it was
     }
 
-    // Difficulty delta: predicted difficulty vs assigned difficulty (both 1-10)
-    // If they predicted 4 and actual was 2, delta = +2 (overestimated)
+    // Difficulty delta: predicted difficulty is captured on a 1-5 scale,
+    // while objective difficulty is assigned on a 1-10 scale. Normalize the
+    // assigned difficulty back to 1-5 before comparing.
     let difficultyDelta = 0;
     if (objective.predictedDifficulty != null && objective.difficulty != null) {
-      difficultyDelta = objective.predictedDifficulty - objective.difficulty;
+      const clampedDifficulty = Math.max(1, Math.min(10, objective.difficulty));
+      const actualDifficulty = 1 + ((clampedDifficulty - 1) / 9) * 4;
+      difficultyDelta = objective.predictedDifficulty - actualDifficulty;
     }
 
     // Update rolling calibration on user
@@ -617,4 +620,3 @@ function haversineDistanceMiles(
 ): number {
   return haversineDistance(lat1, lon1, lat2, lon2, "miles");
 }
-

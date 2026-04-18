@@ -1578,6 +1578,16 @@ export function buildIndividualRoleInstructions(
   targetPathway?: { id: string; theme: string; label: string; phase: string },
   activities?: string[],
 ): string {
+  if (role === "deepen" && targetPathway) {
+    return [
+      `\nQUEST ROLE: DEEPEN`,
+      `This quest should deepen the user's "${targetPathway.label}" pathway.`,
+      `Stay in or near the "${targetPathway.theme}" thread, but do not simply repeat the same outing.`,
+      `Escalate one meaningful dimension: a slightly busier time, a small social micro-rep, a new venue in the same category, or a more intentional version of the same activity.`,
+      `The goal is roots, not novelty for novelty's sake: help them become someone who returns, recognizes patterns, and builds confidence through repetition.`,
+    ].join("\n");
+  }
+
   if (role === "enjoy") {
     const activityHint = activities?.length
       ? `Their stated interests: ${activities.join(", ")}.`
@@ -1783,21 +1793,75 @@ export async function computeFearLadderReadiness(dataSource: DataSource, userId:
 
 // ─── Individual Quest Role Selection ──────────────────────────────
 
+type IndividualQuestRole = "explore" | "deepen" | "enjoy" | "stretch";
+
+interface RolePathwayCandidate {
+  id: string;
+  theme: string;
+  themeLabel: string;
+  phase: string;
+  avgResonance: number;
+  questCount: number;
+}
+
+interface IndividualQuestRoleResult {
+  role: IndividualQuestRole;
+  targetPathway?: { id: string; theme: string; label: string; phase: string };
+}
+
+function pickDeepenTarget(
+  pathways?: RolePathwayCandidate[],
+): IndividualQuestRoleResult["targetPathway"] {
+  const dfsPathways = (pathways ?? [])
+    .filter((p) => p.phase === "dfs")
+    .sort((a, b) => {
+      const resonanceDelta = b.avgResonance - a.avgResonance;
+      if (Math.abs(resonanceDelta) > 0.001) return resonanceDelta;
+      return b.questCount - a.questCount;
+    });
+
+  const target = dfsPathways[0];
+  if (!target) return undefined;
+
+  return {
+    id: target.id,
+    theme: target.theme,
+    label: target.themeLabel,
+    phase: target.phase,
+  };
+}
+
 /**
  * Determine a quest role for individual (non-pack) prescriptions.
  *
- * Role distribution (deterministic cycle after enough data):
- *   - <5 quests: always "explore" (still onboarding)
- *   - 5+ quests: rotating pattern — explore, explore, enjoy, explore, stretch
+ * Role distribution:
+ *   - <5 quests: always "explore" (trust calibration first)
+ *   - 5+ quests with a DFS pathway: deepen ~60%, range/recovery ~40%
+ *   - 5+ quests without a DFS pathway: keep exploring until a thread emerges
  *   - Enjoy quests are "cheat meals" — pure fun based on interests, decoupled from pathways
  *   - Stretch quests push beyond comfort zone on multiple dimensions
  */
 export function determineIndividualQuestRole(
   readiness: FearLadderReadiness,
-): { role: "explore" | "enjoy" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } } {
+  pathways?: RolePathwayCandidate[],
+): IndividualQuestRoleResult {
   // Early phase — always explore
   if (readiness.completedQuests < 5) {
     return { role: "explore" };
+  }
+
+  const deepenTarget = pickDeepenTarget(pathways);
+  if (deepenTarget) {
+    const cycle = readiness.completedQuests % 5;
+    if (cycle === 2) {
+      return readiness.completedQuests >= 8 ? { role: "enjoy" } : { role: "explore" };
+    }
+    if (cycle === 4) {
+      return readiness.phase >= 2 && readiness.completedQuests % 10 === 9
+        ? { role: "stretch" }
+        : { role: "explore" };
+    }
+    return { role: "deepen", targetPathway: deepenTarget };
   }
 
   // Deterministic role rotation based on completed quest count.

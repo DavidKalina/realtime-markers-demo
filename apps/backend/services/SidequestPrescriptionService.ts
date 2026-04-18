@@ -20,7 +20,7 @@ import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
 import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
 import type { ResonanceService } from "./ResonanceService";
-import type { PathwayService } from "./PathwayService";
+import type { PathwayService, PhaseContext } from "./PathwayService";
 import {
   createPrescriptionPromptRegistry,
   type PrescriptionPromptRegistry,
@@ -441,10 +441,12 @@ export class SidequestPrescriptionService {
 
     // 2c. Build phase context from pathways (BFS/DFS)
     let phaseContext = "";
+    let phaseForRole: PhaseContext | undefined;
     if (this.pathwayService) {
       try {
         const phase = await this.pathwayService.getUserPhaseContext(userId);
         phaseContext = phase.recommendation;
+        phaseForRole = phase;
       } catch (err) {
         console.error("[prescribeQuest] Phase context failed:", err);
       }
@@ -459,7 +461,7 @@ export class SidequestPrescriptionService {
       roleTargetPathway = siblingContext.targetPathway;
     } else {
       // Auto-detect role for individual venue prescriptions
-      const autoRole = determineIndividualQuestRole(fearLadderReadiness);
+      const autoRole = determineIndividualQuestRole(fearLadderReadiness, phaseForRole?.pathways);
       questRole = autoRole.role;
       roleTargetPathway = autoRole.targetPathway;
     }

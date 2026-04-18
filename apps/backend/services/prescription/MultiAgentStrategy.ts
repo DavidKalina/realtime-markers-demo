@@ -89,6 +89,51 @@ function normalizeVenueCategory(raw: string): string {
   return "Other";
 }
 
+const DENSE_PUBLIC_CATEGORIES = [
+  "Bar",
+  "Brewery / Taproom",
+  "Music Venue / Concert Hall",
+  "Theatre / Performing Arts",
+  "Karaoke Venue",
+  "Board Game Venue",
+  "Food Market / Farmers Market",
+  "Arcade / Entertainment",
+  "Bowling Alley",
+] as const;
+
+const FIXED_TIMING_CATEGORIES = [
+  "Theatre / Performing Arts",
+  "Music Venue / Concert Hall",
+  "Workshop / Class Venue",
+  "College / Adult Education",
+  "Sports Club",
+  "Community Center",
+  "Board Game Venue",
+] as const;
+
+function addAvoidCategories(
+  brief: StrategyBrief,
+  categories: readonly string[],
+): void {
+  for (const cat of categories) {
+    if (
+      !brief.avoidCategories.some(
+        (existing) => existing.toLowerCase() === cat.toLowerCase(),
+      )
+    ) {
+      brief.avoidCategories.push(cat);
+    }
+  }
+}
+
+function categoryMatches(
+  category: string | undefined,
+  blocked: readonly string[],
+): boolean {
+  if (!category) return false;
+  return blocked.some((cat) => cat.toLowerCase() === category.toLowerCase());
+}
+
 // ── Dependencies ────────────────────────────────────────────
 
 export interface MultiAgentStrategyDeps {
@@ -198,13 +243,31 @@ export class MultiAgentStrategy {
         case "NOT_MY_VIBE":
           // Add the recurring-rejection categories to the avoid list so the
           // Scout skips them and the Validator hard-blocks any drift.
-          for (const cat of pattern.categories) {
-            if (cat && !brief.avoidCategories.includes(cat)) {
-              brief.avoidCategories.push(cat);
-            }
+          addAvoidCategories(brief, pattern.categories);
+          break;
+        case "TOO_PUBLIC":
+          brief.socialChallengeLevel = "none";
+          brief.difficultyRange = [1, Math.min(4, brief.difficultyRange[1])];
+          addAvoidCategories(brief, DENSE_PUBLIC_CATEGORIES);
+          if (
+            !brief.suggestedTiming ||
+            /evening|night|peak|busy/i.test(brief.suggestedTiming)
+          ) {
+            brief.suggestedTiming = "off-peak weekday late morning or early afternoon";
           }
           break;
-        // TOO_PUBLIC + BAD_TIMING are prompt-only — no mechanical clamp.
+        case "BAD_TIMING": {
+          const maxDifficulty = Math.min(4, brief.difficultyRange[1]);
+          brief.difficultyRange = [
+            Math.min(brief.difficultyRange[0], maxDifficulty),
+            maxDifficulty,
+          ];
+          addAvoidCategories(brief, FIXED_TIMING_CATEGORIES);
+          brief.suggestedTiming = brief.suggestedTiming
+            ? `${brief.suggestedTiming}; avoid fixed-time events and pick a flexible walk-in window`
+            : "flexible walk-in window; avoid fixed-time events";
+          break;
+        }
       }
       const changed =
         before.maxDistance !== brief.maxDistanceMiles ||
@@ -717,6 +780,12 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
         continue;
       }
 
+      // Normalize venue category to canonical taxonomy before applying
+      // pattern-specific hard blocks.
+      if (c.venueCategory && !VENUE_CATEGORIES.includes(c.venueCategory as any)) {
+        c.venueCategory = normalizeVenueCategory(c.venueCategory);
+      }
+
       // Slice F: for a recurring NOT_MY_VIBE pattern, hard-block the categories
       // the user has repeatedly rejected. The Scout is told to avoid them, but
       // sometimes drifts — this catches it.
@@ -727,6 +796,26 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
         ctx.rejectionPattern.categories.some((cat) => cat.toLowerCase() === c.venueCategory.toLowerCase())
       ) {
         rejectionReasons.push(`"${c.venueName}" is in category "${c.venueCategory}" — user has a NOT_MY_VIBE pattern against this category (${ctx.rejectionPattern.count}× rejections)`);
+        continue;
+      }
+
+      if (
+        ctx.rejectionPattern?.reason === "TOO_PUBLIC" &&
+        categoryMatches(c.venueCategory, DENSE_PUBLIC_CATEGORIES)
+      ) {
+        rejectionReasons.push(
+          `"${c.venueName}" is in category "${c.venueCategory}" — user has a TOO_PUBLIC pattern and needs a lower-visibility setting`,
+        );
+        continue;
+      }
+
+      if (
+        ctx.rejectionPattern?.reason === "BAD_TIMING" &&
+        categoryMatches(c.venueCategory, FIXED_TIMING_CATEGORIES)
+      ) {
+        rejectionReasons.push(
+          `"${c.venueName}" is in category "${c.venueCategory}" — user has a BAD_TIMING pattern, so avoid fixed-time events for now`,
+        );
         continue;
       }
 
@@ -750,13 +839,6 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
           rejectionReasons.push(`"${c.venueName}" — user said they would NOT return`);
           continue;
         }
-      }
-
-      // Normalize venue category to canonical taxonomy.
-      // The Scout should return a canonical category, but LLMs don't always obey enums.
-      // Fall back to best-match via token overlap.
-      if (c.venueCategory && !VENUE_CATEGORIES.includes(c.venueCategory as any)) {
-        c.venueCategory = normalizeVenueCategory(c.venueCategory);
       }
 
       // Check if venue appears too many times in history.

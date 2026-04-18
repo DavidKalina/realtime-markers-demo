@@ -277,9 +277,9 @@ const ProgressiveOnboardingScreen: React.FC = () => {
     }) => {
       const scored = data.fearLadder;
       const derivedPace =
-        scored.overallScore < 0.35
+        scored.overallScore >= 0.6
           ? "gentle"
-          : scored.overallScore > 0.65
+          : scored.overallScore <= 0.3
             ? "push_me"
             : "steady";
       saveAndAdvance({

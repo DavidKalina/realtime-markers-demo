@@ -1,6 +1,7 @@
 // Types-only module — methods moved to ApiClient
 
 export interface PathwayData {
+  id?: string;
   theme: string;
   themeLabel: string;
   phase: "bfs" | "dfs";

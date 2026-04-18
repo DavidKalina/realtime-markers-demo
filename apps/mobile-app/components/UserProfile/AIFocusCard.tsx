@@ -22,10 +22,10 @@ function AIFocusCard({ summary, completedQuests }: AIFocusCardProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.label}>My focus</Text>
+      <Text style={s.label}>What I'm noticing</Text>
       <Text style={s.summary}>
         {isCalibrating
-          ? "I'm still learning about you. Complete a few quests and I'll share what I'm noticing and working on for your growth."
+          ? "I'm still learning your patterns. Complete a few reps and I'll share what seems to help."
           : summary}
       </Text>
     </View>

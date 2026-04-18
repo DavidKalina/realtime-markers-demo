@@ -164,7 +164,7 @@ function getGreeting(): string {
 }
 
 // ── Progressive reveal thresholds ──────────────────────────
-const TIER_1_QUESTS = 1; // Unlock: Growth Score with real data
+const TIER_1_QUESTS = 1; // Unlock: progress notes with real data
 const TIER_2_QUESTS = 3; // Unlock: Growth Arc, Self Insight, Fear delta
 const TIER_3_QUESTS = 5; // Unlock: Pathways, Blind Spots, Social, Exploration, Comfort
 
@@ -427,12 +427,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           />
         </ParallaxWidget>
 
-        {/* 3. AI Focus — what the AI is working on */}
+        {/* 3. Coach Note — what the app is noticing */}
         <ParallaxWidget scrollY={scrollY} index={3} delay={200}>
           <SectionMark
             icon={"\u2728"}
             tint="rgba(168, 85, 247, 0.5)"
-            label="AI Focus"
+            label="Coach Note"
             side="left"
           />
           <AIFocusCard
@@ -442,7 +442,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         </ParallaxWidget>
 
         {/* 3.5 Reps Built — capacity evidence leads looking-back sections,
-             ahead of the composite Growth Signal metric. */}
+             ahead of the composite progress signal. */}
         <ParallaxWidget scrollY={scrollY} index={3} delay={240}>
           <SectionMark
             icon={"\uD83C\uDFCB\uFE0F"}
@@ -453,12 +453,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <CapacityRepsSection reps={capacityReps} />
         </ParallaxWidget>
 
-        {/* 4. Growth Score Hero */}
+        {/* 4. Progress notes */}
         <ParallaxWidget scrollY={scrollY} index={4} delay={280}>
           <SectionMark
             icon={"\uD83D\uDCCA"}
             tint="rgba(125, 211, 252, 0.5)"
-            label="Growth Signal"
+            label="Progress Notes"
             side="right"
             trailing={!hasTier1 ? "Calibrating" : undefined}
             trailingColor={colors.text.secondary}
@@ -471,7 +471,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             subScores={gs?.subScores ?? { resonance: 0, consistency: 0, expansion: 0, depth: 0 }}
             questCount={completedQuests}
             currentStreak={profileData?.currentStreak ?? 0}
-            totalXp={profileData?.totalXp ?? 0}
             calibrating={!hasTier1}
           />
         </ParallaxWidget>

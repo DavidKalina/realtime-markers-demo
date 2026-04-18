@@ -24,7 +24,6 @@ interface JourneyHeaderProps {
   memberSince: string;
   worldSizeSqMi: number | null;
   comfortRadiusMiles: number | null;
-  totalXp: number;
   currentStreak: number;
   longestStreak: number;
   goalTags?: string[];
@@ -35,7 +34,6 @@ export function JourneyHeader({
   memberSince,
   worldSizeSqMi,
   comfortRadiusMiles,
-  totalXp,
   currentStreak,
   longestStreak,
   goalTags,
@@ -72,13 +70,10 @@ export function JourneyHeader({
             </Text>
           </View>
         )}
-        <View style={s.pill}>
-          <Text style={s.pillText}>{totalXp} XP</Text>
-        </View>
         {currentStreak > 0 && (
           <View style={s.pill}>
             <Text style={s.pillText}>
-              {currentStreak}w streak
+              {currentStreak}w rhythm
             </Text>
           </View>
         )}

@@ -89,6 +89,7 @@ export interface PathwayState {
 export interface PhaseContext {
   globalPhase: "bfs" | "mixed" | "dfs";
   pathways: {
+    id: string;
     theme: string;
     themeLabel: string;
     phase: string;
@@ -358,6 +359,7 @@ export function buildPhaseContext(pathways: PathwayState[]): PhaseContext {
   return {
     globalPhase,
     pathways: pathways.map((p) => ({
+      id: p.id,
       theme: p.theme,
       themeLabel: p.themeLabel,
       phase: p.phase,
@@ -493,4 +495,3 @@ export class PathwayService {
     return buildPhaseContext(states);
   }
 }
-

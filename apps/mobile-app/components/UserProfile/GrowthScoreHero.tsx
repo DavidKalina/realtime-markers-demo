@@ -1,6 +1,5 @@
 /**
- * GrowthScoreHero — growth score with clean arc ring,
- * sparkline trend, and momentum indicator.
+ * Progress signal with clean arc ring, sparkline trend, and gentle status copy.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -60,7 +59,6 @@ export interface GrowthScoreHeroProps {
   };
   questCount: number;
   currentStreak: number;
-  totalXp: number;
   calibrating?: boolean;
 }
 
@@ -98,8 +96,8 @@ const SUB_SCORES = [
 ];
 
 const OVERALL_SCORE_INFO = {
-  title: "Growth Signal",
-  body: "A rough read on how well recent outings are landing — a blend of consistency, resonance, expansion, and depth. It's a signal, not a verdict. Missed weeks don't pull it down; they just don't push it up.",
+  title: "Progress Notes",
+  body: "A rough read on how recent outings are landing: consistency, resonance, range, and roots. It is a signal, not a verdict. Missed weeks do not pull it down; they just do not push it up.",
 };
 
 function buildSparkline(history: GrowthHistoryPoint[]): string | null {
@@ -131,7 +129,6 @@ function GrowthScoreHero({
   subScores,
   questCount,
   currentStreak,
-  totalXp,
   calibrating = false,
 }: GrowthScoreHeroProps) {
   const colors = useColors();
@@ -275,7 +272,7 @@ function GrowthScoreHero({
                 alignmentBaseline="central"
                 opacity={0.6}
               >
-                / 100
+                signal
               </SvgText>
             )}
           </Svg>
@@ -344,11 +341,9 @@ function GrowthScoreHero({
           </Text>
         ) : (
           <>
-            <Text style={s.stat}>{questCount} quests</Text>
+            <Text style={s.stat}>{questCount} reps</Text>
             <Text style={s.statDot}>{"\u00B7"}</Text>
-            <Text style={s.stat}>{currentStreak}w streak</Text>
-            <Text style={s.statDot}>{"\u00B7"}</Text>
-            <Text style={s.stat}>{totalXp.toLocaleString()} XP</Text>
+            <Text style={s.stat}>{currentStreak}w rhythm</Text>
           </>
         )}
       </View>

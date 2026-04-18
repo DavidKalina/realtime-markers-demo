@@ -23,7 +23,6 @@ interface PhaseHeaderProps {
   totalPathways: number;
   questCount: number;
   currentStreak: number;
-  totalXp: number;
 }
 
 const PHASE_CONFIG: Record<string, { label: string; accentKey: "accent" | "blue"; description: string }> = {
@@ -38,7 +37,6 @@ function PhaseHeader({
   totalPathways,
   questCount,
   currentStreak,
-  totalXp,
 }: PhaseHeaderProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -111,11 +109,9 @@ function PhaseHeader({
 
       {/* Stats row — always rendered, fades in */}
       <View style={[s.statsRow, { opacity: showStats ? 1 : 0 }]}>
-        <Text style={s.stat}>{questCount} quests</Text>
+        <Text style={s.stat}>{questCount} reps</Text>
         <Text style={s.statDot}>{"\u00B7"}</Text>
-        <Text style={s.stat}>{currentStreak}w streak</Text>
-        <Text style={s.statDot}>{"\u00B7"}</Text>
-        <Text style={s.stat}>{totalXp.toLocaleString()} XP</Text>
+        <Text style={s.stat}>{currentStreak}w rhythm</Text>
       </View>
     </View>
   );
