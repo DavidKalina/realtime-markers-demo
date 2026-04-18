@@ -524,6 +524,7 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     model?: string;
     questType?: "venue" | "challenge";
     challengeCategory?: string;
+    simulationBypassDailyLimit?: boolean;
   }>();
 
   if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
@@ -540,7 +541,10 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayCount = await sidequestService.countCreatedSince(userId, todayStart);
-  if (todayCount >= DAILY_PRESCRIBE_LIMIT) {
+  const bypassDailyLimit =
+    process.env.ENABLE_SIMULATION_BYPASS === "true" &&
+    body.simulationBypassDailyLimit === true;
+  if (!bypassDailyLimit && todayCount >= DAILY_PRESCRIBE_LIMIT) {
     return c.json(
       {
         error: `You've reached your daily limit of ${DAILY_PRESCRIBE_LIMIT} quests. Come back tomorrow!`,
@@ -666,5 +670,3 @@ export const rejectQuestHandler: Handler = withErrorHandling(async (c) => {
     202,
   );
 });
-
-

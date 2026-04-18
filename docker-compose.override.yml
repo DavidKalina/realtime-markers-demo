@@ -6,6 +6,8 @@ services:
 
   backend:
     working_dir: /app/apps/backend
+    environment:
+      ENABLE_SIMULATION_BYPASS: "true"
     ports:
       - "3000:3000"
     labels: []

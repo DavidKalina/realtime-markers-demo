@@ -19,6 +19,7 @@ export class PrescribeQuestHandler {
     job: JobData,
     context: { jobQueue: JobQueue; redisService: RedisService },
   ): Promise<void> {
+    let userIdForLock: string | null = null;
     const tracker = createJobTracker(jobId, PRESCRIBE_PIPELINE, {
       jobQueue: context.jobQueue,
       redisService: context.redisService,
@@ -35,6 +36,7 @@ export class PrescribeQuestHandler {
         questType?: "venue" | "challenge";
         challengeCategory?: string;
       };
+      userIdForLock = userId;
 
       await tracker.step("generate");
 
@@ -60,6 +62,22 @@ export class PrescribeQuestHandler {
       const message = error instanceof Error ? error.message : "Unknown error";
       console.error("[PrescribeQuestHandler] Failed:", message);
       await tracker.fail(message, "Failed to prescribe quest");
+    } finally {
+      if (userIdForLock) {
+        try {
+          const client = context.redisService.getClient();
+          const lockKey = `prescribe-quest-inflight:${userIdForLock}`;
+          const currentLockValue = await client.get(lockKey);
+          if (currentLockValue === jobId) {
+            await client.del(lockKey);
+          }
+        } catch (cleanupError) {
+          console.warn(
+            "[PrescribeQuestHandler] Failed to clear prescribe inflight lock:",
+            cleanupError instanceof Error ? cleanupError.message : cleanupError,
+          );
+        }
+      }
     }
   }
 }

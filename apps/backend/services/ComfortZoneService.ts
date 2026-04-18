@@ -189,8 +189,8 @@ export class ComfortZoneService {
           ST_Area(
             ST_ConvexHull(
               ST_Collect(
-                ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
-              )::geometry
+                ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+              )
             )::geography
           ) / 2589988.11
         END AS area_sq_miles,
