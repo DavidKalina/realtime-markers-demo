@@ -14,6 +14,7 @@ import type { CoverageService } from "../CoverageService";
 import type { ResonanceService } from "../ResonanceService";
 import type { PathwayService } from "../PathwayService";
 import type { RejectionReason } from "../../entities/SidequestRejection";
+import { buildOfflineSocialDomainBlock } from "../shared/QuestConfig";
 
 // ─── Calibration feedback (Slice B) ────────────────────────────────
 
@@ -272,6 +273,7 @@ export async function buildPrescriptionContext(
   userId: string,
   behavioralProfile: { summary: string; generatedAt: string; questCount: number } | null,
   goalTags: string[] = [],
+  comfortProfile: { goalKey?: string; goalTags?: string[]; primaryGoal?: string; goals?: string; barriers?: string } | null = null,
 ): Promise<string> {
   const { dataSource } = deps;
 
@@ -503,6 +505,8 @@ export async function buildPrescriptionContext(
   const milestoneBlock = isMilestone
     ? `\n🎯 MILESTONE CHECK: The user has completed ${completedQuestCount} quests. This quest SHOULD be a "milestone" — a reflection checkpoint. Pick a comfortable, familiar-category venue and frame the quest around reflecting on their journey so far. The journal prompt should ask them to look back on what's changed since they started. Set actionability to "milestone".\n`
     : "";
+  const domainBlock = buildOfflineSocialDomainBlock(comfortProfile, goalTags);
+  const goalProgressionBlock = buildGoalProgressionBlock(comfortProfile, goalTags, completedQuestCount, categories);
 
   // If we have a cached behavioral profile, use it
   if (behavioralProfile && behavioralProfile.questCount > 0) {
@@ -513,7 +517,8 @@ export async function buildPrescriptionContext(
       )
       .join("\n");
 
-    return `BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
+    return `${domainBlock}
+BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
 ${behavioralProfile.summary}
 ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 
@@ -523,6 +528,7 @@ ${pendingBlock}
 ${rejectedBlock}
 ${rejectionFeedbackBlock}
 ${distressBlock}
+${goalProgressionBlock}
 ${categoryDiversityBlock}
 ${categoryDampeningBlock}
 ${venueBlock}
@@ -534,7 +540,8 @@ ${await buildSocialContext(dataSource, userId, goalTags)}`;
 
   // Fallback for new users or pre-migration users: raw query approach
   if (recentQuests.length === 0) {
-    return `HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.${pendingBlock}`;
+    return `${domainBlock}
+HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.${pendingBlock}${goalProgressionBlock}`;
   }
 
   const recentList = recentQuests
@@ -544,13 +551,15 @@ ${await buildSocialContext(dataSource, userId, goalTags)}`;
     )
     .join("\n");
 
-  return `HISTORY (last ${recentQuests.length} quests):
+  return `${domainBlock}
+HISTORY (last ${recentQuests.length} quests):
 ${recentList}
 ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 ${pendingBlock}
 ${rejectedBlock}
 ${rejectionFeedbackBlock}
 ${distressBlock}
+${goalProgressionBlock}
 ${categoryDiversityBlock}
 ${categoryDampeningBlock}
 ${venueBlock}
@@ -562,8 +571,95 @@ PRESCRIPTION STRATEGY: Look at their history and prescribe something that meanin
 ${await buildSocialContext(dataSource, userId, goalTags)}`;
 }
 
+function buildGoalProgressionBlock(
+  comfortProfile: { goalKey?: string; goalTags?: string[]; primaryGoal?: string; goals?: string; barriers?: string } | null,
+  goalTags: string[],
+  completedQuestCount: number,
+  categories: { venue_category: string; count: number }[],
+): string {
+  const primaryGoal = comfortProfile?.primaryGoal ?? "";
+  const goalKey = comfortProfile?.goalKey ?? "";
+  const goalText = `${primaryGoal} ${comfortProfile?.goals ?? ""}`.toLowerCase();
+  const tags = new Set(goalTags);
+  const wantsDating = goalKey === "start_dating" || tags.has("dating") || /dating|date|romantic|ask.*out|flirt/i.test(goalText);
+  const wantsSocial = wantsDating || tags.has("socialize") || tags.has("friendship") || tags.has("community") || tags.has("third_place") || /friend|people|social|community|meetup/i.test(goalText);
+  const wantsFitness = tags.has("fitness") || /fitness|workout|gym|run|yoga|dance|active|exercise/i.test(goalText);
+  const wantsSkill = tags.has("new_skill") || tags.has("discover_hobby") || /skill|class|learn|hobby|workshop|dance/i.test(goalText);
+  const categoryNames = new Set(categories.map((c) => c.venue_category));
+  const hasGroupOrClass =
+    categoryNames.has("Gym / Fitness Studio") ||
+    categoryNames.has("Yoga / Pilates Studio") ||
+    categoryNames.has("Climbing Gym") ||
+    categoryNames.has("Sports Club") ||
+    categoryNames.has("Workshop / Class Venue") ||
+    categoryNames.has("Community Center") ||
+    categoryNames.has("College / Adult Education") ||
+    categoryNames.has("Board Game Venue") ||
+    categoryNames.has("Theatre / Performing Arts");
+
+  if (!primaryGoal && !wantsDating && !wantsSocial && !wantsFitness && !wantsSkill) return "";
+
+  const lines: string[] = [
+    `\nGOAL PROGRESSION PLAYBOOK${primaryGoal ? ` — "${primaryGoal}"` : ""}:`,
+    "- Generic cafes, parks, and browsing are useful base reps, recovery reps, or enjoy quests. They should not dominate once the user has trust in the app.",
+    "- At least 2 of the next 3 non-recovery quests should DIRECTLY advance the user's offline-social growth, not merely build vague confidence around it.",
+    "- Prefer real containers where the target behavior naturally happens: classes, clubs, meetups, workshops, recurring events, leagues, volunteering, or structured third places.",
+    "- Treat activities like fitness, dance, art, and hobbies as containers for exposure, community, public comfort, and identity evidence — not as specialist tracking domains.",
+  ];
+
+  if (wantsDating) {
+    lines.push(
+      "- DATING LADDER: build both (1) an invite-able life and (2) romantic/social initiative. Do not stop forever at invite-able-life prep.",
+      "- High-leverage dating-adjacent containers to mix in: beginner dance classes, partner dance socials, group fitness/yoga, climbing gyms, run clubs, board-game nights, trivia, singles meetups, speed-dating, volunteering, art/food workshops, live music with low-pressure mingling.",
+    );
+    if (completedQuestCount < 5) {
+      lines.push("- Dating stage now: base reps. Use date-friendly places, but keep the task low-pressure and optional.");
+    } else if (completedQuestCount < 12) {
+      lines.push("- Dating stage now: start mixing structured social containers every 2-3 quests. The user needs places where meeting people is plausible, not just solo browsing.");
+    } else {
+      lines.push("- Dating stage now: if recent ratings are stable, prescribe MICRO_INTERACTION or SOCIAL_EXTENSION reps: ask for a recommendation, make a brief comment, send a dating-app message, suggest coffee, or make an optional low-stakes invitation.");
+    }
+  } else if (wantsSocial) {
+    lines.push(
+      "- SOCIAL LADDER: after base reps, move toward recurring rooms with repeated faces: meetups, clubs, beginner classes, volunteering, trivia, board games, run clubs, and community events.",
+      "- A social goal should regularly include environments where interaction is normal. Do not rely only on solo public-presence reps.",
+    );
+  }
+
+  if (wantsFitness) {
+    lines.push(
+      "- MOVEMENT CONTAINER: if the user mentions fitness, interpret it as offline movement around people. Start with walks/trails if needed, but graduate into gyms, yoga/pilates, beginner dance, climbing, rec-center classes, run clubs, adult sports, or outdoor group fitness.",
+      "- Do not prescribe exercise programming, rep counters, nutrition, or progressive overload. The product job is showing up, being around people, and becoming someone who belongs in active rooms.",
+      "- For anxious users, choose beginner/drop-in/observer-friendly options and provide a tiny rep such as walking in, asking about the schedule, or watching one class.",
+    );
+  }
+
+  if (wantsSkill) {
+    lines.push(
+      "- HOBBY/IDENTITY CONTAINER: prioritize hands-on classes, open studios, workshops, maker spaces, community college/adult education, library programs, and beginner-friendly drop-ins.",
+      "- A browse-only quest can scout the territory, but the next step should be trying, registering, observing a class, or asking about a beginner session.",
+      "- Do not become a curriculum app. Use hobbies as ways to create identity evidence, repeated rooms, and a more invite-able life.",
+    );
+  }
+
+  if (completedQuestCount >= 6 && (wantsDating || wantsSocial || wantsFitness || wantsSkill) && !hasGroupOrClass) {
+    lines.push(
+      "- GAP TO FIX NOW: the journey has not yet included a class, group, club, meetup, workshop, or structured social container. Strongly prefer one now unless there is an active blocker or fresh rejection that requires recovery.",
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 export async function buildSocialContext(dataSource: DataSource, userId: string, goalTags: string[] = []): Promise<string> {
-  const wantsSocial = goalTags.includes("socialize");
+  const wantsSocial =
+    goalTags.includes("socialize") ||
+    goalTags.includes("dating") ||
+    goalTags.includes("friendship") ||
+    goalTags.includes("community") ||
+    goalTags.includes("third_place");
+  const wantsCommunity = goalTags.includes("friendship") || goalTags.includes("community") || goalTags.includes("third_place");
+  const wantsDating = goalTags.includes("dating");
   const wantsSkill = goalTags.includes("new_skill");
   const wantsFitness = goalTags.includes("fitness");
 
@@ -584,11 +680,12 @@ export async function buildSocialContext(dataSource: DataSource, userId: string,
 
   // No social data yet — only give goal-based guidance
   if (socialCounts.length === 0) {
-    if (!wantsSocial && !wantsSkill && !wantsFitness) return "";
+    if (!wantsSocial && !wantsCommunity && !wantsDating && !wantsSkill && !wantsFitness) return "";
     const lines: string[] = [];
-    if (wantsSocial) lines.push("SOCIAL GOAL: This user wants to meet people. As they build consistency, start weaving in venues with natural social opportunities (busy cafes, farmer's markets, community events). Don't push group activities until they have a few completions under their belt.");
-    if (wantsSkill) lines.push("SKILL GOAL: This user wants to pick up a new skill. When they're ready, consider workshops, classes, or maker spaces — but start with low-commitment options (drop-in, free, no signup).");
-    if (wantsFitness) lines.push("FITNESS GOAL: This user wants to get active. Trails and parks are a natural start. As they build the habit, consider group fitness (run clubs, outdoor yoga, climbing gyms).");
+    if (wantsDating) lines.push("DATING GOAL: This user wants dating progress. Start with date-friendly third places, then mix in structured social containers like beginner dance, group fitness, board-game nights, trivia, singles meetups, and low-pressure events.");
+    else if (wantsSocial || wantsCommunity) lines.push("SOCIAL/COMMUNITY GOAL: This user wants to meet people or find belonging. As they build consistency, start weaving in venues with natural social opportunities (busy cafes, farmer's markets, community events). Don't push group activities until they have a few completions under their belt.");
+    if (wantsSkill) lines.push("HOBBY/IDENTITY CONTAINER: This user wants to pick up a skill or hobby. Use workshops, classes, maker spaces, and beginner drop-ins as offline identity and community reps — not as a full curriculum.");
+    if (wantsFitness) lines.push("MOVEMENT CONTAINER: This user wants to get active. Use trails, parks, group fitness, run clubs, outdoor yoga, and climbing gyms as public-comfort and community reps — not as fitness tracking.");
     return lines.join("\n");
   }
 
@@ -605,12 +702,12 @@ export async function buildSocialContext(dataSource: DataSource, userId: string,
 
   const lines: string[] = [`SOCIAL PATTERN (${total} check-ins with social data): ${breakdown}`];
 
-  if (total >= 3 && socialCount === 0 && wantsSocial) {
-    lines.push("This user wants to meet people but goes solo every time. Prescribe venues with natural social opportunities (busy cafes, farmer's markets, group fitness classes, community events). Don't force it — just create the conditions.");
-  } else if (total >= 5 && groupCount === 0 && soloCount > socialCount && (wantsSocial || wantsSkill || wantsFitness)) {
-    lines.push("This user mostly goes solo with occasional company. They haven't tried a group activity yet. If they seem ready (consistent habit, comfortable with the area), a low-pressure group option could be a meaningful stretch — a free outdoor yoga class, a run club, trivia night as a spectator.");
+  if (total >= 3 && socialCount === 0 && (wantsSocial || wantsCommunity || wantsDating)) {
+    lines.push("This user wants connection but goes solo every time. Prescribe venues with natural social opportunities (busy cafes, farmer's markets, group fitness classes, board-game nights, trivia, beginner dance, singles/friends meetups, community events). Don't force it — create the conditions.");
+  } else if (total >= 5 && groupCount === 0 && soloCount > socialCount && (wantsSocial || wantsCommunity || wantsDating || wantsSkill || wantsFitness)) {
+    lines.push("This user mostly goes solo with occasional company. They haven't tried a group activity yet. If they seem ready, a low-pressure group container should be considered now — beginner dance, outdoor yoga, a run club, board games, trivia, a workshop, or a meetup as a spectator.");
   } else if (groupCount >= 2 || metNewCount >= 2) {
-    lines.push("This user is socially active — they've done group activities or met new people. They're comfortable in social settings. Consider prescribing experiences that deepen community connection: recurring events, classes, or spots where they'd become a regular.");
+    lines.push("This user is socially active — they've done group activities or met new people. Consider experiences that deepen community connection: recurring events, classes, clubs, follow-up reps, or spots where they'd become a regular.");
   }
 
   return lines.join("\n");
@@ -631,7 +728,12 @@ export async function buildSocialMicroRepContext(
   blockerMeta: { type: string; severity: string; phase: string } | null,
 ): Promise<string> {
   // Gate: only inject for users where social growth is relevant
-  const wantsSocial = goalTags.includes("socialize");
+  const wantsSocial =
+    goalTags.includes("socialize") ||
+    goalTags.includes("dating") ||
+    goalTags.includes("friendship") ||
+    goalTags.includes("community") ||
+    goalTags.includes("third_place");
   const socialDimScore = findSocialDimensionScore(fearLadder);
   const hasSocialAnxiety = socialDimScore !== null && socialDimScore > 0.4;
   const hasSocialBlocker = blockerMeta !== null && isSocialBlocker(blockerMeta.type);
@@ -1611,6 +1713,16 @@ export function buildIndividualRoleInstructions(
       `Target difficulty should be significantly above their usual range.`,
       `Search further out — aim for 1.5-2x their comfort radius.`,
       `The quest should feel ambitious but NOT impossible — exciting, not terrifying.`,
+    ].join("\n");
+  }
+
+  if (role === "milestone") {
+    return [
+      `\nQUEST ROLE: GOAL-CLOSURE MILESTONE`,
+      `This quest must directly advance the active goal milestone described in GOAL MILESTONE MAP.`,
+      `Do not prescribe another vague confidence-prep outing. The full rep must cross the named threshold, while smaller/tiny reps can provide safer fallbacks.`,
+      `For dating milestones, a direct action can be a dating-app invite to a specific venue, suggesting coffee/drinks to someone already in conversation, asking for contact info after a good interaction, or making a natural low-pressure invitation.`,
+      `Keep the tone gentle and opt-in, but make the full rep real.`,
     ].join("\n");
   }
 

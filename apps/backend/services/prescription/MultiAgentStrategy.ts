@@ -8,130 +8,53 @@
  *   4. Writer (5.4 full) — crafts the quest content
  */
 
-import {
-  VENUE_CATEGORIES,
-} from "./PrescriptionStrategy";
 import type {
   PrescriptionStrategyInput,
   PrescriptionStrategyResult,
-  LLMResponseRaw,
   StrategyBrief,
   ScoutCandidate,
   ScoutResult,
 } from "./PrescriptionStrategy";
+import {
+  classifyScope,
+  opportunityScopeLabel,
+  resolveDistancePolicy,
+  type DistancePolicyDecision,
+} from "./DistancePolicy";
+import { validateCandidates } from "./CandidateValidator";
+import {
+  applyStrategyBriefPatch,
+  resolveRecalibrationPolicy,
+} from "./RecalibrationPolicy";
+import { rankScoutCandidates } from "./ScoutCandidateGrounding";
+import { applyGoalMilestonePolicy } from "./GoalMilestonePolicy";
+import { VenueScoutAgent } from "./VenueScoutAgent";
+import { QuestWriterAgent } from "./QuestWriterAgent";
 import { CapacityTrack } from "../../entities/Sidequest";
-import type { OpenAIResponsesAgent, AgentToolResult } from "../shared/OpenAIResponsesAgent";
+import type { OpenAIResponsesAgent } from "../shared/OpenAIResponsesAgent";
 import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
 import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
-import type { GooglePlacesService, VerifiedVenue } from "../shared/GooglePlacesService";
-import type { OverpassService, Trail } from "../shared/OverpassService";
+import type { GooglePlacesService } from "../shared/GooglePlacesService";
+import type { OverpassService } from "../shared/OverpassService";
 import type { PrescriptionPromptRegistry } from "../prompts/PrescriptionPromptRegistry";
+import { OFFLINE_SOCIAL_DOMAIN_DOCTRINE } from "../shared/QuestConfig";
 
-// ── Small geo helper (Slice E validator) ────────────────────
+const REGIONAL_INFRASTRUCTURE_PATTERN =
+  /dating|people-rich|structured|class|club|meetup|workshop|fitness|dance|game night|social container/i;
 
-function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 3958.8; // Earth radius in miles
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-// ── Category normalization ──────────────────────────────────
-
-/** Keyword-first, token-overlap fallback for when the Scout returns a non-canonical category string. */
-function normalizeVenueCategory(raw: string): string {
-  const lower = raw.toLowerCase();
-
-  // Fast-path keyword matches for common patterns (order matters — first match wins)
-  const keywordMap: [string[], string][] = [
-    [["board game", "game cafe", "game store", "game venue", "tabletop", "game night", "game meetup", "social club"], "Board Game Venue"],
-    [["coffee"], "Coffee Shop"],
-    [["brunch"], "Brunch Spot"],
-    [["theatre", "theater", "performing arts", "comedy", "improv", "stand-up", "standup", "matinee"], "Theatre / Performing Arts"],
-    [["library"], "Library"],
-    [["brewery", "taproom"], "Brewery / Taproom"],
-    [["bookstore", "book shop"], "Bookstore"],
-    [["art gallery", "gallery"], "Art Gallery"],
-    [["art studio", "art class", "arts workshop", "ceramics", "pottery", "craft"], "Art Studio / Workshop"],
-    [["music venue", "concert", "live music"], "Music Venue / Concert Hall"],
-    [["museum"], "Museum"],
-    [["yoga", "pilates"], "Yoga / Pilates Studio"],
-    [["gym", "fitness studio", "crossfit"], "Gym / Fitness Studio"],
-    [["climbing"], "Climbing Gym"],
-    [["trail", "park", "greenway", "trailhead", "nature area"], "Trail / Park"],
-    [["recreation center", "rec center", "recreation department"], "Recreation Center"],
-    [["community center", "community arts", "community event"], "Community Center"],
-    [["maker space", "makerspace", "tinkermill"], "Maker Space"],
-    [["coworking", "co-working"], "Coworking Space"],
-    [["college", "adult education", "continuing education", "community college"], "College / Adult Education"],
-    [["workshop", "class venue"], "Workshop / Class Venue"],
-    [["restaurant", "dining", "eatery"], "Restaurant"],
-    [["bar", "pub", "lounge"], "Bar"],
-    [["farmers market", "market"], "Food Market / Farmers Market"],
-    [["arcade", "entertainment", "go-kart", "bowling", "mini golf"], "Arcade / Entertainment"],
-    [["karaoke"], "Karaoke Venue"],
-    [["surf", "skate"], "Surf / Skate Shop"],
-    [["disc golf", "frisbee"], "Disc Golf / Outdoor Activity"],
-    [["sports club", "paddle", "run club", "running"], "Sports Club"],
-    [["bakery", "dessert", "pastry"], "Bakery / Dessert Shop"],
-    [["yarn", "fiber", "knitting", "specialty shop"], "Specialty Shop"],
-  ];
-
-  for (const [keywords, canonical] of keywordMap) {
-    if (keywords.some(k => lower.includes(k))) return canonical;
-  }
-
-  return "Other";
-}
-
-const DENSE_PUBLIC_CATEGORIES = [
-  "Bar",
-  "Brewery / Taproom",
-  "Music Venue / Concert Hall",
-  "Theatre / Performing Arts",
-  "Karaoke Venue",
-  "Board Game Venue",
-  "Food Market / Farmers Market",
-  "Arcade / Entertainment",
-  "Bowling Alley",
-] as const;
-
-const FIXED_TIMING_CATEGORIES = [
-  "Theatre / Performing Arts",
-  "Music Venue / Concert Hall",
-  "Workshop / Class Venue",
-  "College / Adult Education",
-  "Sports Club",
-  "Community Center",
-  "Board Game Venue",
-] as const;
-
-function addAvoidCategories(
+function isRegionalInfrastructureEligible(
+  ctx: PrescriptionStrategyInput["promptContext"],
   brief: StrategyBrief,
-  categories: readonly string[],
-): void {
-  for (const cat of categories) {
-    if (
-      !brief.avoidCategories.some(
-        (existing) => existing.toLowerCase() === cat.toLowerCase(),
-      )
-    ) {
-      brief.avoidCategories.push(cat);
-    }
-  }
-}
-
-function categoryMatches(
-  category: string | undefined,
-  blocked: readonly string[],
 ): boolean {
-  if (!category) return false;
-  return blocked.some((cat) => cat.toLowerCase() === category.toLowerCase());
+  const text = [
+    ctx.goalMilestoneContext,
+    ctx.offlineSocialFrameworkContext,
+    brief.rationale,
+    brief.experienceType,
+    brief.suggestedCategories.join(" "),
+  ].join(" ");
+  return REGIONAL_INFRASTRUCTURE_PATTERN.test(text);
 }
 
 // ── Dependencies ────────────────────────────────────────────
@@ -163,121 +86,90 @@ const DEFAULT_MODELS: AgentModelConfig = {
 
 export class MultiAgentStrategy {
   private openAIService: OpenAIService;
-  private agent: OpenAIResponsesAgent;
-  private geocodingService: GoogleGeocodingService;
-  private placesService: GooglePlacesService;
-  private overpassService: OverpassService;
-  private promptRegistry: PrescriptionPromptRegistry;
   private models: AgentModelConfig;
+  private scoutAgent: VenueScoutAgent;
+  private writerAgent: QuestWriterAgent;
 
-  constructor(deps: MultiAgentStrategyDeps, models?: Partial<AgentModelConfig>) {
+  constructor(
+    deps: MultiAgentStrategyDeps,
+    models?: Partial<AgentModelConfig>,
+  ) {
+    const mergedModels = { ...DEFAULT_MODELS, ...models };
     this.openAIService = deps.openAIService;
-    this.agent = deps.agent;
-    this.geocodingService = deps.geocodingService;
-    this.placesService = deps.placesService;
-    this.overpassService = deps.overpassService;
-    this.promptRegistry = deps.promptRegistry;
-    this.models = { ...DEFAULT_MODELS, ...models };
+    this.models = mergedModels;
+    this.scoutAgent = new VenueScoutAgent({
+      agent: deps.agent,
+      placesService: deps.placesService,
+      overpassService: deps.overpassService,
+      model: mergedModels.scout,
+    });
+    this.writerAgent = new QuestWriterAgent({
+      openAIService: deps.openAIService,
+      model: mergedModels.writer,
+    });
   }
 
-  async execute(input: PrescriptionStrategyInput): Promise<PrescriptionStrategyResult> {
+  async execute(
+    input: PrescriptionStrategyInput,
+  ): Promise<PrescriptionStrategyResult> {
     const { promptContext, onProgress } = input;
 
     // ── 1. Strategist ──────────────────────────────────────
     if (onProgress) await onProgress(10, "Planning your quest strategy...");
     const brief: StrategyBrief = await this.runStrategist(input);
-    console.log(`[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
+    console.log(
+      `[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`,
+    );
 
-    // Slice E — enforce early-calibration guardrails as code. The prompt
-    // asks the LLM to obey these, but we hard-clamp the brief so a single
-    // rogue token can't push a new user to a crowded meetup on quest 2.
-    if (promptContext.isEarlyCalibration) {
-      const before = {
-        maxDistance: brief.maxDistanceMiles,
-        social: brief.socialChallengeLevel,
-        diffMax: brief.difficultyRange[1],
-      };
-      if (brief.maxDistanceMiles > input.radius) {
-        brief.maxDistanceMiles = input.radius;
-      }
-      if (brief.socialChallengeLevel === "medium" || brief.socialChallengeLevel === "high") {
-        brief.socialChallengeLevel = "low";
-      }
-      if (brief.difficultyRange[1] > 5) {
-        brief.difficultyRange = [Math.min(brief.difficultyRange[0], 5), 5];
-      }
-      const changed =
-        before.maxDistance !== brief.maxDistanceMiles ||
-        before.social !== brief.socialChallengeLevel ||
-        before.diffMax !== brief.difficultyRange[1];
-      if (changed) {
-        console.log(`[multi-agent] Early-calibration clamp: distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}`);
-      }
+    // ── DistancePolicy ──────────────────────────────────────
+    // One source of truth for maxDistance + scope + travel framing. The
+    // per-block clamps below only touch non-distance dimensions.
+    const policy: DistancePolicyDecision = resolveDistancePolicy({
+      radius: input.radius,
+      isEarlyCalibration: promptContext.isEarlyCalibration ?? false,
+      completedQuestCount: promptContext.completedQuestCount ?? 0,
+      lastRejectionReason: promptContext.lastRejection?.reason ?? null,
+      rejectionPatternReason: promptContext.rejectionPattern?.reason ?? null,
+      goalClosureDue:
+        promptContext.activeGoalMilestone?.goalClosureDue ?? false,
+      regionalInfrastructureEligible: isRegionalInfrastructureEligible(
+        promptContext,
+        brief,
+      ),
+      strategyMaxDistance: brief.maxDistanceMiles,
+    });
+    const strategistMaxDistance = brief.maxDistanceMiles;
+    brief.maxDistanceMiles = policy.maxDistanceMiles;
+    brief.opportunityScope = policy.scope;
+    if (policy.shouldFrameTravel) {
+      brief.travelRationale = policy.travelRationale ?? brief.travelRationale;
+    } else {
+      brief.travelRationale = undefined;
+    }
+    if (
+      strategistMaxDistance !== brief.maxDistanceMiles ||
+      policy.scope !== "local_home_base"
+    ) {
+      console.log(
+        `[multi-agent] DistancePolicy: distance ${strategistMaxDistance}→${brief.maxDistanceMiles}, scope=${policy.scope}, clampedByRejection=${policy.wasClampedByRejection}`,
+      );
     }
 
-    // Slice F — recurring-rejection pattern clamps. Hard guarantee the
-    // dimension gets dampened even if the strategist fails to obey the
-    // prompt guidance above.
-    const pattern = promptContext.rejectionPattern;
-    if (pattern) {
-      const before = {
-        maxDistance: brief.maxDistanceMiles,
-        social: brief.socialChallengeLevel,
-        diffMax: brief.difficultyRange[1],
-        avoidCats: brief.avoidCategories.length,
-      };
-      switch (pattern.reason) {
-        case "TOO_SOCIAL":
-          brief.socialChallengeLevel = "none";
-          break;
-        case "TOO_FAR":
-          brief.maxDistanceMiles = Math.min(brief.maxDistanceMiles, input.radius * 0.5);
-          break;
-        case "TOO_MUCH_EFFORT":
-        case "NEED_GENTLER":
-          brief.difficultyRange = [1, Math.min(3, brief.difficultyRange[1])];
-          if (pattern.reason === "NEED_GENTLER") {
-            brief.socialChallengeLevel = "none";
-          }
-          break;
-        case "NOT_MY_VIBE":
-          // Add the recurring-rejection categories to the avoid list so the
-          // Scout skips them and the Validator hard-blocks any drift.
-          addAvoidCategories(brief, pattern.categories);
-          break;
-        case "TOO_PUBLIC":
-          brief.socialChallengeLevel = "none";
-          brief.difficultyRange = [1, Math.min(4, brief.difficultyRange[1])];
-          addAvoidCategories(brief, DENSE_PUBLIC_CATEGORIES);
-          if (
-            !brief.suggestedTiming ||
-            /evening|night|peak|busy/i.test(brief.suggestedTiming)
-          ) {
-            brief.suggestedTiming = "off-peak weekday late morning or early afternoon";
-          }
-          break;
-        case "BAD_TIMING": {
-          const maxDifficulty = Math.min(4, brief.difficultyRange[1]);
-          brief.difficultyRange = [
-            Math.min(brief.difficultyRange[0], maxDifficulty),
-            maxDifficulty,
-          ];
-          addAvoidCategories(brief, FIXED_TIMING_CATEGORIES);
-          brief.suggestedTiming = brief.suggestedTiming
-            ? `${brief.suggestedTiming}; avoid fixed-time events and pick a flexible walk-in window`
-            : "flexible walk-in window; avoid fixed-time events";
-          break;
-        }
-      }
-      const changed =
-        before.maxDistance !== brief.maxDistanceMiles ||
-        before.social !== brief.socialChallengeLevel ||
-        before.diffMax !== brief.difficultyRange[1] ||
-        before.avoidCats !== brief.avoidCategories.length;
-      if (changed) {
-        console.log(`[multi-agent] Rejection-pattern clamp (${pattern.reason} × ${pattern.count}): distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}, avoidCats ${before.avoidCats}→${brief.avoidCategories.length}`);
-      }
+    const recalibration = resolveRecalibrationPolicy({
+      brief,
+      ctx: promptContext,
+      homeCity: promptContext.homeCity ?? input.city,
+    });
+    applyStrategyBriefPatch(brief, recalibration.patch);
+    for (const line of recalibration.logLines) {
+      console.log(line);
     }
+
+    const milestonePolicy = applyGoalMilestonePolicy({
+      brief,
+      ctx: promptContext,
+    });
+    if (milestonePolicy.logLine) console.log(milestonePolicy.logLine);
 
     // ── 2. Scout + Validator loop ──────────────────────────
     let scoutResult: ScoutResult | null = null;
@@ -286,39 +178,100 @@ export class MultiAgentStrategy {
     const maxRetries = 2;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (onProgress) await onProgress(25 + attempt * 10, "Searching for the perfect spot...");
+      if (onProgress)
+        await onProgress(
+          25 + attempt * 10,
+          "Searching for the perfect spot...",
+        );
 
-      scoutResult = await this.runScout(input, brief, extraConstraints);
-      console.log(`[multi-agent] Scout: found ${scoutResult.candidates.length} candidates`);
+      scoutResult = await this.scoutAgent.run(input, brief, extraConstraints);
+      console.log(
+        `[multi-agent] Scout: found ${scoutResult.candidates.length} candidates`,
+      );
 
-      // Validate
-      const validation = this.validateCandidates(scoutResult.candidates, promptContext);
+      const validation = validateCandidates({
+        candidates: scoutResult.candidates,
+        ctx: promptContext,
+        brief,
+      });
 
       if (validation.accepted && validation.winner) {
         winner = validation.winner;
-        console.log(`[multi-agent] Validator: accepted "${winner.venueName}" (${winner.venueCategory})`);
+        console.log(
+          `[multi-agent] Validator: accepted "${winner.venueName}" (${winner.venueCategory})`,
+        );
         break;
       }
 
-      console.log(`[multi-agent] Validator: rejected (${validation.rejectionReasons.join(", ")})`);
-      extraConstraints = validation.constraintsForRetry ?? "";
+      console.log(
+        `[multi-agent] Validator: rejected (${validation.humanReasons.join(", ")})`,
+      );
+      extraConstraints = validation.retryConstraints ?? "";
+      if (validation.rejectionCodes.includes("too_far")) {
+        for (const c of scoutResult.candidates) {
+          if (
+            (c.distanceFromHome ?? Infinity) >
+            brief.maxDistanceMiles + 0.25
+          ) {
+            brief.avoidVenues.push(c.venueName);
+          }
+        }
+      }
 
       // On last attempt, just pick the best available
       if (attempt === maxRetries && scoutResult.candidates.length > 0) {
-        winner = scoutResult.candidates[0];
-        console.log(`[multi-agent] Validator: forced acceptance of "${winner.venueName}" after retries`);
+        const fallbackCandidates = rankScoutCandidates(
+          scoutResult.candidates.filter(
+            (candidate) =>
+              (candidate.distanceFromHome ?? Infinity) <=
+              brief.maxDistanceMiles + 0.25,
+          ),
+          brief,
+        );
+        if (fallbackCandidates[0]) {
+          winner = fallbackCandidates[0];
+          console.log(
+            `[multi-agent] Validator: forced acceptance of "${winner.venueName}" after retries`,
+          );
+        }
       }
     }
 
     if (!winner || !scoutResult) {
-      throw new Error("Multi-agent strategy failed to find a venue after all retries");
+      throw new Error(
+        "Multi-agent strategy failed to find a venue after all retries",
+      );
+    }
+
+    const winnerDistance = winner.distanceFromHome ?? 0;
+    brief.opportunityScope = classifyScope(
+      winnerDistance,
+      promptContext.radius,
+      policy.wasClampedByRejection,
+    );
+    if (brief.opportunityScope === "clamped_home") {
+      brief.travelRationale = undefined;
+    }
+    if (
+      brief.opportunityScope !== "local_home_base" &&
+      brief.opportunityScope !== "clamped_home" &&
+      !brief.travelRationale
+    ) {
+      brief.travelRationale = `${opportunityScopeLabel(brief.opportunityScope)}: local options may be too thin for this goal, so the travel is part of the growth rep.`;
+    }
+    if (brief.opportunityScope !== "local_home_base") {
+      console.log(
+        `[multi-agent] Opportunity scope: ${brief.opportunityScope} (${winnerDistance.toFixed(1)}mi) — ${brief.travelRationale ?? "pulled back to home base"}`,
+      );
     }
 
     // ── 3. Writer ──────────────────────────────────────────
     if (onProgress) await onProgress(65, "Crafting your quest...");
 
-    const raw = await this.runWriter(input, brief, winner);
-    console.log(`[multi-agent] Writer: "${raw.t}" — difficulty ${raw.items[0]?.df}`);
+    const raw = await this.writerAgent.run(input, brief, winner);
+    console.log(
+      `[multi-agent] Writer: "${raw.t}" — difficulty ${raw.items[0]?.df}`,
+    );
 
     if (onProgress) await onProgress(80, "Building your quest...");
 
@@ -332,7 +285,9 @@ export class MultiAgentStrategy {
 
   // ── Strategist Agent ────────────────────────────────────────
 
-  private async runStrategist(input: PrescriptionStrategyInput): Promise<StrategyBrief> {
+  private async runStrategist(
+    input: PrescriptionStrategyInput,
+  ): Promise<StrategyBrief> {
     const ctx = input.promptContext;
 
     const patternGuidance: Record<string, string> = {
@@ -348,7 +303,8 @@ export class MultiAgentStrategy {
       ? `RECURRING REJECTION PATTERN — READ FIRST:
 ${patternGuidance[ctx.rejectionPattern.reason] ?? `The user has rejected ${ctx.rejectionPattern.reason} ${ctx.rejectionPattern.count} times. Treat this dimension as systematically miscalibrated and dampen it.`}
 
-` : "";
+`
+      : "";
 
     const earlyCalibrationBlock = ctx.isEarlyCalibration
       ? `EARLY CALIBRATION MODE — READ FIRST:
@@ -361,7 +317,8 @@ HARD RULES (these are enforced by code — violating them means your brief gets 
 - Pick ONE gentle stretch dimension at most — if you're nudging category novelty, stay close; if you're nudging distance, stay in a familiar category. Never both.
 - Favor capacity tracks that don't require interaction: ACTIVATION or PUBLIC_PRESENCE are strongly preferred. Reserve SOCIAL_EXTENSION, MICRO_INTERACTION, and SOCIAL_REACH for after quest 5.
 
-` : "";
+`
+      : "";
 
     const recalibrationBlock = ctx.lastRejection
       ? `RECALIBRATION — READ FIRST:
@@ -371,11 +328,18 @@ Your new prescription MUST:
   (b) pick a DIFFERENT venue${ctx.lastRejection.venueName ? ` than "${ctx.lastRejection.venueName}"` : ""}.
   (c) explicitly acknowledge the adjustment in the "rationale" field, e.g. "Good signal — that was too social. Trying a solo-friendly version." Keep it warm and specific, not clinical.
 
-` : "";
+`
+      : "";
 
     // Kept static so OpenAI's automatic prefix cache can hit — any
     // per-user content lives in the user message below.
     const systemPrompt = `You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
+
+PRODUCT BOUNDARY:
+${OFFLINE_SOCIAL_DOMAIN_DOCTRINE.map((line) => `- ${line}`).join("\n")}
+- If a user asks for fitness, use movement classes, run clubs, climbing gyms, dance, and outdoor activity as social/public-comfort containers. Do not prescribe workout programming, nutrition, rep counting, or progressive overload.
+- If a user asks for hobbies or skills, use beginner classes, workshops, clubs, and recurring rooms as identity/community containers. Do not become a curriculum planner.
+- If a user asks for money, career, or productivity, only serve the offline/social-confidence part if one exists. Do not pretend this product has bank, job-search, or productivity integrations.
 
 CAPACITY REP — DECIDE THIS FIRST:
 Every prescription trains ONE capacity muscle. Pick the muscle BEFORE you pick a venue type — the venue is the environment; the rep is the prescription.
@@ -403,6 +367,8 @@ SOCIAL STRATEGY PRINCIPLES:
 - Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
 - If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
 - Small towns require expanding the search radius. Push to nearby cities with more social infrastructure when the goal demands it.
+- When you push beyond the home base, name it as an intentional opportunity zone. Travel can be part of the rep, but it must not be accidental.
+- For goal-closure milestones, do not keep preparing forever. If the milestone context says closure is due, choose a strategy that directly touches the named goal.
 
 GEOGRAPHIC & PRACTICAL INTELLIGENCE:
 You must think about WHERE this person should go, not just WHAT they should do. Consider:
@@ -449,7 +415,9 @@ Respond with JSON:
   "avoidVenues": ["<venue names to avoid from history>"],
   "avoidCategories": ["<categories that are overrepresented>"],
   "suggestedTiming": "<when to do this quest — be specific, e.g. 'weekday evening after 6pm', 'Saturday morning', 'Sunday afternoon'. Factor in user's schedule and venue hours>",
-  "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this capacity track + location>"
+  "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this capacity track + location>",
+  "opportunityScope": "local_home_base" | "nearby_social_zone" | "regional_opportunity",
+  "travelRationale": "<required if opportunityScope is not local_home_base — why the travel is worth it for this goal>"
 }`;
 
     // All per-user context lives here so the system prompt above can be
@@ -464,12 +432,31 @@ The blocker context above TAKES PRIORITY over normal progression. Do NOT prescri
 `
       : "";
 
-    const timelineBlock = ctx.timelineContext ? `${ctx.timelineContext}\n\n` : "";
+    const timelineBlock = ctx.timelineContext
+      ? `${ctx.timelineContext}\n\n`
+      : "";
     const socialSituationBlock = ctx.socialSituationContext
       ? `${ctx.socialSituationContext}\n\n`
       : "";
     const siblingBlock = ctx.siblingInstructions
       ? `${ctx.siblingInstructions}\n\n`
+      : "";
+
+    const coverageBlock = ctx.coverageContext
+      ? `${ctx.coverageContext}\n\n`
+      : "";
+    const expansionBlock = ctx.expansionTarget
+      ? `${ctx.expansionTarget}\n\n`
+      : "";
+    const phaseBlock = ctx.phaseContext ? `${ctx.phaseContext}\n\n` : "";
+    const socialMicroBlock = ctx.socialMicroRepContext
+      ? `${ctx.socialMicroRepContext}\n\n`
+      : "";
+    const frameworkBlock = ctx.offlineSocialFrameworkContext
+      ? `${ctx.offlineSocialFrameworkContext}\n\n`
+      : "";
+    const milestoneBlock = ctx.goalMilestoneContext
+      ? `${ctx.goalMilestoneContext}\n\n`
       : "";
 
     const userMessage = `${rejectionPatternBlock}${earlyCalibrationBlock}${recalibrationBlock}USER PROFILE:
@@ -484,21 +471,24 @@ ${socialSituationBlock}${ctx.fearLadderContext}
 ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
-${ctx.historyContext}
-${timelineBlock}${blockerOverride}CURRENT TIME: ${ctx.hour}:00 on ${ctx.dayOfWeek}.
+${frameworkBlock}${milestoneBlock}${ctx.historyContext}
+${coverageBlock}${expansionBlock}${phaseBlock}${timelineBlock}${socialMicroBlock}${blockerOverride}CURRENT TIME: ${ctx.hour}:00 on ${ctx.dayOfWeek}.
 
 ${siblingBlock}What experience should this user have next? Think about what would genuinely move them toward their goal.`;
 
-    const response = await this.openAIService.executeChatCompletion({
-      model: this.models.strategist as OpenAIModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-      max_completion_tokens: 800,
-    }, "strategist_agent");
+    const response = await this.openAIService.executeChatCompletion(
+      {
+        model: this.models.strategist as OpenAIModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+        max_completion_tokens: 800,
+      },
+      "strategist_agent",
+    );
 
     const text = response.choices[0]?.message?.content?.trim() ?? "{}";
     const parsed = JSON.parse(text);
@@ -506,13 +496,19 @@ ${siblingBlock}What experience should this user have next? Think about what woul
     // Slice C — normalize capacity track. Fall back to NOVELTY_TOLERANCE if the
     // strategist drops the field or emits an unknown value. That's a weak
     // default but keeps downstream persistence type-safe.
-    const rawTrack = typeof parsed.capacityTrack === "string" ? parsed.capacityTrack.toUpperCase() : "";
-    const capacityTrack = (Object.values(CapacityTrack) as string[]).includes(rawTrack)
+    const rawTrack =
+      typeof parsed.capacityTrack === "string"
+        ? parsed.capacityTrack.toUpperCase()
+        : "";
+    const capacityTrack = (Object.values(CapacityTrack) as string[]).includes(
+      rawTrack,
+    )
       ? (rawTrack as CapacityTrack)
       : CapacityTrack.NOVELTY_TOLERANCE;
-    const repIntent: string = typeof parsed.repIntent === "string" && parsed.repIntent.trim()
-      ? parsed.repIntent.trim()
-      : "Show up and see what happens.";
+    const repIntent: string =
+      typeof parsed.repIntent === "string" && parsed.repIntent.trim()
+        ? parsed.repIntent.trim()
+        : "Show up and see what happens.";
 
     return {
       capacityTrack,
@@ -529,524 +525,17 @@ ${siblingBlock}What experience should this user have next? Think about what woul
       avoidCategories: parsed.avoidCategories ?? [],
       suggestedTiming: parsed.suggestedTiming ?? "",
       rationale: parsed.rationale ?? "",
+      opportunityScope: [
+        "local_home_base",
+        "nearby_social_zone",
+        "regional_opportunity",
+      ].includes(parsed.opportunityScope)
+        ? parsed.opportunityScope
+        : undefined,
+      travelRationale:
+        typeof parsed.travelRationale === "string"
+          ? parsed.travelRationale
+          : undefined,
     };
-  }
-
-  // ── Scout Agent ─────────────────────────────────────────────
-
-  private async runScout(
-    input: PrescriptionStrategyInput,
-    brief: StrategyBrief,
-    extraConstraints: string,
-  ): Promise<ScoutResult> {
-    const allVenues: VerifiedVenue[] = [];
-    const seenVenueIds = new Set<string>();
-    const allTrails: Trail[] = [];
-    const seenTrailIds = new Set<number>();
-
-    const instructions = `You are a Venue Scout. Find 3-5 real venues matching this strategy brief.
-
-STRATEGY:
-- Experience type: ${brief.experienceType}
-- Categories to search: ${brief.suggestedCategories.join(", ")}
-- Target city/area: ${brief.targetCity}
-- Max distance: ${brief.maxDistanceMiles.toFixed(1)} miles from user's home
-- Social challenge: ${brief.socialChallengeLevel}
-- Suggested timing: ${brief.suggestedTiming || "flexible"} — find venues that are OPEN and active at this time
-- Rationale: ${brief.rationale}
-
-USER HOME: ${input.city} (${input.searchLat.toFixed(4)}, ${input.searchLng.toFixed(4)})
-TARGET SEARCH AREA: ${brief.targetCity} — search in this city/area specifically, NOT the user's home town (unless they're the same).
-
-SEARCH QUERIES TO TRY: ${brief.searchQueries.join(", ")}
-
-${brief.preferredVenue ? `SUGGESTED RETURN VENUE: "${brief.preferredVenue}" — The Strategist thinks this could be a good return visit. Use search_places to verify it exists and get its exact address. Include it as a candidate alongside new options.` : ""}
-${brief.avoidVenues.length > 0 ? `AVOID THESE VENUES: ${brief.avoidVenues.join(", ")}` : ""}
-${brief.avoidCategories.length > 0 ? `AVOID THESE CATEGORIES (overrepresented): ${brief.avoidCategories.join(", ")}` : ""}
-${extraConstraints ? `\nADDITIONAL CONSTRAINTS (from previous failed attempt):\n${extraConstraints}` : ""}
-
-TOOLS:
-- web_search: find events, classes, meetups
-- search_places: verify venues with Google Places
-- search_trails: find trails from OpenStreetMap
-- submit_candidates: finalize your venue list (TERMINAL)
-
-Find REAL venues with verified addresses. Use search_places to confirm. Submit 3-5 candidates ranked by fit.`;
-
-    type Tool = import("openai/resources/responses/responses").Tool;
-    const tools: Tool[] = [
-      {
-        type: "web_search",
-        user_location: {
-          type: "approximate",
-          city: input.city,
-          country: "US",
-        },
-        search_context_size: "medium",
-      },
-      {
-        type: "function",
-        strict: false,
-        name: "search_places",
-        description: "Search Google Places for verified venues near a location.",
-        parameters: {
-          type: "object" as const,
-          properties: {
-            query: { type: "string", description: "Search query" },
-            latitude: { type: "number" },
-            longitude: { type: "number" },
-            radiusMiles: { type: "number", description: "Search radius in miles (default 5)" },
-          },
-          required: ["query", "latitude", "longitude"],
-        },
-      },
-      {
-        type: "function",
-        strict: false,
-        name: "search_trails",
-        description: "Find trails/paths from OpenStreetMap.",
-        parameters: {
-          type: "object" as const,
-          properties: {
-            latitude: { type: "number" },
-            longitude: { type: "number" },
-            radiusMeters: { type: "number" },
-            surfaceType: { type: "string", enum: ["paved", "unpaved", "any"] },
-          },
-          required: ["latitude", "longitude"],
-        },
-      },
-      {
-        type: "function",
-        strict: false,
-        name: "submit_candidates",
-        description: "Submit your ranked venue candidates. This is the terminal action.",
-        parameters: {
-          type: "object" as const,
-          properties: {
-            candidates: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  venueName: { type: "string" },
-                  venueAddress: { type: "string" },
-                  venueCategory: { type: "string", enum: VENUE_CATEGORIES as unknown as string[], description: "Pick the closest match from this list" },
-                  latitude: { type: "number" },
-                  longitude: { type: "number" },
-                  notes: { type: "string", description: "Why this venue fits the strategy" },
-                },
-                required: ["venueName", "venueAddress", "venueCategory", "latitude", "longitude"],
-              },
-              minItems: 1,
-              maxItems: 5,
-            },
-          },
-          required: ["candidates"],
-        },
-      },
-    ];
-
-    let candidates: ScoutCandidate[] = [];
-
-    const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<AgentToolResult>> = {
-      search_places: async (args) => {
-        const query = args.query as string;
-        const lat = args.latitude as number;
-        const lng = args.longitude as number;
-        const radiusMiles = (args.radiusMiles as number) ?? 5;
-        const radiusMeters = Math.round(radiusMiles * 1609.34);
-
-        try {
-          const near = `${lat},${lng}`;
-          const venues = await this.placesService.searchPlacesByCategory(query, near, undefined, 5);
-          const newVenues = venues.filter((v: VerifiedVenue) => !seenVenueIds.has(v.placeId));
-          for (const v of newVenues) {
-            seenVenueIds.add(v.placeId);
-            allVenues.push(v);
-          }
-
-          if (input.onProgress) {
-            await input.onProgress(35, `Found ${newVenues.length} spots for "${query}"`);
-          }
-
-          return {
-            output: JSON.stringify(
-              newVenues.map((v: VerifiedVenue) => ({
-                name: v.name,
-                address: v.address,
-                rating: v.rating,
-                latitude: v.coordinates[1],
-                longitude: v.coordinates[0],
-              })),
-            ),
-          };
-        } catch (err) {
-          return { output: `Search failed: ${err}` };
-        }
-      },
-
-      search_trails: async (args) => {
-        const lat = args.latitude as number;
-        const lng = args.longitude as number;
-        const radiusMeters = (args.radiusMeters as number) ?? 5000;
-        const surfaceType = (args.surfaceType as string) ?? "any";
-
-        try {
-          const foundTrails = surfaceType === "unpaved"
-            ? await this.overpassService.fetchHikingTrails(lat, lng, radiusMeters, 10)
-            : await this.overpassService.fetchPavedTrails(lat, lng, radiusMeters, 10);
-          const newTrails = foundTrails.filter((t: Trail) => !seenTrailIds.has(t.id));
-          for (const t of newTrails) {
-            seenTrailIds.add(t.id);
-            allTrails.push(t);
-          }
-
-          return {
-            output: JSON.stringify(
-              newTrails.slice(0, 5).map((t: Trail) => ({
-                name: t.name ?? "Unnamed trail",
-                surface: t.surface,
-                latitude: t.center?.[1],
-                longitude: t.center?.[0],
-              })),
-            ),
-          };
-        } catch (err) {
-          return { output: `Trail search failed: ${err}` };
-        }
-      },
-
-      submit_candidates: async (args) => {
-        const rawCandidates = args.candidates as ScoutCandidate[];
-        candidates = rawCandidates.map((c) => ({
-          ...c,
-          source: "search_places" as const,
-        }));
-        return { output: "Candidates accepted", terminal: true };
-      },
-    };
-
-    await this.agent.run(
-      {
-        instructions,
-        tools,
-        toolHandlers,
-        maxRounds: 6,
-        temperature: 0.5,
-        maxOutputTokens: 1500,
-        caller: "scout_agent",
-        model: this.models.scout as OpenAIModel,
-      },
-      "Find venues matching the strategy brief. Use search_places to verify each candidate.",
-    );
-
-    return { candidates, allVenues, allTrails };
-  }
-
-  // ── Validator (pure code) ───────────────────────────────────
-
-  private validateCandidates(
-    candidates: ScoutCandidate[],
-    ctx: PrescriptionStrategyInput["promptContext"],
-  ): { accepted: boolean; winner?: ScoutCandidate; rejectionReasons: string[]; constraintsForRetry?: string } {
-    if (candidates.length === 0) {
-      return {
-        accepted: false,
-        rejectionReasons: ["No candidates found"],
-        constraintsForRetry: "No venues were found. Try broader search queries or a larger search radius.",
-      };
-    }
-
-    // Extract known venues/categories from history context
-    const historyLower = ctx.historyContext.toLowerCase();
-    const rejectionReasons: string[] = [];
-    const validCandidates: ScoutCandidate[] = [];
-
-    const justRejectedVenue = ctx.lastRejection?.venueName?.toLowerCase() ?? null;
-
-    for (const c of candidates) {
-      const nameLower = c.venueName.toLowerCase();
-
-      // Check for placeholder/fake venues
-      if (!c.venueName || nameLower.includes("unknown") || nameLower.includes("tbd") || nameLower.includes("no verified")) {
-        rejectionReasons.push(`"${c.venueName}" is not a real venue`);
-        continue;
-      }
-
-      // Slice B: hard-block the venue the user just rejected on the prior prescription
-      if (justRejectedVenue && nameLower === justRejectedVenue) {
-        rejectionReasons.push(`"${c.venueName}" was just rejected by the user — pick a different venue`);
-        continue;
-      }
-
-      // Normalize venue category to canonical taxonomy before applying
-      // pattern-specific hard blocks.
-      if (c.venueCategory && !VENUE_CATEGORIES.includes(c.venueCategory as any)) {
-        c.venueCategory = normalizeVenueCategory(c.venueCategory);
-      }
-
-      // Slice F: for a recurring NOT_MY_VIBE pattern, hard-block the categories
-      // the user has repeatedly rejected. The Scout is told to avoid them, but
-      // sometimes drifts — this catches it.
-      if (
-        ctx.rejectionPattern?.reason === "NOT_MY_VIBE" &&
-        ctx.rejectionPattern.categories.length > 0 &&
-        c.venueCategory &&
-        ctx.rejectionPattern.categories.some((cat) => cat.toLowerCase() === c.venueCategory.toLowerCase())
-      ) {
-        rejectionReasons.push(`"${c.venueName}" is in category "${c.venueCategory}" — user has a NOT_MY_VIBE pattern against this category (${ctx.rejectionPattern.count}× rejections)`);
-        continue;
-      }
-
-      if (
-        ctx.rejectionPattern?.reason === "TOO_PUBLIC" &&
-        categoryMatches(c.venueCategory, DENSE_PUBLIC_CATEGORIES)
-      ) {
-        rejectionReasons.push(
-          `"${c.venueName}" is in category "${c.venueCategory}" — user has a TOO_PUBLIC pattern and needs a lower-visibility setting`,
-        );
-        continue;
-      }
-
-      if (
-        ctx.rejectionPattern?.reason === "BAD_TIMING" &&
-        categoryMatches(c.venueCategory, FIXED_TIMING_CATEGORIES)
-      ) {
-        rejectionReasons.push(
-          `"${c.venueName}" is in category "${c.venueCategory}" — user has a BAD_TIMING pattern, so avoid fixed-time events for now`,
-        );
-        continue;
-      }
-
-      // Slice E — early calibration guard: candidate must be inside radius.
-      // The Scout sometimes drifts outside the brief's maxDistance when it
-      // finds a good match, so we enforce the constraint here too.
-      if (ctx.isEarlyCalibration && typeof c.latitude === "number" && typeof c.longitude === "number") {
-        const distMiles = haversineMiles(ctx.homeLat, ctx.homeLng, c.latitude, c.longitude);
-        if (distMiles > ctx.radius) {
-          rejectionReasons.push(`"${c.venueName}" is ${distMiles.toFixed(1)}mi away — outside the user's ${ctx.radius.toFixed(1)}mi radius (early-calibration phase)`);
-          continue;
-        }
-      }
-
-      // Hard-block venues the user said "would not return" to
-      // These appear in the history context as "DO NOT PRESCRIBE THESE VENUES"
-      if (historyLower.includes(`- "${nameLower}"`) && historyLower.includes("would not return")) {
-        const inBlocklist = historyLower.includes(`- "${nameLower}" (`) &&
-          historyLower.indexOf(`- "${nameLower}" (`) > historyLower.indexOf("would not return");
-        if (inBlocklist) {
-          rejectionReasons.push(`"${c.venueName}" — user said they would NOT return`);
-          continue;
-        }
-      }
-
-      // Check if venue appears too many times in history.
-      // DFS anchor venues (marked with ✅ in the venue repeat block) get a much higher cap —
-      // returning to a place where the user is making real progress is intentional, not lazy.
-      const venueCount = (historyLower.match(new RegExp(nameLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
-      const isDfsAnchor = historyLower.includes(`✅ "${nameLower}"`);
-      const repeatCap = isDfsAnchor ? 8 : 5;
-      if (venueCount >= repeatCap) {
-        rejectionReasons.push(`"${c.venueName}" appears ${venueCount} times in history — too many repeats${isDfsAnchor ? " (even for a DFS anchor)" : ""}`);
-        continue;
-      }
-
-      validCandidates.push(c);
-    }
-
-    if (validCandidates.length === 0) {
-      return {
-        accepted: false,
-        rejectionReasons,
-        constraintsForRetry: `Previous candidates were rejected: ${rejectionReasons.join("; ")}. Find different venues — no repeats, no placeholder names.`,
-      };
-    }
-
-    return {
-      accepted: true,
-      winner: validCandidates[0],
-      rejectionReasons: [],
-    };
-  }
-
-  // ── Writer Agent ────────────────────────────────────────────
-
-  private async runWriter(
-    input: PrescriptionStrategyInput,
-    brief: StrategyBrief,
-    venue: ScoutCandidate,
-  ): Promise<LLMResponseRaw> {
-    const ctx = input.promptContext;
-
-    const systemPrompt = `You are a Quest Writer for someone building a social life. You craft warm, encouraging quests that make showing up feel achievable — not clinical, not cringe. You receive a venue and a user profile — your job is to make this quest feel like something a thoughtful friend would suggest.
-
-Write like that friend, not a therapist or a GPS app.
-
-USER:
-${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
-${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
-- Pace: ${ctx.pace}
-${ctx.user.onboardingProfile?.activities?.length ? `- Interests: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
-
-STRATEGY CONTEXT:
-- Capacity rep (THE primary thing being trained): ${brief.capacityTrack} — "${brief.repIntent}"
-- Experience type: ${brief.experienceType}
-- Social challenge: ${brief.socialChallengeLevel}
-- Suggested timing: ${brief.suggestedTiming || "flexible"}
-- Rationale: ${brief.rationale}
-
-The venue is the environment. The rep is the prescription. Your title, description, smaller/tiny versions, minimum viable win, and hook should all reinforce the capacity rep above — not just describe the venue.
-${ctx.blockerContext ? `
-BLOCKER CONTEXT — READ THIS CAREFULLY:
-This user has a recurring blocker. They keep failing at a specific action and it's destroying their confidence.
-${ctx.blockerContext}
-DO NOT include the blocked action as an objective, action item, or suggested activity. Instead, frame the quest around the VENUE EXPERIENCE ITSELF — enjoying the space, building comfort, noticing details. If social interaction might happen naturally, that's fine, but it must NOT be a prescribed step. The user needs to rebuild confidence through easy wins, not face another failure.` : ""}
-
-${ctx.difficultyGuidance}
-
-VENUE:
-- Name: ${venue.venueName}
-- Address: ${venue.venueAddress}
-- Category: ${venue.venueCategory}
-${venue.notes ? `- Why chosen: ${venue.notes}` : ""}
-
-REP VARIANTS — IMPORTANT:
-Every prescription MUST ship with three versions, a minimum viable win, and an exit ramp. This is how we make failure safe.
-
-- "d" (full rep): the target version — what you'd ideally like them to do.
-- "sr" (smaller rep): a reduced-intensity fallback. Same venue, same capacity direction, lower demand. Example if full is "attend the 45-minute class": smaller could be "walk in, stay for 10 minutes, leave when you want."
-- "tr" (tiny rep): the minimum viable action. Still counts. Example: "walk to the entrance and decide whether to go in. Either answer is fine."
-- "mvw" (minimum viable win): one short line describing what counts as "I did the thing." The bar for calling it done. Example: "You made it through the door." or "You stayed for one song."
-- "er" (exit ramp): one short line describing how they can leave without failure. Example: "Leave anytime — no penalty, no explanation owed." or "If it feels off in the first 5 minutes, walk out."
-
-The tiny rep should be almost impossible to fail. The full rep can stretch. Never prescribe multiple dimensions of stretch at once (not both distance AND social intensity — pick one).
-
-Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
-{
-  "t": "<title, 3-6 words, warm and encouraging>",
-  "s": "<summary, 1-2 sentences framing why this quest matters for their growth>",
-  "sn": "<strategy note: 1-2 sentences explaining WHY you chose this quest for this user right now. Write like a thoughtful friend explaining their reasoning. Reference specific things — their visit count, comfort progression, social tier, or growth phase. Examples: 'You've been here twice — a third visit is when staff start recognizing you.', 'This is a group class because you've proven you can go places solo. Time to be around people.'>",
-  "items": [{
-    "t": "<stop title>",
-    "d": "<FULL REP. 2-3 sentences max. What to do — concrete and direct. No URLs or phone numbers here>",
-    "sr": "<SMALLER REP. 1-2 sentences. Reduced intensity, same direction of growth. Required.>",
-    "tr": "<TINY REP. 1-2 sentences. The minimum viable action — should feel almost impossible to fail. Required.>",
-    "mvw": "<MINIMUM VIABLE WIN. One short line. What counts as 'done'. Required.>",
-    "er": "<EXIT RAMP. One short line. How to leave without failure. Required.>",
-    "e": "<emoji>",
-    "ec": <estimated cost or null>,
-    "vn": "${venue.venueName}",
-    "va": "${venue.venueAddress}",
-    "eid": null,
-    "vc": "${venue.venueCategory}",
-    "hook": "<why THIS spot expands their world — 1 sentence, make it feel personal>",
-    "sa": ["<2-3 emoji-prefixed activity ideas — what people typically do here. Examples: '🚶 Walk the loop', '📸 Snap a photo'. NO URLs or phones here>"],
-    "ai": ["<1-3 concrete next steps with links/phones/instructions. Examples: '🔗 example.com/signup — register for class', '📞 (555) 123-4567 — ask about open hours'. Only include if actionable info exists, otherwise empty array>"],
-    "jp": "<reflective journal prompt — short, open-ended, personal>",
-    "df": <difficulty 1-10 — judge based on THIS venue for THIS person. Use the FULL range from the difficulty guidance, not just the bottom. If guidance says 4-7, don't default to 4>,
-    "act": "<actionable|suggestive|milestone>"
-  }]
-}`;
-
-    const response = await this.openAIService.executeChatCompletion({
-      model: this.models.writer as OpenAIModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "Write this quest. Make it warm and personal." },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.85,
-      max_completion_tokens: 2000,
-    }, "writer_agent");
-
-    const text = response.choices[0]?.message?.content?.trim() ?? "";
-    if (!text) {
-      console.error(`[multi-agent] Writer returned empty response. Finish reason: ${response.choices[0]?.finish_reason}`);
-      // Fallback: build a minimal quest with graceful-degradation variants.
-      return {
-        t: `Visit ${venue.venueName}`,
-        s: brief.rationale,
-        sn: brief.rationale,
-        items: [{
-          t: venue.venueName,
-          d: `Head to ${venue.venueName} and explore what catches your eye.`,
-          sr: `Walk to ${venue.venueName}, step inside, stay for five minutes. Leave when you're ready.`,
-          tr: `Walk to the entrance and decide whether to go in. Either answer counts.`,
-          mvw: "You made it to the door.",
-          er: "Leave anytime — no penalty, no explanation owed.",
-          e: "📍",
-          ec: null,
-          vn: venue.venueName,
-          va: venue.venueAddress,
-          eid: null,
-          vc: venue.venueCategory,
-          hook: brief.rationale,
-          sa: ["🚶 Just show up and look around", "📸 Take a photo", "💬 Say hi to someone"],
-          ai: [],
-          jp: "How did it feel to go somewhere new?",
-          df: brief.difficultyRange[0],
-          act: "suggestive",
-        }],
-      };
-    }
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(text);
-    } catch (err) {
-      console.error(`[multi-agent] Writer returned invalid JSON (${text.length} chars). Attempting repair...`);
-      // Try to repair truncated JSON by closing brackets
-      let repaired = text;
-      const openBraces = (repaired.match(/{/g) || []).length;
-      const closeBraces = (repaired.match(/}/g) || []).length;
-      const openBrackets = (repaired.match(/\[/g) || []).length;
-      const closeBrackets = (repaired.match(/]/g) || []).length;
-      for (let i = 0; i < openBrackets - closeBrackets; i++) repaired += "]";
-      for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
-      try {
-        parsed = JSON.parse(repaired);
-        console.log(`[multi-agent] JSON repair succeeded`);
-      } catch {
-        throw new Error(`Writer produced unparseable JSON: ${text.slice(0, 200)}...`);
-      }
-    }
-
-    // Enforce single stop (Writer LLM may return extras despite prompt constraint)
-    if ((parsed as any).items?.length > 1) {
-      (parsed as any).items = (parsed as any).items.slice(0, 1);
-    }
-
-    // Ensure the venue details are correct (Writer might drift)
-    if ((parsed as any).items?.[0]) {
-      (parsed as any).items[0].vn = venue.venueName;
-      (parsed as any).items[0].va = venue.venueAddress;
-      (parsed as any).items[0].vc = venue.venueCategory;
-
-      // Slice A: backfill rep variants if the Writer dropped any field.
-      // A bad prescription is a trust break — never ship one without a graceful
-      // downgrade path and a minimum viable win.
-      const item = (parsed as any).items[0];
-      const fullText: string = item.d ?? `Visit ${venue.venueName}.`;
-      if (!item.sr || typeof item.sr !== "string" || !item.sr.trim()) {
-        item.sr = `Go to ${venue.venueName}, stay about ten minutes, leave when you want.`;
-      }
-      if (!item.tr || typeof item.tr !== "string" || !item.tr.trim()) {
-        item.tr = `Walk to the entrance of ${venue.venueName} and decide whether to go in. Either answer counts.`;
-      }
-      if (!item.mvw || typeof item.mvw !== "string" || !item.mvw.trim()) {
-        item.mvw = "You made it to the door.";
-      }
-      if (!item.er || typeof item.er !== "string" || !item.er.trim()) {
-        item.er = "Leave anytime — no penalty, no explanation owed.";
-      }
-      // Keep d (full rep) honest: if the writer emitted something shorter than the
-      // smaller version, the variants are inverted. Don't try to repair — just log.
-      if (item.sr && fullText && fullText.length < item.sr.length) {
-        console.warn(`[multi-agent] Writer variants may be inverted — full (${fullText.length} chars) shorter than smaller (${item.sr.length} chars)`);
-      }
-    }
-
-    return parsed as unknown as LLMResponseRaw;
   }
 }

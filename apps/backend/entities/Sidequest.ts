@@ -64,6 +64,14 @@ export const CAPACITY_TRACK_LABELS: Record<CapacityTrack, string> = {
   [CapacityTrack.IDENTITY_EVIDENCE]: "Identity Evidence",
 };
 
+export type GoalActionType =
+  | "none"
+  | "dating_app_invite"
+  | "suggest_coffee"
+  | "ask_contact"
+  | "natural_invitation"
+  | "other_direct_goal_action";
+
 @Entity("sidequests")
 export class Sidequest {
   @PrimaryGeneratedColumn("uuid")
@@ -232,6 +240,24 @@ export class Sidequest {
 
   @Column({ name: "rep_intent", type: "varchar", length: 500, nullable: true })
   repIntent?: string;
+
+  @Column({ name: "opportunity_scope", type: "varchar", length: 50, nullable: true })
+  opportunityScope?: string;
+
+  @Column({ name: "travel_rationale", type: "text", nullable: true })
+  travelRationale?: string;
+
+  @Column({ name: "goal_milestone_key", type: "varchar", length: 100, nullable: true })
+  goalMilestoneKey?: string;
+
+  @Column({ name: "goal_milestone_title", type: "varchar", length: 200, nullable: true })
+  goalMilestoneTitle?: string;
+
+  @Column({ name: "direct_goal_touch", type: "boolean", nullable: true })
+  directGoalTouch?: boolean;
+
+  @Column({ name: "goal_action_type", type: "varchar", length: 50, nullable: true })
+  goalActionType?: GoalActionType;
 
   @Column({
     name: "distance_from_home",

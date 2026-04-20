@@ -11,6 +11,8 @@
  *   const { instructions, initialMessage } = registry.build("v2-warm", ctx);
  */
 
+import { buildOfflineSocialDomainBlock } from "../shared/QuestConfig";
+
 // ── Context passed to every prompt builder ──────────────────
 
 export interface PrescriptionPromptContext {
@@ -49,6 +51,8 @@ export interface PrescriptionPromptContext {
   searchLat: number;
   searchLng: number;
   city: string;
+  /** Reverse-geocoded home city, kept separate from active/expanded search city. */
+  homeCity?: string;
   isAwayFromHome: boolean;
   distFromHome: number;
 
@@ -74,6 +78,15 @@ export interface PrescriptionPromptContext {
   blockerContext: string;
   socialMicroRepContext: string;
   socialSituationContext: string;
+  offlineSocialFrameworkContext: string;
+  goalMilestoneContext: string;
+  activeGoalMilestone?: {
+    key: string | null;
+    title: string | null;
+    goalClosureDue: boolean;
+    directGoalTouched: boolean;
+  } | null;
+  goalTags: string[];
 
   // Calibration feedback (Slice B) — present when the user just rejected a prescription
   // and this generation is a recalibration. The strategist uses this to acknowledge
@@ -112,7 +125,11 @@ export interface PrescriptionPromptContext {
     batchIndex: number;
     totalInBatch: number;
     targetPathway?: { theme: string; label: string };
-    previousSiblings: { title: string; venueCategory: string; venueName: string }[];
+    previousSiblings: {
+      title: string;
+      venueCategory: string;
+      venueName: string;
+    }[];
   } | null;
 }
 
@@ -125,7 +142,9 @@ export interface PrescriptionPromptOutput {
 
 // ── Builder function type ───────────────────────────────────
 
-export type PrescriptionPromptBuilder = (ctx: PrescriptionPromptContext) => PrescriptionPromptOutput;
+export type PrescriptionPromptBuilder = (
+  ctx: PrescriptionPromptContext,
+) => PrescriptionPromptOutput;
 
 // ── Registry ────────────────────────────────────────────────
 
@@ -146,7 +165,10 @@ export class PrescriptionPromptRegistry {
     return builder;
   }
 
-  build(name: string, ctx: PrescriptionPromptContext): PrescriptionPromptOutput {
+  build(
+    name: string,
+    ctx: PrescriptionPromptContext,
+  ): PrescriptionPromptOutput {
     return this.get(name)(ctx);
   }
 
@@ -158,54 +180,101 @@ export class PrescriptionPromptRegistry {
 // ── Default prompt (v1) — extracted from current SidequestPrescriptionService ──
 
 const PROFILE_ONE_LINERS: Record<string, string> = {
-  early_explorer: "New user. Stay close, stay gentle. Build the habit of going out.",
-  depth_focused: "Keeps returning to same spots. Nudge toward a new direction — even a familiar category in a new part of town counts.",
-  breadth_focused: "Explores widely but doesn't revisit. If a cluster has repeat visits and diverse categories, prescribe a new experience there.",
-  well_rounded: "Strong coverage. Challenge them — push further, try unusual categories, or explore the widest directional gap.",
+  early_explorer:
+    "New user. Stay close, stay gentle. Build the habit of going out.",
+  depth_focused:
+    "Keeps returning to same spots. Nudge toward a new direction — even a familiar category in a new part of town counts.",
+  breadth_focused:
+    "Explores widely but doesn't revisit. If a cluster has repeat visits and diverse categories, prescribe a new experience there.",
+  well_rounded:
+    "Strong coverage. Challenge them — push further, try unusual categories, or explore the widest directional gap.",
 };
 
 export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
   const {
-    user, homeLat, homeLng, searchLat, searchLng, city,
-    isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
-    historyContext, coverageContext, explorationProfileLabel,
-    expansionTarget, phaseContext, timelineContext, fearLadderContext, expectancyContext,
-    difficultyGuidance, siblingInstructions, blockerContext, socialMicroRepContext, isStretch, isEnjoy,
+    user,
+    homeLat,
+    homeLng,
+    searchLat,
+    searchLng,
+    city,
+    isAwayFromHome,
+    distFromHome,
+    radius,
+    pace,
+    hour,
+    dayOfWeek,
+    historyContext,
+    coverageContext,
+    explorationProfileLabel,
+    expansionTarget,
+    phaseContext,
+    timelineContext,
+    fearLadderContext,
+    expectancyContext,
+    difficultyGuidance,
+    siblingInstructions,
+    blockerContext,
+    socialMicroRepContext,
+    offlineSocialFrameworkContext,
+    goalMilestoneContext,
+    isStretch,
+    isEnjoy,
   } = ctx;
 
   const comfortProfile = user.comfortProfile;
+  const domainBlock = buildOfflineSocialDomainBlock(
+    comfortProfile,
+    comfortProfile?.goalTags ?? [],
+  );
 
   const instructions = `You are a Social Life Architect. You prescribe ONE location-based quest designed to ${isEnjoy ? "reward and recharge" : isStretch ? "ambitiously push" : "steadily advance"} this user toward building a real social life through real-world action.
 
+${domainBlock}
+${offlineSocialFrameworkContext}
+${goalMilestoneContext}
+
 YOUR APPROACH:
-${isEnjoy
+${
+  isEnjoy
     ? `- ENJOY QUEST: This is a reward, not a challenge. Prescribe something the user will genuinely look forward to.
 - Pick a venue in a category they already love — lean into their onboarding activities and high-resonance pathways.
 - Stay within their comfort radius. No stretch, no escalation, no social pressure unless they'd enjoy it.
 - This is a recovery day between harder quests. The win is them having a great time and feeling good about their progress.
 - Difficulty 1-3. Think "treat yourself" not "challenge yourself."`
     : `- Progress through action, not theory. The goal is to get the user ${isStretch ? "significantly outside" : "slightly outside"} their comfort zone — not ${isStretch ? "terrify them, but genuinely challenge them" : "overwhelm them"}.
-${isStretch
+${
+  isStretch
     ? `- STRETCH GOAL: Push on MULTIPLE dimensions at once — further distance AND unfamiliar category AND/OR higher social challenge. This is the ambitious card.
 - Search at 1.5-2x the user's comfort radius (${(radius * 1.5).toFixed(1)}-${(radius * 2).toFixed(1)} miles). Go further than you normally would.
 - Pick a category or activity type the user hasn't tried yet. Combine novelty with distance.`
-    : `- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.`}`}
+    : `- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.`
+}`
+}
 - The user's current comfort radius is ${radius.toFixed(1)} miles from home. Use this as context${isStretch ? " — then exceed it" : ", NOT as a target to push past"}.
 - Keep it achievable. One stop. ${isEnjoy ? "The win is enjoyment." : isStretch ? "The win is them rising to the challenge." : "Low friction. The win is them going, not the venue being perfect."}
-${comfortProfile?.primaryGoal ? `
+${
+  comfortProfile?.primaryGoal
+    ? `
 SEARCH STRATEGY:
 - The user's goal is "${comfortProfile.primaryGoal}". Your searches should DIRECTLY advance this goal.
-- Search for venues, events, classes, groups, and resources specifically related to their goal.
+- Search for venues, events, classes, groups, and resources specifically related to the offline-social version of their goal.
 - Use web_search to find upcoming events, open registrations, meetup groups, and communities in "${city}".
 - Use search_places for physical venues where goal-related activity happens.
 - Only fall back to generic exploration (cafes, parks) as recovery/reflection stops between goal-focused quests — at most 1 in 3 quests should be generic.
-` : ""}
-${comfortProfile?.primaryGoal ? `ACTIONABILITY RULES:
+`
+    : ""
+}
+${
+  comfortProfile?.primaryGoal
+    ? `ACTIONABILITY RULES:
 - This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in 'ai' (action items).
 - "suggestive" is for recovery/exploration quests with no specific next step beyond showing up. Use sparingly.
 - "milestone" is for reflection checkpoints — use when prompted by the MILESTONE CHECK instruction in the history context.
 - For "actionable" quests: include specific URLs, phone numbers, event dates/times in 'ai' items — NOT in 'sa' or the description. 'sa' is for general activity ideas. Keep the description short (2-3 sentences, what to do).
-` : ""}
+`
+    : ""
+}
 EXPANSION PHILOSOPHY:
 ${phaseContext || `- Breadth-first by default. ${comfortProfile?.primaryGoal ? "Explore different facets of their goal — venues, communities, skills, and resources that advance it." : "Push into unexplored directions until the user finds an area worth investing in."}\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found their thread.`}
 - A comedy open mic across the street is more impactful than driving across the state for coffee. Distance is NOT progress — novelty is.
@@ -224,17 +293,33 @@ ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 ${fearLadderContext}
 ${expectancyContext}
-${blockerContext ? `
+${
+  blockerContext
+    ? `
 CRITICAL — RECURRING BLOCKER OVERRIDE:
 ${blockerContext}
 The blocker context above TAKES PRIORITY over normal goal progression. DO NOT prescribe the blocked action as an objective, action item, or suggested activity. Frame the quest around the venue experience itself. The user needs easy wins to rebuild confidence.
-` : ""}${timelineContext ? `
+`
+    : ""
+}${
+    timelineContext
+      ? `
 ${timelineContext}
-` : ""}${socialMicroRepContext ? `
+`
+      : ""
+  }${
+    socialMicroRepContext
+      ? `
 ${socialMicroRepContext}
-` : ""}${ctx.socialSituationContext ? `
+`
+      : ""
+  }${
+    ctx.socialSituationContext
+      ? `
 ${ctx.socialSituationContext}
-` : ""}
+`
+      : ""
+  }
 ${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 
 ${historyContext}
@@ -312,12 +397,24 @@ export { CHALLENGE_LADDERS };
 
 export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
   const {
-    user, pace, historyContext, phaseContext, timelineContext,
-    fearLadderContext, expectancyContext, difficultyGuidance,
-    blockerContext, challengeCategory,
+    user,
+    pace,
+    historyContext,
+    phaseContext,
+    timelineContext,
+    fearLadderContext,
+    expectancyContext,
+    difficultyGuidance,
+    blockerContext,
+    challengeCategory,
+    offlineSocialFrameworkContext,
   } = ctx;
 
   const comfortProfile = user.comfortProfile;
+  const domainBlock = buildOfflineSocialDomainBlock(
+    comfortProfile,
+    comfortProfile?.goalTags ?? [],
+  );
   const category = challengeCategory ?? "social_reach";
   const ladder = CHALLENGE_LADDERS[category] ?? CHALLENGE_LADDERS.social_reach;
 
@@ -325,17 +422,24 @@ export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
     ? `EARLY CALIBRATION MODE — READ FIRST:
 This user has completed ${ctx.completedQuestCount ?? 0} of their first 5 quests. Stay on rung 1–2 of the ladder. The tiny version must be something like "open the chat and read old messages" — no-send, no-commit. Trust is the product here, not courage.
 
-` : "";
+`
+    : "";
 
   const ladderContext = ladder.rungs
     .map((rung, i) => `  ${i + 1}. ${rung}`)
     .join("\n");
 
   const allLaddersContext = Object.entries(CHALLENGE_LADDERS)
-    .map(([key, l]) => `${l.label} (${key}):\n${l.rungs.map((r, i) => `  ${i + 1}. ${r}`).join("\n")}`)
+    .map(
+      ([key, l]) =>
+        `${l.label} (${key}):\n${l.rungs.map((r, i) => `  ${i + 1}. ${r}`).join("\n")}`,
+    )
     .join("\n\n");
 
   const instructions = `${earlyCalibrationGuard}You are a Social Life Architect. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
+
+${domainBlock}
+${offlineSocialFrameworkContext}
 
 YOUR APPROACH:
 - Progress through courage, not mileage. The goal is to get the user to do something interpersonally uncomfortable in a healthy, growth-oriented way.

@@ -4,9 +4,10 @@
 
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
 import type { SidequestProgressCallback } from "../SidequestPrescriptionService";
-import type { VerifiedVenue } from "../shared/GoogleGeocodingService";
+import type { VerifiedVenue } from "../shared/GooglePlacesService";
 import type { Trail } from "../shared/OverpassService";
 import type { CapacityTrack } from "../../entities/Sidequest";
+import type { OpportunityScope } from "./DistancePolicy";
 
 // ── LLM Response types (shared output contract) ─────────────
 
@@ -30,6 +31,8 @@ export interface LLMItemRaw {
   tr?: string | null;  // tiny rep — minimum viable action
   mvw?: string | null; // minimum viable win — what counts as "I did the thing"
   er?: string | null;  // exit ramp — how to leave without failure
+  dgt?: boolean | null; // direct goal touch — true when the full rep directly advances named goal
+  gat?: string | null;  // goal action type — see Sidequest.goalActionType
 }
 
 export interface LLMResponseRaw {
@@ -83,6 +86,10 @@ export interface StrategyBrief {
   /** When to do this quest, e.g. "weekday evening after work", "Saturday morning" */
   suggestedTiming: string;
   rationale: string;
+  /** Geographic intent selected by DistancePolicy / post-validation. Internal only. */
+  opportunityScope?: OpportunityScope;
+  /** Why this quest is worth any travel beyond the user's home base. */
+  travelRationale?: string;
 }
 
 /**
@@ -148,6 +155,10 @@ export interface ScoutCandidate {
   venueCategory: string;
   latitude: number;
   longitude: number;
+  placeId?: string;
+  googleTypes?: string[];
+  googlePrimaryType?: string;
+  googlePrimaryTypeDisplayName?: string;
   rating?: number;
   distanceFromHome?: number;
   source: "search_places" | "search_trails" | "web_search";
@@ -158,11 +169,4 @@ export interface ScoutResult {
   candidates: ScoutCandidate[];
   allVenues: VerifiedVenue[];
   allTrails: Trail[];
-}
-
-export interface ValidationResult {
-  accepted: boolean;
-  winner?: ScoutCandidate;
-  rejectionReasons: string[];
-  constraintsForRetry?: string;
 }
