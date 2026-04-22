@@ -20,6 +20,7 @@ export interface GoalMilestoneContext {
   activeMilestoneTitle: string | null;
   directGoalTouched: boolean;
   goalClosureDue: boolean;
+  milestoneQuestSeen: boolean;
   deferredByBlocker: boolean;
   promptBlock: string;
 }
@@ -50,7 +51,9 @@ const STRUCTURED_CONTAINER_CATEGORIES = new Set([
   "Climbing Gym",
   "College / Adult Education",
   "Community Center",
+  "Coworking Space",
   "Gym / Fitness Studio",
+  "Karaoke Venue",
   "Maker Space",
   "Recreation Center",
   "Sports Club",
@@ -76,9 +79,19 @@ const DATING_PREP_ONLY_PATTERNS = [
   /\bfuture (?:casual )?date\b/gi,
   /\bsomeday\b/gi,
   /\bsomeone could join\b/gi,
+  /\bsomeone could step into\b/gi,
+  /\bsomeone could someday step into\b/gi,
+  /\blife someone could join\b/gi,
+  /\binvite someone into\b/gi,
+  /\binviting life\b/gi,
+  /\binviting later\b/gi,
   /\bwould invite someone\b/gi,
+  /\b(?:tell|mention) someone about later\b/gi,
+  /\b(?:mention|tell) a friend later\b/gi,
+  /\bwarm social signal\b/gi,
   /\basking someone out\b.{0,80}\b(?:feel|feels|less theoretical|later|eventually|future)\b/gi,
   /\bmake(?:s)? asking someone out\b.{0,80}\b(?:less theoretical|easier later)\b/gi,
+  /\bdating feel(?:s)? more real later\b/gi,
 ];
 
 function isDatingGoal(
@@ -128,13 +141,7 @@ function questText(row: QuestSignalRow): string {
 }
 
 function directGoalActionText(row: QuestSignalRow): string {
-  return [
-    row.title,
-    row.rep_intent,
-    row.description,
-    ...(row.suggested_activities ?? []),
-    ...(row.action_items ?? []),
-  ]
+  return [row.description, ...(row.action_items ?? [])]
     .filter(Boolean)
     .join(" ");
 }
@@ -149,6 +156,19 @@ export function normalizeGoalActionType(value: unknown): GoalActionType {
   ].includes(String(value))
     ? (String(value) as GoalActionType)
     : "none";
+}
+
+export function isConcreteGoalActionType(value: GoalActionType): boolean {
+  return [
+    "dating_app_invite",
+    "suggest_coffee",
+    "ask_contact",
+    "natural_invitation",
+  ].includes(value);
+}
+
+export function hasConcreteDatingAction(text: string): boolean {
+  return isConcreteGoalActionType(detectGoalActionType(text));
 }
 
 export function hasDirectDatingAction(text: string): boolean {
@@ -203,7 +223,7 @@ function isStructuredContainer(row: QuestSignalRow): boolean {
   const text = questText(row);
   return (
     STRUCTURED_CONTAINER_CATEGORIES.has(category) ||
-    /\b(class|club|meetup|workshop|trivia|dance|volunteer|league|open play|open gym|board game|game night|run club|pickleball|yoga)\b/i.test(
+    /\b(class|club|meetup|workshop|trivia|dance|volunteer|league|open play|open gym|board game|game night|run club|pickleball|yoga|pilates|group fitness|climbing|coworking|library program|book club|language exchange|open mic|comedy|live music|maker night|social mixer|singles)\b/i.test(
       text,
     )
   );
@@ -300,6 +320,7 @@ export async function buildGoalMilestoneContext(input: {
       activeMilestoneTitle: null,
       directGoalTouched: false,
       goalClosureDue: false,
+      milestoneQuestSeen: false,
       deferredByBlocker: false,
       promptBlock: "",
     };
@@ -339,12 +360,13 @@ export async function buildGoalMilestoneContext(input: {
     .filter((row) => row.rating !== null)
     .slice(0, 5)
     .map((row) => Number(row.rating));
+  const milestoneQuestSeen = completedRows.some(
+    (row) => row.quest_role === "milestone",
+  );
   const directGoalTouched =
-    rows.some(
-      (row) =>
-        row.direct_goal_touch === true ||
-        normalizeGoalActionType(row.goal_action_type) !== "none",
-    ) || rows.some((row) => hasDirectDatingAction(directGoalActionText(row)));
+    rows.some((row) =>
+      isConcreteGoalActionType(normalizeGoalActionType(row.goal_action_type)),
+    ) || rows.some((row) => hasConcreteDatingAction(directGoalActionText(row)));
   const structuredCount = completedRows.filter(isStructuredContainer).length;
   const nonSoloCount = completedRows.filter(
     (row) => row.social_context && row.social_context !== "solo",
@@ -363,14 +385,14 @@ export async function buildGoalMilestoneContext(input: {
     recentRatings.every((rating) => rating >= 3);
   const adjacentEvidence =
     nonSoloCount >= 2 || metNewCount >= 1 || structuredCount >= 2;
+  const readinessReached =
+    input.completedQuestCount >= 10 && stableRatings && adjacentEvidence;
   const deferredByBlocker =
     input.blockerMeta?.phase === "avoid" ||
-    input.blockerMeta?.phase === "building";
+    (input.blockerMeta?.phase === "building" && !readinessReached);
   const goalClosureDue =
-    input.completedQuestCount >= 10 &&
-    stableRatings &&
-    adjacentEvidence &&
-    !directGoalTouched &&
+    readinessReached &&
+    (!directGoalTouched || !milestoneQuestSeen) &&
     !deferredByBlocker;
   const active = milestoneForSignals({
     completedQuestCount: input.completedQuestCount,
@@ -389,6 +411,7 @@ export async function buildGoalMilestoneContext(input: {
     `- Current milestone: ${active.title} — ${active.purpose}`,
     `- Evidence: ${input.completedQuestCount} completed quests; ${wouldReturnCount} would-return anchors; ${structuredCount} structured containers; ${nonSoloCount} non-solo reps; ${metNewCount} met-new/group reps; recent rating avg ${recentRatings.length ? average(recentRatings).toFixed(1) : "n/a"}.`,
     `- Direct dating-goal touch so far: ${directGoalTouched ? "yes" : "no"}. Do not count "date-friendly", "date-plausible", or "invite-able life" language as direct dating action.`,
+    `- Goal-closure milestone quest seen so far: ${milestoneQuestSeen ? "yes" : "no"}. Direct reps do not fully close the goal gap until a true milestone quest lands.`,
   ];
 
   if (goalClosureDue) {
@@ -396,6 +419,14 @@ export async function buildGoalMilestoneContext(input: {
       "- GOAL-CLOSURE MILESTONE IS DUE NOW: the next non-recovery quest must directly touch the dating goal with one gentle dating-intent action.",
       "- Acceptable direct actions include: send a dating-app invite to a specific venue, suggest coffee/drinks to someone already in conversation, ask for contact info after a good interaction, or make a natural low-pressure invitation.",
       "- Smaller/tiny versions may soften the step, but the full rep must include the direct dating action. Do not prescribe another generic confidence-prep quest.",
+    );
+  } else if (
+    input.blockerMeta?.phase === "building" &&
+    readinessReached &&
+    !directGoalTouched
+  ) {
+    lines.push(
+      "- Readiness threshold is reached even though the blocker map still says building. Do not hide behind more prep; move into a gentle direct dating rep now.",
     );
   } else if (deferredByBlocker) {
     lines.push(
@@ -414,6 +445,7 @@ export async function buildGoalMilestoneContext(input: {
     activeMilestoneTitle: active.title,
     directGoalTouched,
     goalClosureDue,
+    milestoneQuestSeen,
     deferredByBlocker,
     promptBlock: `${lines.join("\n")}\n`,
   };

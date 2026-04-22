@@ -1,5 +1,9 @@
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
 import {
+  classifyJourneyCategoryFamily,
+  isSafeRepeatableFamily,
+} from "./JourneyDiversityContext";
+import {
   VENUE_CATEGORIES,
   type ScoutCandidate,
   type StrategyBrief,
@@ -32,8 +36,67 @@ export interface CandidateValidationResult {
   retryConstraints?: string;
 }
 
+const COFFEE_FAMILY_CATEGORIES = new Set([
+  "Coffee Shop",
+  "Bookstore",
+  "Brunch Spot",
+  "Bakery / Dessert Shop",
+]);
+
+const LATE_SAFE_ROOM_FAMILIES = new Set(["library_quiet", "community_room"]);
+
+const STRUCTURED_FLOOR_ELIGIBLE_CATEGORIES = new Set([
+  "Art Studio / Workshop",
+  "Board Game Venue",
+  "Climbing Gym",
+  "College / Adult Education",
+  "Community Center",
+  "Coworking Space",
+  "Gym / Fitness Studio",
+  "Karaoke Venue",
+  "Library",
+  "Maker Space",
+  "Music Venue / Concert Hall",
+  "Recreation Center",
+  "Sports Club",
+  "Theatre / Performing Arts",
+  "Workshop / Class Venue",
+  "Yoga / Pilates Studio",
+]);
+
+function isCoffeeFamilyCategory(category: string | undefined | null): boolean {
+  if (!category) return false;
+  return COFFEE_FAMILY_CATEGORIES.has(normalizeVenueCategory(category));
+}
+
+export function isStructuredFloorEligibleCategory(
+  category: string | undefined | null,
+): boolean {
+  if (!category) return false;
+  return STRUCTURED_FLOOR_ELIGIBLE_CATEGORIES.has(
+    normalizeVenueCategory(category),
+  );
+}
+
+function recentFamilyCount(
+  ctx: PrescriptionPromptContext,
+  family: ReturnType<typeof classifyJourneyCategoryFamily>,
+): number {
+  return (
+    ctx.journeyDiversity?.recentFamilies
+      ?.slice(0, 5)
+      .filter((value) => value === family).length ?? 0
+  );
+}
+
 function escapedRegex(value: string): RegExp {
   return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+}
+
+function allowsGentleSafeRoomFallback(ctx: PrescriptionPromptContext): boolean {
+  return ["TOO_PUBLIC", "NEED_GENTLER", "TOO_SOCIAL", "TOO_FAR"].includes(
+    ctx.lastRejection?.reason ?? "",
+  );
 }
 
 export function validateCandidates(input: {
@@ -122,6 +185,102 @@ export function validateCandidates(input: {
       reject(
         "bad_category",
         `"${c.venueName}" is in category "${c.venueCategory}" — user has a BAD_TIMING pattern, so avoid fixed-time events for now`,
+      );
+      continue;
+    }
+
+    if (
+      ctx.questRole !== "enjoy" &&
+      (ctx.completedQuestCount ?? 0) >= 5 &&
+      ctx.journeyDiversity &&
+      isCoffeeFamilyCategory(c.venueCategory) &&
+      (ctx.journeyDiversity.dominantRecentCategory === "Coffee Shop" ||
+        ctx.journeyDiversity.recentCategories
+          .slice(0, 5)
+          .filter((category) => isCoffeeFamilyCategory(category)).length >= 2)
+    ) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" is in the coffee-family fallback cluster, which is already overrepresented in the recent journey mix`,
+      );
+      continue;
+    }
+
+    const candidateFamily = classifyJourneyCategoryFamily(c.venueCategory);
+    const latePhaseRequiresStructured =
+      ctx.questRole !== "enjoy" &&
+      ctx.journeyPhase?.requireStructuredNonEnjoy === true;
+    const latePhaseForbidsPark =
+      ctx.questRole !== "enjoy" &&
+      ctx.journeyPhase?.forbidParkForNonEnjoy === true;
+
+    if (latePhaseForbidsPark && candidateFamily === "park_outdoor") {
+      reject(
+        "bad_category",
+        `"${c.venueName}" is a park/outdoor reset, which does not count as progression in the current ${ctx.journeyPhase?.phase ?? "late"} phase`,
+      );
+      continue;
+    }
+
+    if (
+      ctx.questRole !== "enjoy" &&
+      [
+        "goal_closure_due",
+        "post_breakthrough_consolidation",
+        "late_world_building",
+      ].includes(ctx.journeyPhase?.phase ?? "") &&
+      LATE_SAFE_ROOM_FAMILIES.has(candidateFamily) &&
+      recentFamilyCount(ctx, candidateFamily) >= 2 &&
+      !allowsGentleSafeRoomFallback(ctx)
+    ) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" stays in the ${candidateFamily} safe-room lane, which is already dominating the late journey`,
+      );
+      continue;
+    }
+
+    if (
+      (latePhaseRequiresStructured ||
+        ctx.journeyDiversity?.shouldForceStructuredNext) &&
+      ctx.questRole !== "enjoy" &&
+      !isStructuredFloorEligibleCategory(c.venueCategory)
+    ) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" is not a structured-enough room for the current late-journey floor`,
+      );
+      continue;
+    }
+
+    if (
+      ctx.questRole !== "enjoy" &&
+      ctx.journeyDiversity?.postGoalClosureWindow &&
+      candidateFamily === "park_outdoor" &&
+      recentFamilyCount(ctx, "park_outdoor") >= 2 &&
+      !["TOO_PUBLIC", "NEED_GENTLER", "TOO_SOCIAL"].includes(
+        ctx.lastRejection?.reason ?? "",
+      )
+    ) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" is another park-family reset after a goal-closing rep — keep building the social world instead`,
+      );
+      continue;
+    }
+
+    if (
+      ctx.questRole !== "enjoy" &&
+      (ctx.completedQuestCount ?? 0) >= 8 &&
+      ctx.journeyDiversity &&
+      isSafeRepeatableFamily(ctx.journeyDiversity.dominantRecentFamily) &&
+      ctx.journeyDiversity.dominantRecentFamily === candidateFamily &&
+      recentFamilyCount(ctx, candidateFamily) >= 3 &&
+      ctx.activeGoalMilestone?.goalClosureDue !== true
+    ) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" is in the ${candidateFamily} family, which is currently monopolizing the recent journey mix`,
       );
       continue;
     }

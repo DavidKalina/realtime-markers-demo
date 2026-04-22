@@ -8,37 +8,38 @@ import type { VerifiedVenue } from "../shared/GooglePlacesService";
 import type { Trail } from "../shared/OverpassService";
 import type { CapacityTrack } from "../../entities/Sidequest";
 import type { OpportunityScope } from "./DistancePolicy";
+import type { SearchEnvelope } from "./SearchEnvelope";
 
 // ── LLM Response types (shared output contract) ─────────────
 
 export interface LLMItemRaw {
-  t: string;    // title
-  d: string;    // description (the full rep)
-  e: string;    // emoji
+  t: string; // title
+  d: string; // description (the full rep)
+  e: string; // emoji
   ec: number | null; // estimated cost
-  vn: string;   // venue name
-  va: string;   // venue address
+  vn: string; // venue name
+  va: string; // venue address
   eid: string | null; // event ID
-  vc: string;   // venue category
+  vc: string; // venue category
   hook: string;
   sa: string[] | null; // suggested activities
   ai: string[] | null; // action items
-  jp: string | null;   // journal prompt
-  df: number;   // difficulty
-  act: string;  // actionability
+  jp: string | null; // journal prompt
+  df: number; // difficulty
+  act: string; // actionability
   // ── Rep variants (Slice A) ─────────────────────────────
-  sr?: string | null;  // smaller rep — reduced-intensity version
-  tr?: string | null;  // tiny rep — minimum viable action
+  sr?: string | null; // smaller rep — reduced-intensity version
+  tr?: string | null; // tiny rep — minimum viable action
   mvw?: string | null; // minimum viable win — what counts as "I did the thing"
-  er?: string | null;  // exit ramp — how to leave without failure
+  er?: string | null; // exit ramp — how to leave without failure
   dgt?: boolean | null; // direct goal touch — true when the full rep directly advances named goal
-  gat?: string | null;  // goal action type — see Sidequest.goalActionType
+  gat?: string | null; // goal action type — see Sidequest.goalActionType
 }
 
 export interface LLMResponseRaw {
-  t: string;       // title
-  s: string;       // summary
-  sn?: string;     // strategy note — why this quest was chosen for this user
+  t: string; // title
+  s: string; // summary
+  sn?: string; // strategy note — why this quest was chosen for this user
   items: LLMItemRaw[];
 }
 
@@ -90,6 +91,8 @@ export interface StrategyBrief {
   opportunityScope?: OpportunityScope;
   /** Why this quest is worth any travel beyond the user's home base. */
   travelRationale?: string;
+  /** Search envelope: home-centered search radius + query families + soft zone hints. */
+  searchEnvelope?: SearchEnvelope;
 }
 
 /**
@@ -147,7 +150,7 @@ export const VENUE_CATEGORIES = [
   "Other",
 ] as const;
 
-export type VenueCategory = typeof VENUE_CATEGORIES[number];
+export type VenueCategory = (typeof VENUE_CATEGORIES)[number];
 
 export interface ScoutCandidate {
   venueName: string;

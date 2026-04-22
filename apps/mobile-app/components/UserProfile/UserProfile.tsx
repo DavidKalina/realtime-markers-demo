@@ -21,6 +21,7 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -53,7 +54,12 @@ import AIFocusCard from "./AIFocusCard";
 import JourneyCard from "./JourneyCard";
 import SectionMark from "./SectionMark";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import type { SidequestResponse, CapacityRepSummary } from "@/services/api/modules/sidequests";
+import type {
+  SidequestResponse,
+  CapacityRepSummary,
+} from "@/services/api/modules/sidequests";
+
+type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
 
 // Growth dashboard components
 import GrowthScoreHero from "./GrowthScoreHero";
@@ -168,6 +174,12 @@ const TIER_1_QUESTS = 1; // Unlock: progress notes with real data
 const TIER_2_QUESTS = 3; // Unlock: Growth Arc, Self Insight, Fear delta
 const TIER_3_QUESTS = 5; // Unlock: Pathways, Blind Spots, Social, Exploration, Comfort
 
+const REACH_MODE_LABELS: Record<ReachMode, string> = {
+  local_only: "Keep it close",
+  nearby_mix: "Mix in nearby options",
+  best_opportunities: "Take me where the opportunities are",
+};
+
 // Default empty social data (used when insights haven't loaded yet)
 const EMPTY_SOCIAL = [
   { context: "solo", count: 0 },
@@ -183,7 +195,7 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { user } = useAuth();
+  const { user, reloadUser } = useAuth();
   const scrollY = useSharedValue(0);
 
   const {
@@ -197,13 +209,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
   const { data: dashboard, refetch: refetchDashboard } = useGrowthDashboard();
-  const { isGenerating, stepLabel, hasReady, clearReady, trackJob } = useJobProgressContext();
+  const { isGenerating, stepLabel, hasReady, clearReady, trackJob } =
+    useJobProgressContext();
 
   // Merge API social growth data with default rungs so all 4 always show
   const socialData = useMemo(() => {
     if (!insights?.socialGrowth) return EMPTY_SOCIAL;
     const map = new Map(insights.socialGrowth.map((s) => [s.context, s.count]));
-    return EMPTY_SOCIAL.map((d) => ({ context: d.context, count: map.get(d.context) ?? 0 }));
+    return EMPTY_SOCIAL.map((d) => ({
+      context: d.context,
+      count: map.get(d.context) ?? 0,
+    }));
   }, [insights?.socialGrowth]);
 
   // Home base
@@ -218,20 +234,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const [unratedQuests, setUnratedQuests] = useState<SidequestResponse[]>([]);
 
   // Pending capture — checked in but skipped the reflection modal
-  const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>([]);
+  const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>(
+    [],
+  );
 
   // Capacity reps — counts per capacity track (Slice C follow-up)
   const [capacityReps, setCapacityReps] = useState<CapacityRepSummary[]>([]);
+  const [isUpdatingReachMode, setIsUpdatingReachMode] = useState(false);
 
   const fetchDashboardQuests = useCallback(async () => {
     // Fetch independently so one failing (e.g. new endpoint not deployed yet)
     // doesn't block the others.
-    const [listRes, unratedRes, captureRes, capacityRes] = await Promise.allSettled([
-      apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
-      apiClient.sidequests.listUnrated(3),
-      apiClient.sidequests.listPendingCapture(2),
-      apiClient.sidequests.getCapacityReps(),
-    ]);
+    const [listRes, unratedRes, captureRes, capacityRes] =
+      await Promise.allSettled([
+        apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
+        apiClient.sidequests.listUnrated(3),
+        apiClient.sidequests.listPendingCapture(2),
+        apiClient.sidequests.getCapacityReps(),
+      ]);
     if (listRes.status === "fulfilled") {
       setDeckQuests(listRes.value.data ?? []);
     }
@@ -293,7 +313,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     if (!userLocation) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await apiClient.sidequests.setHomeAnchor(userLocation[1], userLocation[0]);
+      await apiClient.sidequests.setHomeAnchor(
+        userLocation[1],
+        userLocation[0],
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -310,6 +333,27 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       useActiveItineraryStore.getState().refresh(),
     ]);
   }, [refetch, refetchInsights, refetchDashboard, fetchDashboardQuests]);
+
+  const handleSetReachMode = useCallback(
+    async (mode: ReachMode) => {
+      setIsUpdatingReachMode(true);
+      try {
+        await apiClient.sidequests.updateComfortProfile({ reachMode: mode });
+        await Promise.all([
+          reloadUser(),
+          refetchDashboard(),
+          fetchDashboardQuests(),
+        ]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err) {
+        console.error("[UserProfile] Failed to update reach mode:", err);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } finally {
+        setIsUpdatingReachMode(false);
+      }
+    },
+    [fetchDashboardQuests, refetchDashboard, reloadUser],
+  );
 
   if (loading) {
     return (
@@ -346,12 +390,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <ParallaxWidget scrollY={scrollY} index={0} delay={0}>
           <View style={s.greetingSection}>
             <Text style={s.greetingText}>
-              {greeting}{firstName ? `, ${firstName}` : ""}
+              {greeting}
+              {firstName ? `, ${firstName}` : ""}
             </Text>
             {completedQuests === 0 && (
-              <Text style={s.greetingSubtitle}>
-                Your first step is waiting
-              </Text>
+              <Text style={s.greetingSubtitle}>Your first step is waiting</Text>
             )}
             {completedQuests > 0 && completedQuests < 3 && (
               <Text style={s.greetingSubtitle}>
@@ -392,7 +435,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 1.7 Pending Reflections — unrated completed quests */}
         {unratedQuests.map((q, i) => (
-          <ParallaxWidget key={q.id} scrollY={scrollY} index={2} delay={120 + i * 60}>
+          <ParallaxWidget
+            key={q.id}
+            scrollY={scrollY}
+            index={2}
+            delay={120 + i * 60}
+          >
             <PendingReflectionCard
               quest={q}
               onRated={() => {
@@ -405,7 +453,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 1.8 Pending Capture — checked in but skipped reflection */}
         {pendingCaptures.map((q, i) => (
-          <ParallaxWidget key={`cap-${q.id}`} scrollY={scrollY} index={2} delay={140 + i * 60}>
+          <ParallaxWidget
+            key={`cap-${q.id}`}
+            scrollY={scrollY}
+            index={2}
+            delay={140 + i * 60}
+          >
             <PendingCaptureCard quest={q} />
           </ParallaxWidget>
         ))}
@@ -426,6 +479,53 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             stepLabel={stepLabel}
           />
         </ParallaxWidget>
+
+        {dashboard?.reachRecommendation?.shouldAsk && !user?.reachMode && (
+          <ParallaxWidget scrollY={scrollY} index={3} delay={180}>
+            <View style={s.reachBanner}>
+              <Text style={s.reachBannerLabel}>Widen your map?</Text>
+              <Text style={s.reachBannerTitle}>
+                Local reps are working. Better nearby opportunities may help
+                now.
+              </Text>
+              <Text style={s.reachBannerBody}>
+                {dashboard.reachRecommendation.reason}
+              </Text>
+              {!!dashboard.reachRecommendation.localSaturationSignals
+                .length && (
+                <View style={s.reachSignalList}>
+                  {dashboard.reachRecommendation.localSaturationSignals
+                    .slice(0, 2)
+                    .map((signal) => (
+                      <Text key={signal} style={s.reachSignalItem}>
+                        {`\u2022 ${signal}`}
+                      </Text>
+                    ))}
+                </View>
+              )}
+              <View style={s.reachButtonStack}>
+                {(
+                  [
+                    "local_only",
+                    "nearby_mix",
+                    "best_opportunities",
+                  ] as ReachMode[]
+                ).map((mode) => (
+                  <Pressable
+                    key={mode}
+                    style={s.reachButton}
+                    disabled={isUpdatingReachMode}
+                    onPress={() => void handleSetReachMode(mode)}
+                  >
+                    <Text style={s.reachButtonText}>
+                      {REACH_MODE_LABELS[mode]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </ParallaxWidget>
+        )}
 
         {/* 3. Coach Note — what the app is noticing */}
         <ParallaxWidget scrollY={scrollY} index={3} delay={200}>
@@ -468,7 +568,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             momentum={gs?.momentum ?? "steady"}
             delta7d={gs?.delta7d ?? 0}
             history={gs?.history ?? []}
-            subScores={gs?.subScores ?? { resonance: 0, consistency: 0, expansion: 0, depth: 0 }}
+            subScores={
+              gs?.subScores ?? {
+                resonance: 0,
+                consistency: 0,
+                expansion: 0,
+                depth: 0,
+              }
+            }
             questCount={completedQuests}
             currentStreak={profileData?.currentStreak ?? 0}
             calibrating={!hasTier1}
@@ -478,7 +585,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 5. Growth Arc — unlocks at tier 2 */}
         {hasTier2 && ga && (
           <ParallaxWidget scrollY={scrollY} index={5} delay={360}>
-            <SectionMark icon={"\uD83D\uDCC8"} tint="rgba(52, 211, 153, 0.5)" label="Growth Arc" side="left" />
+            <SectionMark
+              icon={"\uD83D\uDCC8"}
+              tint="rgba(52, 211, 153, 0.5)"
+              label="Growth Arc"
+              side="left"
+            />
             <GrowthArc
               phase={ga.phase}
               phaseReason={ga.phaseReason}
@@ -494,7 +606,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 6. Self-Awareness — unlocks at tier 2 */}
         {hasTier2 && si && (
           <ParallaxWidget scrollY={scrollY} index={6} delay={440}>
-            <SectionMark icon={"\uD83E\uDE9E"} tint="rgba(168, 85, 247, 0.5)" label="Self-Awareness" side="right" />
+            <SectionMark
+              icon={"\uD83E\uDE9E"}
+              tint="rgba(168, 85, 247, 0.5)"
+              label="Self-Awareness"
+              side="right"
+            />
             <SelfInsight
               avgAnxietyDelta={si.avgAnxietyDelta}
               avgDifficultyDelta={si.avgDifficultyDelta}
@@ -508,7 +625,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 7. Pathway Momentum — unlocks at tier 3 */}
         {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
           <ParallaxWidget scrollY={scrollY} index={7} delay={520}>
-            <SectionMark icon={"\uD83D\uDEE4\uFE0F"} tint="rgba(56, 189, 248, 0.5)" label="Your Arcs" side="left" />
+            <SectionMark
+              icon={"\uD83D\uDEE4\uFE0F"}
+              tint="rgba(56, 189, 248, 0.5)"
+              label="Your Arcs"
+              side="left"
+            />
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
           </ParallaxWidget>
         )}
@@ -516,20 +638,36 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 8. Social Ladder — unlocks at tier 3 */}
         {hasTier3 && (
           <ParallaxWidget scrollY={scrollY} index={8} delay={600}>
-            <SectionMark icon={"\uD83D\uDC65"} tint="rgba(52, 211, 153, 0.5)" label="Social Growth" side="right" />
+            <SectionMark
+              icon={"\uD83D\uDC65"}
+              tint="rgba(52, 211, 153, 0.5)"
+              label="Social Growth"
+              side="right"
+            />
             <SocialLadder data={socialData} />
           </ParallaxWidget>
         )}
 
         {/* 9. Settings */}
-        <ParallaxWidget scrollY={scrollY} index={9} delay={hasTier3 ? 680 : hasTier2 ? 520 : 360}>
-          <SectionMark icon={"\u2699\uFE0F"} tint="rgba(255, 255, 255, 0.3)" label="Settings" side="left" />
+        <ParallaxWidget
+          scrollY={scrollY}
+          index={9}
+          delay={hasTier3 ? 680 : hasTier2 ? 520 : 360}
+        >
+          <SectionMark
+            icon={"\u2699\uFE0F"}
+            tint="rgba(255, 255, 255, 0.3)"
+            label="Settings"
+            side="left"
+          />
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}
             homeSet={homeSet}
             comfortRadius={profileData?.comfortRadiusMiles ?? null}
+            reachMode={profileData?.reachMode ?? null}
             onUpdateHome={handleUpdateHomeBase}
+            onSetReachMode={handleSetReachMode}
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
           />
@@ -569,5 +707,58 @@ const createStyles = (colors: Colors) =>
       fontSize: 14,
       color: colors.text.secondary,
       opacity: 0.7,
+    },
+    reachBanner: {
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      borderRadius: 8,
+      padding: spacing.lg,
+      gap: spacing.sm,
+      backgroundColor: "rgba(255,255,255,0.03)",
+    },
+    reachBannerLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      fontWeight: fontWeight.bold,
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
+    },
+    reachBannerTitle: {
+      fontFamily: fontFamily.mono,
+      fontSize: 16,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      lineHeight: 24,
+    },
+    reachBannerBody: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    reachSignalList: {
+      gap: spacing.xs,
+    },
+    reachSignalItem: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.secondary,
+      lineHeight: 18,
+    },
+    reachButtonStack: {
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    reachButton: {
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      borderRadius: 8,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+    },
+    reachButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: colors.text.primary,
     },
   });

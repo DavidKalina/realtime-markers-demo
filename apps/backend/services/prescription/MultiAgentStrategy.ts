@@ -21,13 +21,20 @@ import {
   resolveDistancePolicy,
   type DistancePolicyDecision,
 } from "./DistancePolicy";
-import { validateCandidates } from "./CandidateValidator";
+import {
+  isStructuredFloorEligibleCategory,
+  validateCandidates,
+} from "./CandidateValidator";
 import {
   applyStrategyBriefPatch,
   resolveRecalibrationPolicy,
 } from "./RecalibrationPolicy";
 import { rankScoutCandidates } from "./ScoutCandidateGrounding";
 import { applyGoalMilestonePolicy } from "./GoalMilestonePolicy";
+import { applyContainerOpportunityPolicy } from "./ContainerOpportunityPolicy";
+import { classifyJourneyCategoryFamily } from "./JourneyDiversityContext";
+import { applyOpportunityZonePolicy } from "./OpportunityZonePolicy";
+import { buildSearchEnvelope } from "./SearchEnvelope";
 import { VenueScoutAgent } from "./VenueScoutAgent";
 import { QuestWriterAgent } from "./QuestWriterAgent";
 import { CapacityTrack } from "../../entities/Sidequest";
@@ -171,6 +178,41 @@ export class MultiAgentStrategy {
     });
     if (milestonePolicy.logLine) console.log(milestonePolicy.logLine);
 
+    const containerOpportunity = applyContainerOpportunityPolicy({
+      brief,
+      ctx: promptContext,
+    });
+    if (containerOpportunity.logLine) console.log(containerOpportunity.logLine);
+
+    const opportunityZonePolicy = applyOpportunityZonePolicy({
+      brief,
+      ctx: promptContext,
+    });
+    if (opportunityZonePolicy.logLine)
+      console.log(opportunityZonePolicy.logLine);
+
+    brief.searchEnvelope = buildSearchEnvelope({
+      brief,
+      ctx: promptContext,
+      distancePolicy: policy,
+    });
+    if (brief.searchEnvelope.maxRadiusMiles !== brief.maxDistanceMiles) {
+      console.log(
+        `[multi-agent] SearchEnvelope: radius ${brief.maxDistanceMiles.toFixed(1)}→${brief.searchEnvelope.maxRadiusMiles.toFixed(1)}, reach=${brief.searchEnvelope.reachMode ?? "auto-local"}`,
+      );
+      brief.maxDistanceMiles = brief.searchEnvelope.maxRadiusMiles;
+      brief.opportunityScope = classifyScope(
+        brief.maxDistanceMiles,
+        input.radius,
+        policy.wasClampedByRejection,
+      );
+      brief.travelRationale =
+        brief.opportunityScope === "local_home_base" ||
+        brief.opportunityScope === "clamped_home"
+          ? undefined
+          : brief.travelRationale;
+    }
+
     // ── 2. Scout + Validator loop ──────────────────────────
     let scoutResult: ScoutResult | null = null;
     let winner: ScoutCandidate | null = null;
@@ -224,7 +266,19 @@ export class MultiAgentStrategy {
           scoutResult.candidates.filter(
             (candidate) =>
               (candidate.distanceFromHome ?? Infinity) <=
-              brief.maxDistanceMiles + 0.25,
+                brief.maxDistanceMiles + 0.25 &&
+              !(
+                promptContext.questRole !== "enjoy" &&
+                promptContext.journeyPhase?.forbidParkForNonEnjoy === true &&
+                classifyJourneyCategoryFamily(candidate.venueCategory) ===
+                  "park_outdoor"
+              ) &&
+              !(
+                promptContext.questRole !== "enjoy" &&
+                promptContext.journeyPhase?.requireStructuredNonEnjoy ===
+                  true &&
+                !isStructuredFloorEligibleCategory(candidate.venueCategory)
+              ),
           ),
           brief,
         );
@@ -232,6 +286,10 @@ export class MultiAgentStrategy {
           winner = fallbackCandidates[0];
           console.log(
             `[multi-agent] Validator: forced acceptance of "${winner.venueName}" after retries`,
+          );
+        } else {
+          console.log(
+            "[multi-agent] Validator: no fallback candidates survived hard journey-phase constraints",
           );
         }
       }
@@ -366,7 +424,7 @@ SOCIAL STRATEGY PRINCIPLES:
 - Dating is a byproduct of having a social life, not a standalone goal. Build the social ecosystem first.
 - Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
 - If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
-- Small towns require expanding the search radius. Push to nearby cities with more social infrastructure when the goal demands it.
+- Small towns require expanding the search radius. Think in terms of the best opportunities NEAR the user's home, not loyalty to a single town name.
 - When you push beyond the home base, name it as an intentional opportunity zone. Travel can be part of the rep, but it must not be accidental.
 - For goal-closure milestones, do not keep preparing forever. If the milestone context says closure is due, choose a strategy that directly touches the named goal.
 
@@ -377,7 +435,7 @@ You must think about WHERE this person should go, not just WHAT they should do. 
 - Every quest doesn't need to push geographically, but the overall trajectory should expand their world over time. If they've done 5+ quests all in the same small town, it's time to push outward.
 - Think about what cities within 30-40 miles have the density, scene, and demographics to support their goal. A 25-year-old looking for friends and dates in a retirement community won't find them no matter how many quests they do there.
 - The user's comfort radius represents how far they've gone — not how far they SHOULD go. If they're ready, push past it. A quest in a new city is both a geographic AND a social stretch.
-- Name a specific city or area to search in when relevant (e.g. "Search in Longmont" or "Search in Boulder's Pearl Street area").
+- The downstream search is home-centered within a radius. Use "targetCity" only as a soft area hint or opportunity label, not as a hard lock. Prefer searchQueries phrased as "<thing> near <home city>".
 - TRANSPORTATION: If they don't have a car, keep quests reachable by their transport mode. Don't send a transit rider 30 miles to a trailhead with no bus route.
 - BUDGET: Respect their spending comfort. If they said "free only," don't prescribe a $40 pottery class. If budget is flexible, you can suggest paid experiences freely.
 - SCHEDULE: Match quest timing to their availability. Shift workers need flexible-hour venues, not 9am weekday classes.
@@ -406,11 +464,11 @@ Respond with JSON:
   "repIntent": "<one-line rep description in capacity terms, under 20 words>",
   "experienceType": "<what kind of experience, e.g. 'hands-on creative workshop with strangers', 'casual trivia night at a brewery in a bigger city'>",
   "suggestedCategories": ["<2-3 specific venue categories to search for>"],
-  "targetCity": "<specific city or area to search in, e.g. 'Longmont, CO' or 'Boulder Pearl Street area' — can be their home city if appropriate>",
+  "targetCity": "<optional soft area hint, e.g. 'Longmont, CO' or 'Boulder Pearl Street area' — compatibility metadata only>",
   "maxDistanceMiles": <number — be willing to push this for growth>,
   "difficultyRange": [<min>, <max>],
   "socialChallengeLevel": "none" | "low" | "medium" | "high",
-  "searchQueries": ["<2-3 specific search queries for finding venues — include the target city name>"],
+  "searchQueries": ["<4-6 specific search queries for finding venues — prefer 'X near <home city>' phrasing>"],
   "preferredVenue": "<OPTIONAL — if returning to an anchor venue, put its exact name here so the Scout can verify it. Otherwise null>",
   "avoidVenues": ["<venue names to avoid from history>"],
   "avoidCategories": ["<categories that are overrepresented>"],
@@ -455,6 +513,12 @@ The blocker context above TAKES PRIORITY over normal progression. Do NOT prescri
     const frameworkBlock = ctx.offlineSocialFrameworkContext
       ? `${ctx.offlineSocialFrameworkContext}\n\n`
       : "";
+    const opportunityZoneBlock = ctx.opportunityZoneContext
+      ? `${ctx.opportunityZoneContext}\n\n`
+      : "";
+    const journeyMixBlock = ctx.journeyDiversityContext
+      ? `${ctx.journeyDiversityContext}\n\n`
+      : "";
     const milestoneBlock = ctx.goalMilestoneContext
       ? `${ctx.goalMilestoneContext}\n\n`
       : "";
@@ -463,6 +527,7 @@ The blocker context above TAKES PRIORITY over normal progression. Do NOT prescri
 - Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
 - Comfort radius: ${ctx.radius.toFixed(1)} miles
 - Pace: ${ctx.pace}
+${ctx.user.reachMode ? `- Reach mode: ${ctx.user.reachMode}` : "- Reach mode: not chosen yet; stay conservative unless a clearly better nearby opportunity emerges."}
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
 ${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
@@ -471,7 +536,7 @@ ${socialSituationBlock}${ctx.fearLadderContext}
 ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
-${frameworkBlock}${milestoneBlock}${ctx.historyContext}
+${frameworkBlock}${opportunityZoneBlock}${journeyMixBlock}${milestoneBlock}${ctx.historyContext}
 ${coverageBlock}${expansionBlock}${phaseBlock}${timelineBlock}${socialMicroBlock}${blockerOverride}CURRENT TIME: ${ctx.hour}:00 on ${ctx.dayOfWeek}.
 
 ${siblingBlock}What experience should this user have next? Think about what would genuinely move them toward their goal.`;

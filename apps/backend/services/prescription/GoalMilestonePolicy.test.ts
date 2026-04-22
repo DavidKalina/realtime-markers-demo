@@ -40,12 +40,20 @@ describe("applyGoalMilestonePolicy", () => {
       ctx: {
         activeGoalMilestone: { goalClosureDue: true },
         lastRejection: null,
+        city: "Frederick",
       } as any,
     });
     expect(decision.applied).toBe(true);
     expect(b.capacityTrack).toBe(CapacityTrack.SOCIAL_EXTENSION);
     expect(b.socialChallengeLevel).toBe("low");
     expect(b.difficultyRange).toEqual([3, 4]);
+    expect(b.suggestedCategories).toEqual([
+      "Board Game Venue",
+      "Workshop / Class Venue",
+      "Gym / Fitness Studio",
+      "Sports Club",
+    ]);
+    expect(b.searchQueries).toContain("singles meetup Frederick");
     expect(b.rationale).toContain("goal-closure milestone");
   });
 
@@ -56,8 +64,16 @@ describe("applyGoalMilestonePolicy", () => {
       ctx: {
         activeGoalMilestone: { goalClosureDue: true },
         lastRejection: { reason: "NEED_GENTLER" },
+        city: "Frederick",
       } as any,
     });
     expect(b.difficultyRange).toEqual([1, 2]);
+    expect(b.suggestedCategories).toEqual([
+      "Restaurant",
+      "Brunch Spot",
+      "Board Game Venue",
+      "Workshop / Class Venue",
+    ]);
+    expect(b.searchQueries).toContain("quiet lunch spot Frederick");
   });
 });

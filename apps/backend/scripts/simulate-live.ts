@@ -33,6 +33,7 @@ import { DEFAULT_QUEST_CONFIG } from "../services/shared/QuestConfig";
 import { buildOfflineSocialFrameworkPlan } from "../services/prescription/OfflineSocialFramework";
 import {
   detectGoalActionType,
+  isConcreteGoalActionType,
   normalizeGoalActionType,
 } from "../services/prescription/GoalMilestoneContext";
 
@@ -106,7 +107,9 @@ const DATING_PREP_ONLY_PATTERNS = [
 
 function includesDirectDatingRep(j: JourneyEntry): boolean {
   if (j.directGoalTouch) return true;
-  if (normalizeGoalActionType(j.goalActionType) !== "none") return true;
+  if (isConcreteGoalActionType(normalizeGoalActionType(j.goalActionType))) {
+    return true;
+  }
   let text = [
     j.title,
     j.description,
@@ -120,7 +123,7 @@ function includesDirectDatingRep(j: JourneyEntry): boolean {
     text = text.replace(pattern, " ");
   }
   return (
-    detectGoalActionType(text) !== "none" ||
+    isConcreteGoalActionType(detectGoalActionType(text)) ||
     DIRECT_DATING_PATTERNS.some((pattern) => pattern.test(text))
   );
 }
@@ -145,7 +148,7 @@ function hasTravelFraming(j: JourneyEntry): boolean {
 }
 
 function claimsStructuredContainer(j: JourneyEntry): boolean {
-  return /structured|class|club|meetup|workshop|trivia|dance|volunteer|league|open play|open gym|board game|game night|run club|pickleball|full round|group activity/i.test(
+  return /structured|class|club|meetup|workshop|trivia|dance|volunteer|league|open play|open gym|board game|game night|run club|pickleball|full round|group activity|group fitness|library program|maker night|open mic|social mixer|language exchange/i.test(
     [j.description, j.hook, j.repIntent, ...j.suggestedActivities].join(" "),
   );
 }
@@ -197,7 +200,7 @@ const INITIATIVE_CAPACITY_TRACKS = new Set([
 function isStructuredOfflineContainer(j: JourneyEntry): boolean {
   return (
     STRUCTURED_SOCIAL_CATEGORIES.has(j.venueCategory) ||
-    /class|club|meetup|workshop|trivia|dance|volunteer|league|open mic|run club|board game|social/i.test(
+    /class|club|meetup|workshop|trivia|dance|volunteer|league|open mic|run club|board game|social|group fitness|maker night|library program|pickleball|language exchange/i.test(
       `${j.hook} ${j.repIntent ?? ""}`,
     )
   );
@@ -2071,19 +2074,35 @@ async function main() {
       goalMilestoneKey: quest.goalMilestoneKey ?? null,
       goalMilestoneTitle: quest.goalMilestoneTitle ?? null,
       directGoalTouch:
-        Boolean(quest.directGoalTouch) ||
-        normalizeGoalActionType(quest.goalActionType) !== "none" ||
-        detectGoalActionType(
-          [
-            quest.title,
-            obj.description,
-            quest.repIntent,
-            ...(obj.suggestedActivities ?? []),
-            ...(obj.actionItems ?? []),
-          ]
-            .filter(Boolean)
-            .join(" "),
-        ) !== "none",
+        isConcreteGoalActionType(
+          normalizeGoalActionType(
+            quest.goalActionType ??
+              detectGoalActionType(
+                [
+                  quest.title,
+                  obj.description,
+                  quest.repIntent,
+                  ...(obj.suggestedActivities ?? []),
+                  ...(obj.actionItems ?? []),
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+              ),
+          ),
+        ) ||
+        isConcreteGoalActionType(
+          detectGoalActionType(
+            [
+              quest.title,
+              obj.description,
+              quest.repIntent,
+              ...(obj.suggestedActivities ?? []),
+              ...(obj.actionItems ?? []),
+            ]
+              .filter(Boolean)
+              .join(" "),
+          ),
+        ),
       goalActionType: normalizeGoalActionType(
         quest.goalActionType ??
           detectGoalActionType(
@@ -3036,6 +3055,9 @@ async function main() {
   const lateBaseRecoveryCount = lateJourney.filter(
     isBaseOrRecoveryQuest,
   ).length;
+  const lateParkCount = lateJourney.filter(
+    (j) => j.venueCategory === "Trail / Park",
+  ).length;
   console.log(`\n  Offline-Social Fit:`);
   console.log(
     `    Structured containers: ${structuredContainerCount}/${journey.length} (${journey.length ? ((structuredContainerCount / journey.length) * 100).toFixed(0) : "0"}%)`,
@@ -3048,7 +3070,7 @@ async function main() {
   );
   if (lateJourney.length > 0) {
     console.log(
-      `    Late journey mix:      ${lateStructuredCount}/${lateJourney.length} structured, ${lateBaseRecoveryCount}/${lateJourney.length} base/recovery`,
+      `    Late journey mix:      ${lateStructuredCount}/${lateJourney.length} structured, ${lateBaseRecoveryCount}/${lateJourney.length} base/recovery, ${lateParkCount}/${lateJourney.length} park-family`,
     );
   }
   if (journey.length >= 8 && lateStructuredCount === 0) {
@@ -3323,6 +3345,10 @@ async function main() {
       (j) => claimsStructuredContainer(j) && !isStructuredOfflineContainer(j),
     ).length,
     enjoyQuests: journey.filter((j) => j.questRole === "enjoy").length,
+    lateStructuredCount,
+    lateBaseRecoveryCount,
+    lateParkCount,
+    lateJourneyCount: lateJourney.length,
   };
   const acceptanceFailures: string[] = [];
   if (assertMode) {
@@ -3356,6 +3382,38 @@ async function main() {
     ) {
       acceptanceFailures.push(
         "Expected enjoy quests to still appear in longer simulations.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateStructuredCount < 3
+    ) {
+      acceptanceFailures.push(
+        "Expected at least 3 structured-container quests in the late journey.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateBaseRecoveryCount >
+        Math.floor(acceptanceMetrics.lateJourneyCount * 0.6)
+    ) {
+      acceptanceFailures.push(
+        "Expected late journey to avoid being dominated by base/recovery outings.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateParkCount >
+        Math.ceil(acceptanceMetrics.lateJourneyCount / 3)
+    ) {
+      acceptanceFailures.push(
+        "Expected park-family quests to stay capped in the late journey.",
       );
     }
   }

@@ -13,8 +13,12 @@ import {
   type Handler,
 } from "../utils/handlerUtils";
 import type { CoverageService } from "../services/CoverageService";
-import type { PathwayService } from "../services/PathwayService";
 import type { RedisService } from "../services/shared/RedisService";
+import type { OverpassService } from "../services/shared/OverpassService";
+import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
+import { analyzeOpportunityZones } from "../services/prescription/OpportunityZonePolicy";
+import { computeReachRecommendation } from "../services/prescription/ReachRecommendation";
+import { resolveGoalTags } from "../services/shared/QuestConfig";
 
 // ── Response types ─────────────────────────────────────────────
 
@@ -45,7 +49,11 @@ interface SelfInsightResponse {
   avgAnxietyDelta: number;
   avgDifficultyDelta: number;
   totalViolations: number;
-  calibrationType: "strong_overestimator" | "mild_overestimator" | "well_calibrated" | "underestimator";
+  calibrationType:
+    | "strong_overestimator"
+    | "mild_overestimator"
+    | "well_calibrated"
+    | "underestimator";
   questsWithPredictions: number;
 }
 
@@ -69,7 +77,11 @@ interface BlindSpotItem {
 
 interface ExplorationCompassResponse {
   gaps: { direction: string; angleDeg: number; gapWidthDeg: number }[];
-  explorationProfile: "early_explorer" | "depth_focused" | "breadth_focused" | "well_rounded";
+  explorationProfile:
+    | "early_explorer"
+    | "depth_focused"
+    | "breadth_focused"
+    | "well_rounded";
   coveragePct: number;
   territorySqMiles: number;
   clusterCount: number;
@@ -82,11 +94,20 @@ interface GrowthDashboardResponse {
   pathwayMomentum: PathwayMomentumItem[];
   blindSpots: BlindSpotItem[];
   explorationCompass: ExplorationCompassResponse | null;
+  reachRecommendation: {
+    shouldAsk: boolean;
+    recommendedMode: "local_only" | "nearby_mix" | "best_opportunities";
+    reason: string;
+    localSaturationSignals: string[];
+    betterNearbyExists: boolean;
+  } | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function classifyCalibrationType(avgAnxietyDelta: number): SelfInsightResponse["calibrationType"] {
+function classifyCalibrationType(
+  avgAnxietyDelta: number,
+): SelfInsightResponse["calibrationType"] {
   if (avgAnxietyDelta > 1.5) return "strong_overestimator";
   if (avgAnxietyDelta > 0.5) return "mild_overestimator";
   if (avgAnxietyDelta < -0.5) return "underestimator";
@@ -100,7 +121,8 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   const dataSource = c.get("dataSource") as DataSource;
   const redisService = c.get("redisService") as RedisService;
   const coverageService = c.get("coverageService") as CoverageService;
-  const pathwayService = c.get("pathwayService") as PathwayService;
+  const overpassService = c.get("overpassService") as OverpassService;
+  const geocodingService = c.get("geocodingService") as GoogleGeocodingService;
 
   // Cache for 5 minutes
   const cacheKey = `growth-dashboard:${user.id}`;
@@ -111,7 +133,6 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
 
   const [
     questRows,
-    pathwayData,
     userRecord,
     coverageSummary,
     coverageProfile,
@@ -119,17 +140,20 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
     blockerRows,
   ] = await Promise.all([
     // 1. Completed quests with objective data (for growth arc + score)
-    dataSource.query<{
-      rating: number | null;
-      difficulty: number | null;
-      reflection_sentiment: number | null;
-      reflection_tags: string[] | null;
-      completed_at: string;
-      distance_from_home: number | null;
-      venue_category: string | null;
-      predicted_anxiety: number | null;
-      predicted_difficulty: number | null;
-    }[]>(`
+    dataSource.query<
+      {
+        rating: number | null;
+        difficulty: number | null;
+        reflection_sentiment: number | null;
+        reflection_tags: string[] | null;
+        completed_at: string;
+        distance_from_home: number | null;
+        venue_category: string | null;
+        predicted_anxiety: number | null;
+        predicted_difficulty: number | null;
+      }[]
+    >(
+      `
       SELECT
         s.rating,
         o.difficulty,
@@ -146,25 +170,35 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
         AND s.completed_at IS NOT NULL
         AND s.deleted_at IS NULL
       ORDER BY s.completed_at DESC
-    `, [user.id]),
+    `,
+      [user.id],
+    ),
 
-    // 2. Pathway data (for momentum sparklines)
-    pathwayService.getUserPhaseContext(user.id),
-
-    // 3. User record (for expectancy calibration)
+    // 2. User record (for expectancy calibration)
     dataSource.getRepository(User).findOne({
       where: { id: user.id },
-      select: ["id", "expectancyCalibration", "comfortRadiusMiles"],
+      select: [
+        "id",
+        "expectancyCalibration",
+        "comfortRadiusMiles",
+        "reachMode",
+        "homeLatitude",
+        "homeLongitude",
+        "comfortProfile",
+      ],
     }),
 
-    // 4. Coverage summary (for exploration compass)
+    // 3. Coverage summary (for exploration compass)
     coverageService.getCoverageSummary(user.id).catch(() => null),
 
-    // 5. Coverage profile (for exploration label)
+    // 4. Coverage profile (for exploration label)
     coverageService.buildLLMCoverageContext(user.id).catch(() => null),
 
-    // 6. Weekly score snapshots (for sparkline history)
-    dataSource.query<{ week: string; quest_count: number; avg_rating: number }[]>(`
+    // 5. Weekly score snapshots (for sparkline history)
+    dataSource.query<
+      { week: string; quest_count: number; avg_rating: number }[]
+    >(
+      `
       SELECT
         DATE_TRUNC('week', s.completed_at) AS week,
         COUNT(*)::int AS quest_count,
@@ -175,20 +209,25 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
         AND s.deleted_at IS NULL
       GROUP BY DATE_TRUNC('week', s.completed_at)
       ORDER BY week ASC
-    `, [user.id]),
+    `,
+      [user.id],
+    ),
 
-    // 7. Blocker detection data (action items vs completed)
-    dataSource.query<{
-      quest_title: string;
-      action_items: string[] | null;
-      suggested_activities: string[] | null;
-      completed_activity: string | null;
-      journal_entry: string | null;
-      rating: number | null;
-      rating_comment: string | null;
-      difficulty: number | null;
-      venue_category: string | null;
-    }[]>(`
+    // 6. Blocker detection data (action items vs completed)
+    dataSource.query<
+      {
+        quest_title: string;
+        action_items: string[] | null;
+        suggested_activities: string[] | null;
+        completed_activity: string | null;
+        journal_entry: string | null;
+        rating: number | null;
+        rating_comment: string | null;
+        difficulty: number | null;
+        venue_category: string | null;
+      }[]
+    >(
+      `
       SELECT
         s.title AS quest_title,
         o.action_items,
@@ -206,36 +245,58 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
         AND s.deleted_at IS NULL
       ORDER BY s.completed_at DESC
       LIMIT 15
-    `, [user.id]),
+    `,
+      [user.id],
+    ),
   ]);
 
   // ── Compute Growth Arc ─────────────────────────────────────
 
   const completedQuests = questRows.length;
-  const ratings = questRows.filter(r => r.rating != null).map(r => r.rating!);
-  const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+  const ratings = questRows
+    .filter((r) => r.rating != null)
+    .map((r) => r.rating!);
+  const avgRating =
+    ratings.length > 0
+      ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+      : 0;
 
-  const growthTags = new Set(["growth_narrative", "discomfort_processed", "social_connection", "self_awareness"]);
-  const hasGrowthSignals = questRows.some(r =>
-    r.reflection_tags?.some(tag => growthTags.has(tag)),
+  const growthTags = new Set([
+    "growth_narrative",
+    "discomfort_processed",
+    "social_connection",
+    "self_awareness",
+  ]);
+  const hasGrowthSignals = questRows.some((r) =>
+    r.reflection_tags?.some((tag) => growthTags.has(tag)),
   );
 
   // Get resonance from pathways
-  const allPathways = await dataSource.query<{
-    resonance_scores: { sidequestId: string; score: number; reflectionTags?: string[] }[] | null;
-    phase: string;
-  }[]>(
-    `SELECT resonance_scores, phase FROM pathways WHERE user_id = $1`,
-    [user.id],
+  const allPathways = await dataSource.query<
+    {
+      resonance_scores:
+        | { sidequestId: string; score: number; reflectionTags?: string[] }[]
+        | null;
+      phase: string;
+    }[]
+  >(`SELECT resonance_scores, phase FROM pathways WHERE user_id = $1`, [
+    user.id,
+  ]);
+  const allResonanceScores = allPathways.flatMap((p) =>
+    (p.resonance_scores ?? []).map((r) => r.score),
   );
-  const allResonanceScores = allPathways.flatMap(p => (p.resonance_scores ?? []).map(r => r.score));
-  const avgResonance = allResonanceScores.length > 0
-    ? allResonanceScores.reduce((a, b) => a + b, 0) / allResonanceScores.length : 0;
+  const avgResonance =
+    allResonanceScores.length > 0
+      ? allResonanceScores.reduce((a, b) => a + b, 0) /
+        allResonanceScores.length
+      : 0;
   const recentScores = allResonanceScores.slice(0, 5);
-  const recentResonance = recentScores.length > 0
-    ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length : 0;
+  const recentResonance =
+    recentScores.length > 0
+      ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length
+      : 0;
 
-  const hasDfsPathway = allPathways.some(p => p.phase === "dfs");
+  const hasDfsPathway = allPathways.some((p) => p.phase === "dfs");
 
   // Phase determination (mirrors SidequestPrescriptionService.computeFearLadderReadiness)
   let phase = 0;
@@ -248,7 +309,8 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   if (phase >= 1) {
     if (hasGrowthSignals) {
       phase = 2;
-      phaseReason = "Showing growth signals in reflections — ready for real challenges";
+      phaseReason =
+        "Showing growth signals in reflections — ready for real challenges";
     } else if (completedQuests >= 5 && avgRating >= 3.5) {
       phase = 2;
       phaseReason = `Consistently positive (avg ${avgRating.toFixed(1)} across ${completedQuests} quests)`;
@@ -272,15 +334,22 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
 
   // Expectancy accelerator
   const cal = userRecord?.expectancyCalibration;
-  if (cal && cal.totalViolations >= 3 && cal.avgAnxietyDelta > 1.5 && phase < 3) {
+  if (
+    cal &&
+    cal.totalViolations >= 3 &&
+    cal.avgAnxietyDelta > 1.5 &&
+    phase < 3
+  ) {
     phase = Math.min(3, phase + 1);
     phaseReason = `Strong fear overestimator — predictions consistently overshoot reality. Accelerating`;
   }
 
   // Safety valve
   const recentRatings = ratings.slice(0, 5);
-  const recentAvgRating = recentRatings.length > 0
-    ? recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length : avgRating;
+  const recentAvgRating =
+    recentRatings.length > 0
+      ? recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length
+      : avgRating;
   if (recentAvgRating < 2.5 && phase > 0) {
     phase = Math.max(0, phase - 1);
     phaseReason = `Recent quests aren't landing well (avg ${recentAvgRating.toFixed(1)}) — pulling back`;
@@ -304,47 +373,86 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   // Consistency sub-score: based on quest cadence over last 8 weeks
   const eightWeeksAgo = new Date();
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
-  const recentWeeks = weeklyScores.filter(w => new Date(w.week) >= eightWeeksAgo);
-  const consistencyScore = Math.round(Math.min(recentWeeks.length / 8, 1) * 100);
+  const recentWeeks = weeklyScores.filter(
+    (w) => new Date(w.week) >= eightWeeksAgo,
+  );
+  const consistencyScore = Math.round(
+    Math.min(recentWeeks.length / 8, 1) * 100,
+  );
 
   // Expansion sub-score: based on comfort radius growth + coverage
   const comfortRadius = Number(userRecord?.comfortRadiusMiles ?? 0.5);
   const radiusGrowth = Math.min((comfortRadius - 0.5) / 5, 1); // 0.5mi to 5.5mi = full score
-  const coveragePctNorm = coverageSummary ? Math.min(coverageSummary.stats.coveragePct / 60, 1) : 0;
-  const expansionScore = Math.round(((radiusGrowth * 0.6) + (coveragePctNorm * 0.4)) * 100);
+  const coveragePctNorm = coverageSummary
+    ? Math.min(coverageSummary.stats.coveragePct / 60, 1)
+    : 0;
+  const expansionScore = Math.round(
+    (radiusGrowth * 0.6 + coveragePctNorm * 0.4) * 100,
+  );
 
   // Depth sub-score: DFS pathways + resonance consistency
-  const dfsCount = allPathways.filter(p => p.phase === "dfs").length;
+  const dfsCount = allPathways.filter((p) => p.phase === "dfs").length;
   const dfsNorm = Math.min(dfsCount / 3, 1);
-  const resonanceConsistency = allResonanceScores.length >= 3
-    ? 1 - (Math.sqrt(allResonanceScores.reduce((sum, s) => sum + Math.pow(s - avgResonance, 2), 0) / allResonanceScores.length)) : 0;
-  const depthScore = Math.round(((dfsNorm * 0.5) + (Math.min(resonanceConsistency * 1.5, 1) * 0.5)) * 100);
+  const resonanceConsistency =
+    allResonanceScores.length >= 3
+      ? 1 -
+        Math.sqrt(
+          allResonanceScores.reduce(
+            (sum, s) => sum + Math.pow(s - avgResonance, 2),
+            0,
+          ) / allResonanceScores.length,
+        )
+      : 0;
+  const depthScore = Math.round(
+    (dfsNorm * 0.5 + Math.min(resonanceConsistency * 1.5, 1) * 0.5) * 100,
+  );
 
   // Composite
   const compositeScore = Math.round(
-    resonanceScore * 0.3 + consistencyScore * 0.25 + expansionScore * 0.2 + depthScore * 0.25,
+    resonanceScore * 0.3 +
+      consistencyScore * 0.25 +
+      expansionScore * 0.2 +
+      depthScore * 0.25,
   );
 
   // Momentum: compare last 2 weeks to 2 weeks before that
-  const sortedWeeks = [...weeklyScores].sort((a, b) => new Date(b.week).getTime() - new Date(a.week).getTime());
+  const sortedWeeks = [...weeklyScores].sort(
+    (a, b) => new Date(b.week).getTime() - new Date(a.week).getTime(),
+  );
   const recent2 = sortedWeeks.slice(0, 2);
   const prev2 = sortedWeeks.slice(2, 4);
-  const recentAvg = recent2.length > 0 ? recent2.reduce((s, w) => s + w.avg_rating, 0) / recent2.length : 0;
-  const prevAvg = prev2.length > 0 ? prev2.reduce((s, w) => s + w.avg_rating, 0) / prev2.length : 0;
+  const recentAvg =
+    recent2.length > 0
+      ? recent2.reduce((s, w) => s + w.avg_rating, 0) / recent2.length
+      : 0;
+  const prevAvg =
+    prev2.length > 0
+      ? prev2.reduce((s, w) => s + w.avg_rating, 0) / prev2.length
+      : 0;
   const momentum: GrowthScoreResponse["momentum"] =
-    recentAvg > prevAvg + 0.3 ? "rising" : recentAvg < prevAvg - 0.3 ? "cooling" : "steady";
+    recentAvg > prevAvg + 0.3
+      ? "rising"
+      : recentAvg < prevAvg - 0.3
+        ? "cooling"
+        : "steady";
 
   // Weekly composite history for sparkline
-  const history: GrowthScoreResponse["history"] = weeklyScores.map(w => {
+  const history: GrowthScoreResponse["history"] = weeklyScores.map((w) => {
     // Approximate: use avg_rating * 20 as proxy, bounded by quest count
-    const weekScore = Math.round(Math.min(w.avg_rating * 20, 100) * Math.min(w.quest_count / 3, 1));
-    return { score: Math.max(weekScore, 5), date: new Date(w.week).toISOString().slice(0, 10) };
+    const weekScore = Math.round(
+      Math.min(w.avg_rating * 20, 100) * Math.min(w.quest_count / 3, 1),
+    );
+    return {
+      score: Math.max(weekScore, 5),
+      date: new Date(w.week).toISOString().slice(0, 10),
+    };
   });
 
   // Delta: compare latest score to score from 7 days ago
-  const delta7d = history.length >= 2
-    ? history[history.length - 1].score - history[history.length - 2].score
-    : 0;
+  const delta7d =
+    history.length >= 2
+      ? history[history.length - 1].score - history[history.length - 2].score
+      : 0;
 
   const growthScore: GrowthScoreResponse = {
     score: compositeScore,
@@ -375,17 +483,19 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   // ── Pathway Momentum ────────────────────────────────────���─
 
   // Get raw pathway entities with resonance_scores for sparklines
-  const rawPathways = await dataSource.query<{
-    theme: string;
-    theme_label: string;
-    phase: string;
-    avg_resonance: number;
-    quest_count: number;
-    current_difficulty: number;
-    difficulty_trend: number;
-    resonance_scores: { sidequestId: string; score: number }[] | null;
-    sidequest_ids: string[] | null;
-  }[]>(
+  const rawPathways = await dataSource.query<
+    {
+      theme: string;
+      theme_label: string;
+      phase: string;
+      avg_resonance: number;
+      quest_count: number;
+      current_difficulty: number;
+      difficulty_trend: number;
+      resonance_scores: { sidequestId: string; score: number }[] | null;
+      sidequest_ids: string[] | null;
+    }[]
+  >(
     `SELECT theme, theme_label, phase, avg_resonance, quest_count,
             current_difficulty, difficulty_trend, resonance_scores, sidequest_ids
      FROM pathways WHERE user_id = $1 ORDER BY avg_resonance DESC`,
@@ -393,20 +503,24 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   );
 
   // Get difficulty per sidequest for trend history
-  const sidequestIds = rawPathways.flatMap(p => p.sidequest_ids ?? []);
+  const sidequestIds = rawPathways.flatMap((p) => p.sidequest_ids ?? []);
   let difficultyMap: Record<string, number> = {};
   if (sidequestIds.length > 0) {
-    const diffRows = await dataSource.query<{ sidequest_id: string; difficulty: number }[]>(
+    const diffRows = await dataSource.query<
+      { sidequest_id: string; difficulty: number }[]
+    >(
       `SELECT sidequest_id, difficulty FROM objectives
        WHERE sidequest_id = ANY($1) AND sort_order = 0 AND difficulty IS NOT NULL`,
       [sidequestIds],
     );
-    difficultyMap = Object.fromEntries(diffRows.map(r => [r.sidequest_id, Number(r.difficulty)]));
+    difficultyMap = Object.fromEntries(
+      diffRows.map((r) => [r.sidequest_id, Number(r.difficulty)]),
+    );
   }
 
-  const pathwayMomentum: PathwayMomentumItem[] = rawPathways.map(p => {
+  const pathwayMomentum: PathwayMomentumItem[] = rawPathways.map((p) => {
     const resScores = p.resonance_scores ?? [];
-    const trendHistory = resScores.map(rs => ({
+    const trendHistory = resScores.map((rs) => ({
       resonance: rs.score,
       difficulty: difficultyMap[rs.sidequestId] ?? 0,
     }));
@@ -438,13 +552,19 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
         completedActions.add(row.completed_activity.toLowerCase());
       }
       for (const ai of row.action_items ?? []) {
-        const key = ai.toLowerCase().replace(/[^a-z ]/g, "").trim();
+        const key = ai
+          .toLowerCase()
+          .replace(/[^a-z ]/g, "")
+          .trim();
         if (key.length > 5) {
           prescribedActions[key] = (prescribedActions[key] ?? 0) + 1;
         }
       }
       for (const sa of row.suggested_activities ?? []) {
-        const key = sa.toLowerCase().replace(/[^a-z ]/g, "").trim();
+        const key = sa
+          .toLowerCase()
+          .replace(/[^a-z ]/g, "")
+          .trim();
         if (key.length > 5) {
           prescribedActions[key] = (prescribedActions[key] ?? 0) + 1;
         }
@@ -455,7 +575,9 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
     const avoidedPatterns = Object.entries(prescribedActions)
       .filter(([action, count]) => {
         if (count < 3) return false;
-        return !Array.from(completedActions).some(c => c.includes(action.slice(0, 15)));
+        return !Array.from(completedActions).some((c) =>
+          c.includes(action.slice(0, 15)),
+        );
       })
       .sort((a, b) => b[1] - a[1])
       .slice(0, 2);
@@ -478,16 +600,60 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
   let explorationCompass: ExplorationCompassResponse | null = null;
   if (coverageSummary) {
     explorationCompass = {
-      gaps: coverageSummary.directionalGaps.map(g => ({
+      gaps: coverageSummary.directionalGaps.map((g) => ({
         direction: g.direction,
         angleDeg: g.angleDeg,
         gapWidthDeg: g.gapWidthDeg,
       })),
-      explorationProfile: (coverageProfile?.profile.label ?? "early_explorer") as ExplorationCompassResponse["explorationProfile"],
+      explorationProfile: (coverageProfile?.profile.label ??
+        "early_explorer") as ExplorationCompassResponse["explorationProfile"],
       coveragePct: Math.round(coverageSummary.stats.coveragePct),
-      territorySqMiles: Math.round(coverageSummary.stats.territorySqMiles * 10) / 10,
+      territorySqMiles:
+        Math.round(coverageSummary.stats.territorySqMiles * 10) / 10,
       clusterCount: coverageSummary.stats.clusterCount,
     };
+  }
+
+  let reachRecommendation: GrowthDashboardResponse["reachRecommendation"] =
+    null;
+  if (userRecord?.homeLatitude != null && userRecord?.homeLongitude != null) {
+    try {
+      const homeCity = await geocodingService.reverseGeocodeCityState(
+        Number(userRecord.homeLatitude),
+        Number(userRecord.homeLongitude),
+      );
+      const nearbyCities = await overpassService.fetchNearbyCities(
+        Number(userRecord.homeLatitude),
+        Number(userRecord.homeLongitude),
+        100000,
+        12,
+      );
+      const opportunityZones = analyzeOpportunityZones({
+        homeCity,
+        nearbyCities,
+        goalTags: resolveGoalTags(userRecord.comfortProfile),
+        completedQuestCount: completedQuests,
+        isEarlyCalibration: completedQuests < 5,
+        journeyPhase:
+          growthArc.phase >= 4
+            ? "late_world_building"
+            : growthArc.phase >= 3
+              ? "post_breakthrough_consolidation"
+              : growthArc.phase >= 2
+                ? "goal_closure_due"
+                : "calibration",
+      });
+      reachRecommendation =
+        computeReachRecommendation({
+          reachMode: userRecord.reachMode ?? null,
+          completedQuestCount: completedQuests,
+          comfortRadiusMiles: Number(userRecord.comfortRadiusMiles ?? 3),
+          recentQuestRows: questRows,
+          opportunityZones,
+        }) ?? null;
+    } catch (err) {
+      console.error("[growthDashboard] Reach recommendation failed:", err);
+    }
   }
 
   // ── Assemble response ──────────────────────────────────────
@@ -499,6 +665,7 @@ export const getGrowthDashboard: Handler = withErrorHandling(async (c) => {
     pathwayMomentum,
     blindSpots,
     explorationCompass,
+    reachRecommendation,
   };
 
   await redisService.set(cacheKey, response, 300);

@@ -36,8 +36,12 @@ import { buildOfflineSocialFrameworkPlan } from "./prescription/OfflineSocialFra
 import {
   buildGoalMilestoneContext,
   detectGoalActionType,
+  isConcreteGoalActionType,
   normalizeGoalActionType,
 } from "./prescription/GoalMilestoneContext";
+import { buildJourneyDiversityContext } from "./prescription/JourneyDiversityContext";
+import { resolveJourneyPhase } from "./prescription/JourneyPhasePolicy";
+import { analyzeOpportunityZones } from "./prescription/OpportunityZonePolicy";
 
 // ── Extracted modules ──────────────────────────────────────────────
 import {
@@ -328,6 +332,7 @@ export class SidequestPrescriptionService {
         "comfortProfile",
         "onboardingProfile",
         "pacePreference",
+        "reachMode",
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
@@ -446,6 +451,42 @@ export class SidequestPrescriptionService {
       completedQuestCount,
       blockerMeta,
     });
+    const journeyDiversity = await buildJourneyDiversityContext({
+      dataSource: this.dataSource,
+      userId,
+      completedQuestCount,
+    });
+    const journeyPhase = resolveJourneyPhase({
+      completedQuestCount,
+      isEarlyCalibration,
+      goalClosureDue: goalMilestone.goalClosureDue,
+      directGoalTouched: goalMilestone.directGoalTouched,
+      postGoalClosureWindow: journeyDiversity.postGoalClosureWindow,
+      shouldCooldownMilestone: journeyDiversity.shouldCooldownMilestone,
+      shouldForceStructuredNext: journeyDiversity.shouldForceStructuredNext,
+      recentBaseRecoveryCount: journeyDiversity.recentBaseRecoveryCount,
+      recentStructuredCount: journeyDiversity.recentStructuredCount,
+      dominantRecentFamily: journeyDiversity.dominantRecentFamily,
+    });
+    let opportunityZones = null;
+    try {
+      const nearbyCities = await this.overpassService.fetchNearbyCities(
+        homeLat,
+        homeLng,
+        100000,
+        12,
+      );
+      opportunityZones = analyzeOpportunityZones({
+        homeCity: homeCity ?? city,
+        nearbyCities,
+        goalTags,
+        completedQuestCount,
+        isEarlyCalibration,
+        journeyPhase: journeyPhase.phase,
+      });
+    } catch (err) {
+      console.error("[prescribeQuest] Opportunity zone analysis failed:", err);
+    }
 
     // 2b3. Build social micro-rep context (contextual social scaffolding)
     const socialMicroRepContext = await buildSocialMicroRepContext(
@@ -594,11 +635,32 @@ export class SidequestPrescriptionService {
       questRole = "explore";
       roleTargetPathway = undefined;
     }
-    if (!siblingContext && goalMilestone.goalClosureDue) {
+    if (!siblingContext && journeyPhase.requireMilestoneQuest) {
       questRole = "milestone";
       roleTargetPathway = undefined;
       console.log(
-        `[prescribeQuest] Goal-closure milestone due: ${goalMilestone.activeMilestoneTitle ?? "milestone"} — overriding quest role to milestone`,
+        `[prescribeQuest] Journey phase ${journeyPhase.phase}: ${goalMilestone.activeMilestoneTitle ?? "milestone"} is due — overriding quest role to milestone`,
+      );
+    } else if (
+      !siblingContext &&
+      goalMilestone.goalClosureDue &&
+      journeyDiversity.shouldCooldownMilestone
+    ) {
+      console.log(
+        "[prescribeQuest] Goal-closure milestone is due, but a direct-goal rep just landed — cooling down milestone pressure for one beat.",
+      );
+    }
+    if (
+      !siblingContext &&
+      journeyPhase.requireStructuredNonEnjoy &&
+      questRole !== "enjoy" &&
+      questRole !== "milestone"
+    ) {
+      if (questRole === "deepen") {
+        questRole = "stretch";
+      }
+      console.log(
+        "[prescribeQuest] Late-journey structured floor is due — biasing the next non-enjoy quest toward a real social container.",
       );
     }
 
@@ -660,6 +722,7 @@ export class SidequestPrescriptionService {
           comfortProfile: user.comfortProfile ?? null,
           onboardingProfile: user.onboardingProfile ?? null,
           pacePreference: user.pacePreference ?? null,
+          reachMode: user.reachMode ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
           socialSituation: user.socialSituation ?? null,
@@ -703,14 +766,64 @@ export class SidequestPrescriptionService {
           city,
         ),
         offlineSocialFrameworkContext: offlineSocialFramework.promptBlock,
+        offlineSocialFrameworkPlan: {
+          phase: offlineSocialFramework.phase,
+          primaryLens: offlineSocialFramework.primaryLens,
+          containers: offlineSocialFramework.containers,
+          searchSeeds: offlineSocialFramework.searchSeeds,
+        },
+        opportunityZoneContext: opportunityZones?.promptBlock ?? "",
+        opportunityZones: opportunityZones
+          ? {
+              homeBaseViability: opportunityZones.homeBaseViability,
+              recommendedCity: opportunityZones.recommendedCity,
+              fallbackCity: opportunityZones.fallbackCity,
+              zones: opportunityZones.zones,
+            }
+          : null,
+        journeyPhaseContext: journeyPhase.promptBlock,
+        journeyPhase: {
+          phase: journeyPhase.phase,
+          requireMilestoneQuest: journeyPhase.requireMilestoneQuest,
+          requireStructuredNonEnjoy: journeyPhase.requireStructuredNonEnjoy,
+          forbidParkForNonEnjoy: journeyPhase.forbidParkForNonEnjoy,
+          fallbackLane: journeyPhase.fallbackLane,
+        },
+        journeyDiversityContext: journeyDiversity.promptBlock,
+        journeyDiversity: {
+          recentCategories: journeyDiversity.recentCategories,
+          recentFamilies: journeyDiversity.recentFamilies,
+          recentVenueNames: journeyDiversity.recentVenueNames,
+          recentRoles: journeyDiversity.recentRoles,
+          recentMilestoneCount: journeyDiversity.recentMilestoneCount,
+          recentDirectGoalTouchCount:
+            journeyDiversity.recentDirectGoalTouchCount,
+          recentStructuredCount: journeyDiversity.recentStructuredCount,
+          recentBaseRecoveryCount: journeyDiversity.recentBaseRecoveryCount,
+          questsSinceDirectGoalTouch:
+            journeyDiversity.questsSinceDirectGoalTouch,
+          questsSinceMilestone: journeyDiversity.questsSinceMilestone,
+          consecutiveSameCategoryCount:
+            journeyDiversity.consecutiveSameCategoryCount,
+          consecutiveSameFamilyCount:
+            journeyDiversity.consecutiveSameFamilyCount,
+          consecutiveSameVenueCount: journeyDiversity.consecutiveSameVenueCount,
+          dominantRecentCategory: journeyDiversity.dominantRecentCategory,
+          dominantRecentFamily: journeyDiversity.dominantRecentFamily,
+          postGoalClosureWindow: journeyDiversity.postGoalClosureWindow,
+          shouldCooldownMilestone: journeyDiversity.shouldCooldownMilestone,
+          shouldForceStructuredNext: journeyDiversity.shouldForceStructuredNext,
+        },
         goalMilestoneContext: goalMilestone.promptBlock,
         activeGoalMilestone: {
           key: goalMilestone.activeMilestoneKey,
           title: goalMilestone.activeMilestoneTitle,
           goalClosureDue: goalMilestone.goalClosureDue,
           directGoalTouched: goalMilestone.directGoalTouched,
+          milestoneQuestSeen: goalMilestone.milestoneQuestSeen,
         },
         goalTags,
+        questRole: questRole ?? null,
         isStretch,
         isEnjoy,
         siblingContext: siblingContext ?? null,
@@ -842,12 +955,7 @@ export class SidequestPrescriptionService {
       sidequest.goalMilestoneTitle =
         goalMilestone.activeMilestoneTitle ?? undefined;
       const goalActionText = [
-        primaryItem?.item.title,
         primaryItem?.item.description,
-        primaryItem?.item.hook,
-        primaryItem?.item.smallerRep,
-        primaryItem?.item.tinyRep,
-        ...(primaryItem?.item.suggestedActivities ?? []),
         ...(primaryItem?.item.actionItems ?? []),
       ]
         .filter(Boolean)
@@ -860,9 +968,9 @@ export class SidequestPrescriptionService {
           ? writerGoalActionType
           : detectGoalActionType(goalActionText);
       sidequest.goalActionType = detectedGoalActionType;
-      sidequest.directGoalTouch =
-        primaryItem?.item.directGoalTouch === true ||
-        detectedGoalActionType !== "none";
+      sidequest.directGoalTouch = isConcreteGoalActionType(
+        detectedGoalActionType,
+      );
 
       // Generate category tags inline so the client always has them
       try {
@@ -961,6 +1069,7 @@ export class SidequestPrescriptionService {
         "comfortProfile",
         "onboardingProfile",
         "pacePreference",
+        "reachMode",
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
@@ -1054,6 +1163,7 @@ export class SidequestPrescriptionService {
           comfortProfile: user.comfortProfile ?? null,
           onboardingProfile: user.onboardingProfile ?? null,
           pacePreference: user.pacePreference ?? null,
+          reachMode: user.reachMode ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
           socialSituation: user.socialSituation ?? null,
@@ -1095,6 +1205,8 @@ export class SidequestPrescriptionService {
           city,
         ),
         offlineSocialFrameworkContext: offlineSocialFramework.promptBlock,
+        opportunityZoneContext: "",
+        opportunityZones: null,
         goalMilestoneContext: "",
         activeGoalMilestone: null,
         goalTags,

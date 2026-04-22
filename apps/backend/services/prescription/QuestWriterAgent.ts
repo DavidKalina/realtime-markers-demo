@@ -7,6 +7,7 @@ import type {
 } from "./PrescriptionStrategy";
 import {
   detectGoalActionType,
+  isConcreteGoalActionType,
   normalizeGoalActionType,
 } from "./GoalMilestoneContext";
 
@@ -99,10 +100,23 @@ ${brief.travelRationale ? `- Travel rationale: ${brief.travelRationale}` : ""}
 
 The venue is the environment. The rep is the prescription. Your title, description, smaller/tiny versions, minimum viable win, and hook should all reinforce the capacity rep above — not just describe the venue.
 ${
+  ctx.journeyPhaseContext
+    ? `
+${ctx.journeyPhaseContext}`
+    : ""
+}
+${
   brief.travelRationale && brief.opportunityScope !== "clamped_home"
     ? `
 REGIONAL / NEARBY OPPORTUNITY FRAMING:
 This venue requires extra travel. Name that honestly in the summary, strategy note, or hook. Frame it as an intentional opportunity-zone quest because the user's home base may be too sparse for this goal. Difficulty should include travel load.`
+    : ""
+}
+${
+  ctx.journeyDiversityContext
+    ? `
+${ctx.journeyDiversityContext}
+IMPORTANT: If a direct goal-touch rep just happened, do not write another near-identical copy of that same invite in the same kind of venue. Broaden the room mix while keeping the social thread alive.`
     : ""
 }
 ${
@@ -145,6 +159,12 @@ VENUE:
 - Address: ${venue.venueAddress}
 - Category: ${venue.venueCategory}
 ${venue.notes ? `- Why chosen: ${venue.notes}` : ""}
+
+VENUE TRUTH RULES:
+- Never describe the venue as indoor, structured, class-based, or room-like unless the actual category supports that.
+- A Trail / Park is a calm public place or outdoor place, not a structured room.
+- A library or community center can be structured only if the rep is actually tied to a program, class, club, desk interaction, or shared area that exists there.
+- Your job is to render the chosen venue truthfully, not to rescue a weak venue by renaming it.
 
 REP VARIANTS — IMPORTANT:
 Every prescription MUST ship with three versions, a minimum viable win, and an exit ramp. This is how we make failure safe.
@@ -252,6 +272,18 @@ function normalizeWriterOutput(
   venue: ScoutCandidate,
 ): void {
   const ctx = input.promptContext;
+  const sanitizeGroundingLanguage = (value: unknown): string | unknown => {
+    if (typeof value !== "string") return value;
+    if (venue.venueCategory !== "Trail / Park") return value;
+    return value
+      .replace(/\bstructured room\b/gi, "public place")
+      .replace(/\bstructured public room\b/gi, "public place")
+      .replace(/\bstructured public place\b/gi, "public place")
+      .replace(/\bnew indoor public place\b/gi, "public place")
+      .replace(/\bindoor public place\b/gi, "public place")
+      .replace(/\bindoor room\b/gi, "place")
+      .replace(/\broom family\b/gi, "place type");
+  };
 
   if ((parsed as any).items?.length > 1) {
     (parsed as any).items = (parsed as any).items.slice(0, 1);
@@ -263,6 +295,12 @@ function normalizeWriterOutput(
   item.vn = venue.venueName;
   item.va = venue.venueAddress;
   item.vc = venue.venueCategory;
+  (parsed as any).s = sanitizeGroundingLanguage((parsed as any).s);
+  (parsed as any).sn = sanitizeGroundingLanguage((parsed as any).sn);
+  item.d = sanitizeGroundingLanguage(item.d);
+  item.sr = sanitizeGroundingLanguage(item.sr);
+  item.tr = sanitizeGroundingLanguage(item.tr);
+  item.hook = sanitizeGroundingLanguage(item.hook);
 
   const rawDifficulty = Number(item.df);
   if (Number.isFinite(rawDifficulty)) {
@@ -294,25 +332,20 @@ function normalizeWriterOutput(
     item.er = "Leave anytime — no penalty, no explanation owed.";
   }
   if (ctx.activeGoalMilestone?.goalClosureDue) {
-    const goalActionText = [
-      item.t,
-      item.d,
-      item.hook,
-      item.sr,
-      item.tr,
-      ...(Array.isArray(item.sa) ? item.sa : []),
-      ...(Array.isArray(item.ai) ? item.ai : []),
-    ]
+    const goalActionText = [item.d, ...(Array.isArray(item.ai) ? item.ai : [])]
       .filter(Boolean)
       .join(" ");
     const detectedGoalActionType = detectGoalActionType(goalActionText);
     const writerGoalActionType = normalizeGoalActionType(item.gat);
     const writerClaimedDirect = item.dgt === true;
     item.act = "actionable";
-    if (detectedGoalActionType === "none") {
+    if (!isConcreteGoalActionType(detectedGoalActionType)) {
       item.dgt = false;
       item.gat = "none";
-      if (writerClaimedDirect || writerGoalActionType !== "none") {
+      if (
+        writerClaimedDirect ||
+        isConcreteGoalActionType(writerGoalActionType)
+      ) {
         console.warn(
           "[multi-agent] Writer claimed direct goal touch, but no concrete dating action was detected in the full rep.",
         );
@@ -330,7 +363,9 @@ function normalizeWriterOutput(
       : "suggestive";
   }
   if (!item.gat) item.gat = "none";
-  if (typeof item.dgt !== "boolean") item.dgt = item.gat !== "none";
+  if (typeof item.dgt !== "boolean") {
+    item.dgt = isConcreteGoalActionType(normalizeGoalActionType(item.gat));
+  }
   if (item.sr && fullText && fullText.length < item.sr.length) {
     console.warn(
       `[multi-agent] Writer variants may be inverted — full (${fullText.length} chars) shorter than smaller (${item.sr.length} chars)`,

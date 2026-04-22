@@ -33,11 +33,20 @@ export type ContainerType =
   | "structured_class"
   | "recurring_club"
   | "movement_group"
+  | "group_fitness_class"
+  | "run_walk_club"
+  | "rec_league_or_open_play"
   | "creative_workshop"
+  | "makers_night"
   | "volunteering"
   | "singles_event"
+  | "partner_dance_social"
+  | "board_game_social"
   | "performance_event"
   | "community_event"
+  | "food_social"
+  | "coworking_social"
+  | "library_program"
   | "quiet_public_place";
 
 export type FrameworkPhase = "foundation" | "container_bfs" | "container_dfs";
@@ -73,19 +82,19 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       foundation: {
         reps: ["activation", "public_presence", "returnability"],
         containers: ["casual_third_place", "quiet_public_place"],
-        searchSeeds: ["date-friendly cafe", "bookstore cafe", "low-key art gallery", "brunch spot"],
-        instruction: "Start with places that would make a low-pressure date or solo confidence rep feel plausible.",
+        searchSeeds: ["low-key art gallery", "quiet library", "community reading room", "brunch spot"],
+        instruction: "Start with calm public rooms that feel date-plausible or invite-able without relying only on cafes.",
       },
       container_bfs: {
         reps: ["group_participation", "micro_interaction", "identity_evidence"],
-        containers: ["structured_class", "movement_group", "recurring_club", "creative_workshop", "community_event"],
-        searchSeeds: ["beginner dance class", "board game night", "trivia night", "climbing gym", "run club", "art workshop", "volunteer event"],
+        containers: ["structured_class", "group_fitness_class", "partner_dance_social", "board_game_social", "movement_group", "creative_workshop", "community_event"],
+        searchSeeds: ["beginner dance class", "board game night", "trivia night", "group fitness class", "run club", "art workshop", "volunteer event", "pickleball open play"],
         instruction: "Search broadly for rooms where meeting people is natural: classes, games, movement, volunteering, and recurring events.",
       },
       container_dfs: {
         reps: ["returnability", "social_extension", "invitation", "micro_interaction"],
-        containers: ["recurring_club", "structured_class", "singles_event", "movement_group", "performance_event"],
-        searchSeeds: ["singles meetup", "speed dating", "partner dance social", "recurring board game night", "live music with mingling"],
+        containers: ["singles_event", "partner_dance_social", "recurring_club", "rec_league_or_open_play", "food_social", "performance_event", "movement_group"],
+        searchSeeds: ["singles meetup", "speed dating", "partner dance social", "recurring board game night", "live music with mingling", "social brunch", "adult sports league"],
         instruction: "Go deeper where resonance appears, then introduce gentle romantic/social initiative and low-stakes invitations.",
       },
     },
@@ -102,14 +111,14 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["group_participation", "micro_interaction", "identity_evidence"],
-        containers: ["recurring_club", "structured_class", "volunteering", "creative_workshop", "movement_group"],
-        searchSeeds: ["meetup group", "board game night", "volunteer event", "book club", "beginner class", "run club"],
+        containers: ["recurring_club", "board_game_social", "structured_class", "volunteering", "creative_workshop", "group_fitness_class", "community_event"],
+        searchSeeds: ["meetup group", "board game night", "volunteer event", "book club", "beginner class", "run club", "community mixer"],
         instruction: "Try multiple recurring containers until one has emotional pull and repeated faces.",
       },
       container_dfs: {
         reps: ["returnability", "social_extension", "invitation"],
-        containers: ["recurring_club", "volunteering", "structured_class", "community_event"],
-        searchSeeds: ["weekly meetup", "volunteer group", "club meeting", "community class"],
+        containers: ["recurring_club", "volunteering", "structured_class", "community_event", "food_social", "library_program"],
+        searchSeeds: ["weekly meetup", "volunteer group", "club meeting", "community class", "trivia night", "library program"],
         instruction: "Return to promising rooms and practice small follow-ups, name recognition, and invitations.",
       },
     },
@@ -126,14 +135,14 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["novelty_tolerance", "identity_evidence", "micro_interaction"],
-        containers: ["casual_third_place", "community_event", "creative_workshop", "movement_group"],
-        searchSeeds: ["farmers market", "drop-in workshop", "outdoor yoga", "low-key local event"],
+        containers: ["community_event", "creative_workshop", "library_program", "group_fitness_class", "coworking_social"],
+        searchSeeds: ["farmers market", "drop-in workshop", "outdoor yoga", "library program", "coworking day pass", "low-key local event"],
         instruction: "Broaden from solo comfort into structured but low-pressure offline experiences.",
       },
       container_dfs: {
         reps: ["returnability", "group_participation", "identity_evidence"],
-        containers: ["recurring_club", "structured_class", "movement_group", "community_event"],
-        searchSeeds: ["weekly class", "recurring local event", "community group", "drop-in club"],
+        containers: ["recurring_club", "structured_class", "movement_group", "community_event", "coworking_social"],
+        searchSeeds: ["weekly class", "recurring local event", "community group", "drop-in club", "coworking meetup"],
         instruction: "Turn one or two offline places into repeatable anchors so leaving home becomes identity, not effort.",
       },
     },
@@ -150,14 +159,14 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["micro_interaction", "group_participation", "identity_evidence"],
-        containers: ["casual_third_place", "structured_class", "creative_workshop", "movement_group"],
-        searchSeeds: ["beginner workshop", "drop-in class", "board game night", "yoga class", "trivia night"],
+        containers: ["structured_class", "creative_workshop", "board_game_social", "group_fitness_class", "library_program"],
+        searchSeeds: ["beginner workshop", "drop-in class", "board game night", "yoga class", "trivia night", "library program"],
         instruction: "Introduce optional micro-interactions inside structured environments where the script is obvious.",
       },
       container_dfs: {
         reps: ["returnability", "social_extension", "invitation"],
-        containers: ["recurring_club", "structured_class", "community_event"],
-        searchSeeds: ["weekly meetup", "beginner class series", "club meeting", "volunteer group"],
+        containers: ["recurring_club", "structured_class", "community_event", "board_game_social"],
+        searchSeeds: ["weekly meetup", "beginner class series", "club meeting", "volunteer group", "game night"],
         instruction: "Deepen repeat settings after safety is proven; use follow-up and invitation reps carefully.",
       },
     },
@@ -174,14 +183,14 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["group_participation", "identity_evidence", "micro_interaction"],
-        containers: ["creative_workshop", "structured_class", "recurring_club", "community_event"],
-        searchSeeds: ["beginner art class", "pottery workshop", "maker space", "book club", "photography walk"],
+        containers: ["creative_workshop", "makers_night", "structured_class", "recurring_club", "community_event", "library_program"],
+        searchSeeds: ["beginner art class", "pottery workshop", "maker space", "book club", "photography walk", "craft night", "library program"],
         instruction: "Try hands-on beginner containers where showing up creates proof: 'I am someone who does this.'",
       },
       container_dfs: {
         reps: ["returnability", "group_participation", "social_extension"],
-        containers: ["structured_class", "recurring_club", "creative_workshop"],
-        searchSeeds: ["class series", "weekly club", "open studio", "community workshop"],
+        containers: ["structured_class", "recurring_club", "creative_workshop", "makers_night"],
+        searchSeeds: ["class series", "weekly club", "open studio", "community workshop", "open maker night"],
         instruction: "Return to the hobby spaces with resonance and build familiarity with people, staff, and routines.",
       },
     },
@@ -198,14 +207,14 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["returnability", "micro_interaction", "identity_evidence"],
-        containers: ["casual_third_place", "community_event", "performance_event", "recurring_club"],
-        searchSeeds: ["trivia night", "open mic", "live music", "community event", "game night"],
+        containers: ["casual_third_place", "community_event", "performance_event", "recurring_club", "food_social", "coworking_social"],
+        searchSeeds: ["trivia night", "open mic", "live music", "community event", "game night", "food hall", "coworking meetup"],
         instruction: "Explore third places with repeatable rhythms: weekly events, regulars, staff, and simple reasons to come back.",
       },
       container_dfs: {
         reps: ["returnability", "social_extension", "invitation"],
-        containers: ["casual_third_place", "recurring_club", "community_event"],
-        searchSeeds: ["weekly event", "regulars night", "community meetup", "open mic"],
+        containers: ["casual_third_place", "recurring_club", "community_event", "food_social", "performance_event"],
+        searchSeeds: ["weekly event", "regulars night", "community meetup", "open mic", "trivia night"],
         instruction: "Deepen the best third place through repeated visits, small recognition, and eventually inviting someone along.",
       },
     },
@@ -222,8 +231,8 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
       },
       container_bfs: {
         reps: ["identity_evidence", "group_participation", "micro_interaction"],
-        containers: ["community_event", "movement_group", "creative_workshop", "recurring_club"],
-        searchSeeds: ["evening class", "local event", "run club", "workshop", "board game night"],
+        containers: ["community_event", "movement_group", "group_fitness_class", "creative_workshop", "recurring_club", "library_program"],
+        searchSeeds: ["evening class", "local event", "run club", "workshop", "board game night", "library program"],
         instruction: "Add structure so the phone is replaced by a room, a start time, and a reason to be there.",
       },
       container_dfs: {
@@ -300,8 +309,8 @@ export function buildOfflineSocialFrameworkPlan(input: {
   const primaryLens = selectedLenses[0] ?? "anti_doomscroll";
   const stages = selectedLenses.map((lens) => PLAYBOOKS[lens].stages[phase]);
   const reps = unique(stages.flatMap((stage) => stage.reps)).slice(0, 6);
-  const containers = unique(stages.flatMap((stage) => stage.containers)).slice(0, 7);
-  const searchSeeds = unique(stages.flatMap((stage) => stage.searchSeeds)).slice(0, 10);
+  const containers = unique(stages.flatMap((stage) => stage.containers)).slice(0, 9);
+  const searchSeeds = unique(stages.flatMap((stage) => stage.searchSeeds)).slice(0, 12);
   const alreadyUsed = new Set(input.recentCategories ?? []);
   const implementationRule = phase === "container_bfs"
     ? "BFS mode: at least one suggested category and one search query must come from the listed structured container families. Do not choose cafes, bakeries, tea houses, dessert shops, parks, or generic browsing unless this is recovery after a fresh rejection."

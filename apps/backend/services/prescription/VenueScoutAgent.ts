@@ -132,9 +132,11 @@ export class VenueScoutAgent {
 
         try {
           const near = `${lat},${lng}`;
+          const areaLabel =
+            brief.searchEnvelope?.searchLabel || brief.targetCity || near;
           const venues = await this.placesService.searchPlacesByCategory(
             query,
-            brief.targetCity || near,
+            areaLabel,
             { lat, lng },
             5,
             radiusMeters,
@@ -314,18 +316,19 @@ function buildScoutInstructions(
 STRATEGY:
 - Experience type: ${brief.experienceType}
 - Categories to search: ${brief.suggestedCategories.join(", ")}
-- Target city/area: ${brief.targetCity}
+- Search envelope: ${brief.searchEnvelope?.searchLabel ?? `near ${input.city}`}
 - Max distance: ${brief.maxDistanceMiles.toFixed(1)} miles from user's home
 - Opportunity scope: ${brief.opportunityScope ?? "auto-classify from chosen venue distance"}
 ${brief.travelRationale ? `- Travel rationale: ${brief.travelRationale}` : ""}
 - Social challenge: ${brief.socialChallengeLevel}
 - Suggested timing: ${brief.suggestedTiming || "flexible"} — find venues that are OPEN and active at this time
 - Rationale: ${brief.rationale}
+${brief.searchEnvelope?.preferredZoneHints?.length ? `- Preferred zone hints: ${brief.searchEnvelope.preferredZoneHints.map((zone) => `${zone.city} (${zone.distanceMiles.toFixed(1)}mi, score ${zone.opportunityScore.toFixed(1)})`).join("; ")}` : ""}
 
 USER HOME: ${input.city} (${input.searchLat.toFixed(4)}, ${input.searchLng.toFixed(4)})
-TARGET SEARCH AREA: ${brief.targetCity} — search in this city/area specifically, NOT the user's home town (unless they're the same).
+SEARCH CENTER: home coordinates above. Search within ${brief.maxDistanceMiles.toFixed(1)} miles of home and let verified results reveal which nearby city actually fits best.
 
-SEARCH QUERIES TO TRY: ${brief.searchQueries.join(", ")}
+SEARCH QUERIES TO TRY: ${(brief.searchEnvelope?.queryFamilies ?? brief.searchQueries).join(", ")}
 
 ${brief.preferredVenue ? `SUGGESTED RETURN VENUE: "${brief.preferredVenue}" — The Strategist thinks this could be a good return visit. Use search_places to verify it exists and get its exact address. Include it as a candidate alongside new options.` : ""}
 ${brief.avoidVenues.length > 0 ? `AVOID THESE VENUES: ${brief.avoidVenues.join(", ")}` : ""}
@@ -338,7 +341,7 @@ TOOLS:
 - search_trails: find trails from OpenStreetMap
 - submit_candidates: finalize your venue list (TERMINAL)
 
-Find REAL venues with verified addresses. Use search_places to confirm. Prefer candidates where search_places returns withinStrategyDistance=true, and copy canonicalCategory/placeId from search_places into submit_candidates. Do not submit candidates outside the max distance from USER HOME unless no in-range venue exists and your notes explicitly say it is outside range. Submit 3-5 candidates ranked by fit.
+Find REAL venues with verified addresses. Use search_places to confirm. Prefer candidates where search_places returns withinStrategyDistance=true, and copy canonicalCategory/placeId from search_places into submit_candidates. Do not let a weak home-base town monopolize the search if stronger in-range results show up nearby. Do not submit candidates outside the max distance from USER HOME unless no in-range venue exists and your notes explicitly say it is outside range. Submit 3-5 candidates ranked by fit.
 
 SEARCH BUDGET:
 - After 3 useful place searches with any verified venues, submit candidates instead of repeating abstract event searches.

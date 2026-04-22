@@ -7,6 +7,39 @@ export interface GoalMilestonePolicyDecision {
   logLine?: string;
 }
 
+const GENTLE_DATING_SUPPORT_CATEGORIES = [
+  "Restaurant",
+  "Brunch Spot",
+  "Board Game Venue",
+  "Workshop / Class Venue",
+];
+
+const SOCIAL_DATING_CONTAINER_CATEGORIES = [
+  "Board Game Venue",
+  "Workshop / Class Venue",
+  "Gym / Fitness Studio",
+  "Sports Club",
+];
+
+function buildMilestoneQueries(city: string, gentleMode: boolean): string[] {
+  if (gentleMode) {
+    return [
+      `quiet lunch spot ${city}`,
+      `low-key brunch ${city}`,
+      `board game night ${city}`,
+      `beginner social class ${city}`,
+    ];
+  }
+  return [
+    `beginner dance class ${city}`,
+    `board game night ${city}`,
+    `group fitness class ${city}`,
+    `singles meetup ${city}`,
+    `social mixer ${city}`,
+    `partner dance social ${city}`,
+  ];
+}
+
 export function applyGoalMilestonePolicy(input: {
   brief: StrategyBrief;
   ctx: PrescriptionPromptContext;
@@ -21,7 +54,13 @@ export function applyGoalMilestonePolicy(input: {
     social: brief.socialChallengeLevel,
     diffMin: brief.difficultyRange[0],
     diffMax: brief.difficultyRange[1],
+    categories: brief.suggestedCategories.join(", "),
   };
+  const city = brief.targetCity || input.ctx.homeCity || input.ctx.city;
+  const gentleMode =
+    input.ctx.lastRejection?.reason === "TOO_PUBLIC" ||
+    input.ctx.lastRejection?.reason === "NEED_GENTLER" ||
+    input.ctx.lastRejection?.reason === "TOO_SOCIAL";
 
   if (
     brief.capacityTrack !== CapacityTrack.SOCIAL_EXTENSION &&
@@ -34,6 +73,14 @@ export function applyGoalMilestonePolicy(input: {
   if (brief.socialChallengeLevel === "none") {
     brief.socialChallengeLevel = "low";
   }
+
+  brief.suggestedCategories = gentleMode
+    ? GENTLE_DATING_SUPPORT_CATEGORIES
+    : SOCIAL_DATING_CONTAINER_CATEGORIES;
+  brief.searchQueries = buildMilestoneQueries(city, gentleMode);
+  brief.experienceType = gentleMode
+    ? "dateable local place that supports one direct invite"
+    : "social container that supports one direct dating move";
 
   if (!ctx.lastRejection) {
     brief.difficultyRange = [
@@ -52,6 +99,7 @@ export function applyGoalMilestonePolicy(input: {
     logLine:
       `[multi-agent] Goal milestone policy: capacity ${before.capacityTrack}→${brief.capacityTrack}, ` +
       `social ${before.social}→${brief.socialChallengeLevel}, ` +
-      `difficulty ${before.diffMin}-${before.diffMax}→${brief.difficultyRange[0]}-${brief.difficultyRange[1]}`,
+      `difficulty ${before.diffMin}-${before.diffMax}→${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, ` +
+      `categories ${before.categories || "none"}→${brief.suggestedCategories.join(", ")}`,
   };
 }

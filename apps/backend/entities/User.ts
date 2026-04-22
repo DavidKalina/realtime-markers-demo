@@ -15,6 +15,8 @@ import type { Relation } from "typeorm";
 import { Sidequest } from "./Sidequest";
 import type { UserPushToken } from "./UserPushToken";
 
+type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
+
 export enum UserRole {
   USER = "USER",
   MODERATOR = "MODERATOR",
@@ -130,6 +132,14 @@ export class User {
   })
   pacePreference?: string;
 
+  @Column({
+    name: "reach_mode",
+    type: "varchar",
+    length: 32,
+    nullable: true,
+  })
+  reachMode?: ReachMode | null;
+
   @Column({ name: "comfort_profile", type: "jsonb", nullable: true })
   comfortProfile?: {
     comfortZone: string;
@@ -222,7 +232,11 @@ export class User {
     totalViolations: number;
     avgAnxietyDelta: number;
     avgDifficultyDelta: number;
-    recentViolations: { anxietyDelta: number; difficultyDelta: number; at: string }[];
+    recentViolations: {
+      anxietyDelta: number;
+      difficultyDelta: number;
+      at: string;
+    }[];
     updatedAt: string;
   };
 }

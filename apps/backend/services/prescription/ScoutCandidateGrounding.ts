@@ -371,6 +371,15 @@ function scoreCandidate(
     isSpirituallyWrongFallback({ ...candidate, venueCategory: category }, brief)
   )
     score -= 180;
+  if (brief.searchEnvelope?.preferredZoneHints?.length) {
+    const addressText = candidate.venueAddress.toLowerCase();
+    const zoneHint = brief.searchEnvelope.preferredZoneHints.find((zone) =>
+      addressText.includes(zone.city.split(",")[0]!.trim().toLowerCase()),
+    );
+    if (zoneHint) {
+      score += Math.min(90, 24 + zoneHint.opportunityScore * 10);
+    }
+  }
   score -= Number.isFinite(distance) ? distance * 3 : 100;
   score += (candidate.rating ?? 0) * 6;
   return score;

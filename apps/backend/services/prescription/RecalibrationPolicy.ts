@@ -53,17 +53,35 @@ export function buildLocalSearchQueries(
       : [brief.experienceType || "low pressure outing"];
   return categories
     .slice(0, 3)
-    .map((category) => `${category} ${city}`.replace(/\s+/g, " ").trim());
+    .map((category) => `${category} near ${city}`.replace(/\s+/g, " ").trim());
 }
 
 const GENTLE_LOCAL_CATEGORIES = [
-  "Coffee Shop",
   "Library",
+  "Community Center",
   "Trail / Park",
 ] as const;
 
 function buildGentleLocalSearchQueries(city: string): string[] {
-  return [`coffee shop ${city}`, `library ${city}`, `park ${city}`];
+  return [
+    `library near ${city}`,
+    `community center near ${city}`,
+    `park near ${city}`,
+  ];
+}
+
+const GENTLE_STRUCTURED_LOCAL_CATEGORIES = [
+  "Library",
+  "Community Center",
+  "Recreation Center",
+] as const;
+
+function buildGentleStructuredLocalSearchQueries(city: string): string[] {
+  return [
+    `library program near ${city}`,
+    `community center near ${city}`,
+    `recreation center near ${city}`,
+  ];
 }
 
 export function resolveRecalibrationPolicy(input: {
@@ -75,6 +93,11 @@ export function resolveRecalibrationPolicy(input: {
   const patch: StrategyBriefPatch = {};
   const avoidCategories = new Set<string>();
   const logLines: string[] = [];
+  const fallbackLane = ctx.journeyPhase?.fallbackLane ?? "open";
+  const lateJourneyStructuredGuard =
+    ctx.questRole !== "enjoy" &&
+    (ctx.journeyPhase?.requireStructuredNonEnjoy === true ||
+      ctx.journeyPhase?.forbidParkForNonEnjoy === true);
 
   const setDifficultyRange = (range: StrategyBrief["difficultyRange"]) => {
     patch.difficultyRange = [Math.min(range[0], range[1]), range[1]];
@@ -178,17 +201,31 @@ export function resolveRecalibrationPolicy(input: {
       patch.difficultyRange?.[1] ?? brief.difficultyRange[1];
     switch (last.reason) {
       case "TOO_FAR":
-        patch.targetCity = homeCity;
-        patch.searchQueries = buildLocalSearchQueries(brief, homeCity);
+        patch.searchQueries =
+          fallbackLane === "gentler_same_intent"
+            ? buildGentleStructuredLocalSearchQueries(homeCity)
+            : buildLocalSearchQueries(brief, homeCity);
+        if (lateJourneyStructuredGuard) {
+          patch.suggestedCategories = [...GENTLE_STRUCTURED_LOCAL_CATEGORIES];
+          avoidCategories.add("Trail / Park");
+        }
         patch.preferredVenue = undefined;
         break;
       case "NEED_GENTLER":
         setDifficultyRange([1, Math.min(3, currentMaxDifficulty)]);
         patch.socialChallengeLevel = "none";
-        patch.targetCity = homeCity;
-        patch.experienceType = "gentle local reset";
-        patch.suggestedCategories = [...GENTLE_LOCAL_CATEGORIES];
-        patch.searchQueries = buildGentleLocalSearchQueries(homeCity);
+        patch.experienceType =
+          fallbackLane === "gentler_same_intent"
+            ? "gentle structured local step"
+            : "gentle local reset";
+        patch.suggestedCategories =
+          fallbackLane === "gentler_same_intent"
+            ? [...GENTLE_STRUCTURED_LOCAL_CATEGORIES]
+            : [...GENTLE_LOCAL_CATEGORIES];
+        patch.searchQueries =
+          fallbackLane === "gentler_same_intent"
+            ? buildGentleStructuredLocalSearchQueries(homeCity)
+            : buildGentleLocalSearchQueries(homeCity);
         patch.preferredVenue = undefined;
         if (
           brief.capacityTrack !== CapacityTrack.ACTIVATION &&
@@ -202,6 +239,17 @@ export function resolveRecalibrationPolicy(input: {
         }
         for (const category of DENSE_PUBLIC_CATEGORIES)
           avoidCategories.add(category);
+        if (lateJourneyStructuredGuard) {
+          avoidCategories.add("Trail / Park");
+          if (
+            (patch.capacityTrack ?? brief.capacityTrack) ===
+            CapacityTrack.ACTIVATION
+          ) {
+            patch.capacityTrack = CapacityTrack.PUBLIC_PRESENCE;
+            patch.repIntent =
+              "Show up in a gentle structured room without needing to perform.";
+          }
+        }
         break;
       case "TOO_PUBLIC":
         patch.socialChallengeLevel = "none";
@@ -213,6 +261,12 @@ export function resolveRecalibrationPolicy(input: {
           avoidCategories.add(category);
         patch.suggestedTiming =
           "off-peak weekday late morning or early afternoon";
+        if (lateJourneyStructuredGuard) {
+          patch.suggestedCategories = [...GENTLE_STRUCTURED_LOCAL_CATEGORIES];
+          patch.searchQueries =
+            buildGentleStructuredLocalSearchQueries(homeCity);
+          avoidCategories.add("Trail / Park");
+        }
         break;
       case "TOO_MUCH_EFFORT":
         setDifficultyRange([1, Math.min(3, currentMaxDifficulty)]);

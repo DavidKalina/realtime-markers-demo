@@ -232,8 +232,12 @@ export class GooglePlacesService {
         rating: result.rating,
         userRatingsTotal: result.userRatingCount,
         businessStatus: result.businessStatus,
-        primaryType: result.primaryType ?? result.primaryTypeDisplayName?.text ?? undefined,
-        primaryTypeDisplayName: result.primaryTypeDisplayName?.text ?? undefined,
+        primaryType:
+          result.primaryType ??
+          result.primaryTypeDisplayName?.text ??
+          undefined,
+        primaryTypeDisplayName:
+          result.primaryTypeDisplayName?.text ?? undefined,
         locationNotes,
       };
     } catch (error) {
@@ -349,19 +353,30 @@ export class GooglePlacesService {
         : `${GooglePlacesService.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
-        console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
+        console.log(
+          `[searchPlacesByCategory] Cache hit for "${category}" in ${city}`,
+        );
         return cached.slice(0, maxResults);
       }
 
       // Dedup concurrent identical requests (3 parallel options often search the same thing)
       const inflight = this.placesInflight.get(cacheKey);
       if (inflight) {
-        console.log(`[searchPlacesByCategory] Joining inflight request for "${category}" in ${city}`);
+        console.log(
+          `[searchPlacesByCategory] Joining inflight request for "${category}" in ${city}`,
+        );
         const result = await inflight;
         return result.slice(0, maxResults);
       }
 
-      const fetchPromise = this.fetchPlaces(category, city, cityCenter, maxResults, radiusMeters, cacheKey);
+      const fetchPromise = this.fetchPlaces(
+        category,
+        city,
+        cityCenter,
+        maxResults,
+        radiusMeters,
+        cacheKey,
+      );
       this.placesInflight.set(cacheKey, fetchPromise);
       try {
         const result = await fetchPromise;
@@ -388,8 +403,12 @@ export class GooglePlacesService {
   ): Promise<VerifiedVenue[]> {
     try {
       const url = "https://places.googleapis.com/v1/places:searchText";
+      const looksLikeFullQuery =
+        /\bnear\b/i.test(category) ||
+        /\bin\b/i.test(category) ||
+        /,\s*[A-Z]{2}\b/.test(category);
       const requestBody: Record<string, unknown> = {
-        textQuery: `${category} in ${city}`,
+        textQuery: looksLikeFullQuery ? category : `${category} in ${city}`,
       };
       if (cityCenter) {
         const clampedRadius = Math.min(50000, Math.max(500, radiusMeters));
@@ -448,8 +467,12 @@ export class GooglePlacesService {
           userRatingsTotal: place.userRatingCount,
           businessStatus: place.businessStatus,
           priceLevel: place.priceLevel ?? undefined,
-          primaryType: place.primaryType ?? place.primaryTypeDisplayName?.text ?? undefined,
-          primaryTypeDisplayName: place.primaryTypeDisplayName?.text ?? undefined,
+          primaryType:
+            place.primaryType ??
+            place.primaryTypeDisplayName?.text ??
+            undefined,
+          primaryTypeDisplayName:
+            place.primaryTypeDisplayName?.text ?? undefined,
         });
       }
 
@@ -782,8 +805,12 @@ export class GooglePlacesService {
             placeId: place.id ?? "",
             types: place.types ?? [],
             rating: place.rating ?? undefined,
-            primaryType: place.primaryType ?? place.primaryTypeDisplayName?.text ?? undefined,
-            primaryTypeDisplayName: place.primaryTypeDisplayName?.text ?? undefined,
+            primaryType:
+              place.primaryType ??
+              place.primaryTypeDisplayName?.text ??
+              undefined,
+            primaryTypeDisplayName:
+              place.primaryTypeDisplayName?.text ?? undefined,
             distance: Math.round(dist),
           };
         });

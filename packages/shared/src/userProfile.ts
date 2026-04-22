@@ -1,3 +1,11 @@
+export const REACH_MODES = [
+  "local_only",
+  "nearby_mix",
+  "best_opportunities",
+] as const;
+
+export type ReachMode = (typeof REACH_MODES)[number];
+
 /**
  * Public-facing user profile shape — shared between backend and mobile app.
  * This is the subset of user fields exposed over the API.
@@ -38,6 +46,7 @@ export interface UserProfile {
   };
   onboardingPhase: number;
   pacePreference?: string;
+  reachMode?: ReachMode | null;
   comfortRadiusMiles?: number;
   homeLatitude?: number;
   homeLongitude?: number;

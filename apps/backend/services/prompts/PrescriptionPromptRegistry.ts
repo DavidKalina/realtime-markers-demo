@@ -12,6 +12,15 @@
  */
 
 import { buildOfflineSocialDomainBlock } from "../shared/QuestConfig";
+import type {
+  ContainerType,
+  FrameworkPhase,
+  GoalLens,
+} from "../prescription/OfflineSocialFramework";
+import type {
+  FallbackLane,
+  JourneyPhase,
+} from "../prescription/JourneyPhasePolicy";
 
 // ── Context passed to every prompt builder ──────────────────
 
@@ -29,6 +38,7 @@ export interface PrescriptionPromptContext {
       activities?: string[];
     } | null;
     pacePreference: string | null;
+    reachMode: "local_only" | "nearby_mix" | "best_opportunities" | null;
     fearLadder: Record<string, any> | null;
     expectancyCalibration: Record<string, any> | null;
     socialSituation: {
@@ -79,14 +89,66 @@ export interface PrescriptionPromptContext {
   socialMicroRepContext: string;
   socialSituationContext: string;
   offlineSocialFrameworkContext: string;
+  offlineSocialFrameworkPlan?: {
+    phase: FrameworkPhase;
+    primaryLens: GoalLens;
+    containers: ContainerType[];
+    searchSeeds: string[];
+  } | null;
+  opportunityZoneContext?: string;
+  opportunityZones?: {
+    homeBaseViability: "strong" | "limited" | "weak";
+    recommendedCity: string | null;
+    fallbackCity: string | null;
+    zones: {
+      city: string;
+      distanceMiles: number;
+      population: number | null;
+      opportunityScore: number;
+      tier: "home_base" | "nearby_growth_zone" | "regional_anchor";
+      rationale: string[];
+      isHomeBase: boolean;
+    }[];
+  } | null;
+  journeyPhaseContext?: string;
+  journeyPhase?: {
+    phase: JourneyPhase;
+    requireMilestoneQuest: boolean;
+    requireStructuredNonEnjoy: boolean;
+    forbidParkForNonEnjoy: boolean;
+    fallbackLane: FallbackLane;
+  } | null;
+  journeyDiversityContext?: string;
+  journeyDiversity?: {
+    recentCategories: string[];
+    recentFamilies: string[];
+    recentVenueNames: string[];
+    recentRoles: string[];
+    recentMilestoneCount: number;
+    recentDirectGoalTouchCount: number;
+    recentStructuredCount: number;
+    recentBaseRecoveryCount: number;
+    questsSinceDirectGoalTouch: number | null;
+    questsSinceMilestone: number | null;
+    consecutiveSameCategoryCount: number;
+    consecutiveSameFamilyCount: number;
+    consecutiveSameVenueCount: number;
+    dominantRecentCategory: string | null;
+    dominantRecentFamily: string | null;
+    postGoalClosureWindow: boolean;
+    shouldCooldownMilestone: boolean;
+    shouldForceStructuredNext: boolean;
+  } | null;
   goalMilestoneContext: string;
   activeGoalMilestone?: {
     key: string | null;
     title: string | null;
     goalClosureDue: boolean;
     directGoalTouched: boolean;
+    milestoneQuestSeen?: boolean;
   } | null;
   goalTags: string[];
+  questRole?: string | null;
 
   // Calibration feedback (Slice B) — present when the user just rejected a prescription
   // and this generation is a recalibration. The strategist uses this to acknowledge
@@ -217,6 +279,8 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
     blockerContext,
     socialMicroRepContext,
     offlineSocialFrameworkContext,
+    opportunityZoneContext,
+    journeyPhaseContext,
     goalMilestoneContext,
     isStretch,
     isEnjoy,
@@ -232,6 +296,8 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
 
 ${domainBlock}
 ${offlineSocialFrameworkContext}
+${opportunityZoneContext ?? ""}
+${journeyPhaseContext ?? ""}
 ${goalMilestoneContext}
 
 YOUR APPROACH:

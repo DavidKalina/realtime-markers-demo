@@ -328,8 +328,11 @@ export class ComfortZoneService {
     const hasDiscomfort = reflectionTags.includes("discomfort_processed");
     const hasSelfAwareness = reflectionTags.includes("self_awareness");
     const hasSocial = reflectionTags.includes("social_connection");
-    const isSurface = reflectionTags.length === 0 || (reflectionTags.length === 1 && reflectionTags[0] === "surface_level");
-    const hasAnyMeaningfulTag = hasGrowth || hasDiscomfort || hasSelfAwareness || hasSocial;
+    const isSurface =
+      reflectionTags.length === 0 ||
+      (reflectionTags.length === 1 && reflectionTags[0] === "surface_level");
+    const hasAnyMeaningfulTag =
+      hasGrowth || hasDiscomfort || hasSelfAwareness || hasSocial;
 
     let rarity: string;
     if (resonanceScore >= 0.7 && (hasGrowth || hasDiscomfort)) {
@@ -356,16 +359,43 @@ export class ComfortZoneService {
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalKey?: string; goalTags?: string[]; primaryGoal?: string };
-      fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
+      reachMode?: "local_only" | "nearby_mix" | "best_opportunities" | null;
+      comfortProfile?: {
+        comfortZone: string;
+        barriers: string;
+        goals: string;
+        goalKey?: string;
+        goalTags?: string[];
+        primaryGoal?: string;
+      };
+      fearLadder?: {
+        overallScore: number;
+        dimensionScores: Record<string, number>;
+        responses: Record<string, number>;
+        scenarios?: { id: string; text: string; dimension: string }[];
+        dimensions?: string[];
+      };
       onboardingProfile?: { activities: string[] };
-      socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
+      socialSituation?: {
+        ageRange: string;
+        gender: string;
+        timeInArea: string;
+        currentSocialLife: string;
+        lookingFor: string[];
+        workSituation: string;
+        livingSituation: string;
+        dailyRoutine?: string;
+        transportation?: string;
+        budget?: string;
+      };
       onboardingPhase?: number;
     },
   ): Promise<void> {
     const fields: Record<string, unknown> = {};
-    if (updates.onboardingPhase !== undefined) fields.onboardingPhase = updates.onboardingPhase;
+    if (updates.onboardingPhase !== undefined)
+      fields.onboardingPhase = updates.onboardingPhase;
     if (updates.pacePreference) fields.pacePreference = updates.pacePreference;
+    if ("reachMode" in updates) fields.reachMode = updates.reachMode ?? null;
     if (updates.comfortProfile) {
       fields.comfortProfile = Object.fromEntries(
         Object.entries(updates.comfortProfile).map(([k, v]) => [
@@ -418,9 +448,12 @@ export class ComfortZoneService {
     if (updates.completedActivity !== undefined)
       fields.completedActivity = updates.completedActivity;
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
-    if (updates.socialContext !== undefined) fields.socialContext = updates.socialContext;
-    if (updates.wouldReturn !== undefined) fields.wouldReturn = updates.wouldReturn;
-    if (updates.completedVersion !== undefined) fields.completedVersion = updates.completedVersion;
+    if (updates.socialContext !== undefined)
+      fields.socialContext = updates.socialContext;
+    if (updates.wouldReturn !== undefined)
+      fields.wouldReturn = updates.wouldReturn;
+    if (updates.completedVersion !== undefined)
+      fields.completedVersion = updates.completedVersion;
 
     if (Object.keys(fields).length > 0) {
       await this.dataSource
@@ -486,7 +519,10 @@ export class ComfortZoneService {
    * Idempotent: if the objective already has reflection fields, skip the LLM
    * call but still reconcile the expectancy violation (cheap DB read).
    */
-  async analyzeJournal(objectiveId: string, journalEntry: string): Promise<void> {
+  async analyzeJournal(
+    objectiveId: string,
+    journalEntry: string,
+  ): Promise<void> {
     if (!this.openAIService) return;
 
     // If tags already exist, skip the LLM round-trip.
@@ -495,13 +531,22 @@ export class ComfortZoneService {
       select: ["id", "reflectionTags", "reflectionSentiment"],
     });
     if (existing?.reflectionTags && existing.reflectionSentiment != null) {
-      await this.computeExpectancyViolation(objectiveId, existing.reflectionSentiment).catch((err) =>
-        console.error(`[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`, err),
+      await this.computeExpectancyViolation(
+        objectiveId,
+        existing.reflectionSentiment,
+      ).catch((err) =>
+        console.error(
+          `[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`,
+          err,
+        ),
       );
       return;
     }
 
-    const analysis = await analyzeJournalReflection(this.openAIService, journalEntry);
+    const analysis = await analyzeJournalReflection(
+      this.openAIService,
+      journalEntry,
+    );
 
     await this.dataSource.getRepository(Objective).update(
       { id: objectiveId },
@@ -512,8 +557,14 @@ export class ComfortZoneService {
       },
     );
 
-    await this.computeExpectancyViolation(objectiveId, analysis.sentiment).catch((err) =>
-      console.error(`[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`, err),
+    await this.computeExpectancyViolation(
+      objectiveId,
+      analysis.sentiment,
+    ).catch((err) =>
+      console.error(
+        `[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`,
+        err,
+      ),
     );
   }
 
@@ -523,7 +574,10 @@ export class ComfortZoneService {
    * A positive difficultyDelta means they overestimated how hard it'd be.
    * Updates the user's rolling expectancyCalibration.
    */
-  private async computeExpectancyViolation(objectiveId: string, actualSentiment: number): Promise<void> {
+  private async computeExpectancyViolation(
+    objectiveId: string,
+    actualSentiment: number,
+  ): Promise<void> {
     const objective = await this.dataSource.getRepository(Objective).findOne({
       where: { id: objectiveId },
       relations: ["sidequest"],
@@ -532,7 +586,11 @@ export class ComfortZoneService {
     if (!objective) return;
 
     // Need at least one prediction to compute violation
-    if (objective.predictedAnxiety == null && objective.predictedDifficulty == null) return;
+    if (
+      objective.predictedAnxiety == null &&
+      objective.predictedDifficulty == null
+    )
+      return;
 
     const sidequest = objective.sidequest as Sidequest;
     const userId = sidequest.userId;
@@ -542,7 +600,7 @@ export class ComfortZoneService {
     // So actualAnxiety ≈ 3 - (sentiment * 2)
     let anxietyDelta = 0;
     if (objective.predictedAnxiety != null) {
-      const actualAnxiety = 3 - (actualSentiment * 2);
+      const actualAnxiety = 3 - actualSentiment * 2;
       anxietyDelta = objective.predictedAnxiety - actualAnxiety;
       // Positive = they thought it'd be scarier than it was
     }
@@ -575,7 +633,8 @@ export class ComfortZoneService {
     // Rolling average update
     const n = cal.totalViolations;
     cal.avgAnxietyDelta = (cal.avgAnxietyDelta * n + anxietyDelta) / (n + 1);
-    cal.avgDifficultyDelta = (cal.avgDifficultyDelta * n + difficultyDelta) / (n + 1);
+    cal.avgDifficultyDelta =
+      (cal.avgDifficultyDelta * n + difficultyDelta) / (n + 1);
     cal.totalViolations = n + 1;
 
     // Keep last 10 violations for recency-weighted analysis
@@ -586,15 +645,14 @@ export class ComfortZoneService {
 
     cal.updatedAt = new Date().toISOString();
 
-    await this.dataSource.getRepository(User).update(
-      { id: userId },
-      { expectancyCalibration: cal },
-    );
+    await this.dataSource
+      .getRepository(User)
+      .update({ id: userId }, { expectancyCalibration: cal });
 
     console.log(
       `[ComfortZoneService] Expectancy violation for ${objectiveId}: ` +
-      `anxietyΔ=${anxietyDelta.toFixed(2)}, difficultyΔ=${difficultyDelta.toFixed(2)} ` +
-      `(rolling avg: anxiety=${cal.avgAnxietyDelta.toFixed(2)}, difficulty=${cal.avgDifficultyDelta.toFixed(2)}, n=${cal.totalViolations})`,
+        `anxietyΔ=${anxietyDelta.toFixed(2)}, difficultyΔ=${difficultyDelta.toFixed(2)} ` +
+        `(rolling avg: anxiety=${cal.avgAnxietyDelta.toFixed(2)}, difficulty=${cal.avgDifficultyDelta.toFixed(2)}, n=${cal.totalViolations})`,
     );
   }
 
