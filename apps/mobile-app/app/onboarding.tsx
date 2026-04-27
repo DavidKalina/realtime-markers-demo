@@ -26,11 +26,12 @@ import { StepWelcome } from "@/components/Onboarding/StepWelcome";
 import { StepGoal } from "@/components/Onboarding/StepGoal";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
 import { StepQuickDetails, type QuickDetails } from "@/components/Onboarding/StepQuickDetails";
+import { StepAboutYou, type AboutYou } from "@/components/Onboarding/StepAboutYou";
 import { GOAL_OPTIONS, goalKeyToTags } from "@/components/Onboarding/constants";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -50,6 +51,13 @@ const OnboardingScreen: React.FC = () => {
     dailyRoutine: "",
     transportation: "",
     budget: "",
+  });
+  const [aboutYou, setAboutYou] = useState<AboutYou>({
+    gender: "",
+    timeInArea: "",
+    workSituation: "",
+    livingSituation: "",
+    lookingFor: [],
   });
 
   // Generation state
@@ -81,6 +89,22 @@ const OnboardingScreen: React.FC = () => {
     setQuickDetails((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  const handleUpdateAboutYou = useCallback(
+    (field: Exclude<keyof AboutYou, "lookingFor">, value: string) => {
+      setAboutYou((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const handleToggleLookingFor = useCallback((key: string) => {
+    setAboutYou((prev) => ({
+      ...prev,
+      lookingFor: prev.lookingFor.includes(key)
+        ? prev.lookingFor.filter((k) => k !== key)
+        : [...prev.lookingFor, key],
+    }));
+  }, []);
+
   // ── Finish → save profile + enqueue concept generation ──
 
   const handleFinish = useCallback(async () => {
@@ -95,11 +119,14 @@ const OnboardingScreen: React.FC = () => {
         ? goalOption.label.replace(/^[^\s]+\s/, "") // strip leading emoji
         : "Build a social life";
 
-      // Save profile — includes practical details for first quest relevance
+      // Save profile — includes practical details for first quest relevance.
+      // comfortZone seeds the user's "where I am right now" — using the goal
+      // they picked is a far better seed than a placeholder. The progressive
+      // onboarding StepBarriers step refines this later.
       await apiClient.sidequests.updateComfortProfile({
         pacePreference: "steady", // sensible default, refined after quest 1
         comfortProfile: {
-          comfortZone: "Getting started",
+          comfortZone: primaryGoal,
           barriers: "",
           goals: primaryGoal,
           goalKey: selectedGoalKey,
@@ -107,16 +134,16 @@ const OnboardingScreen: React.FC = () => {
           primaryGoal,
         },
         onboardingProfile: selectedActivities.length > 0
-          ? { activities: selectedActivities }
+          ? { activities: selectedActivities, pace: "steady" }
           : undefined,
         socialSituation: {
           ageRange: quickDetails.ageRange,
-          gender: "",
-          timeInArea: "",
+          gender: aboutYou.gender,
+          timeInArea: aboutYou.timeInArea,
           currentSocialLife: "",
-          lookingFor: [],
-          workSituation: "",
-          livingSituation: "",
+          lookingFor: aboutYou.lookingFor,
+          workSituation: aboutYou.workSituation,
+          livingSituation: aboutYou.livingSituation,
           dailyRoutine: quickDetails.dailyRoutine,
           transportation: quickDetails.transportation,
           budget: quickDetails.budget,
@@ -155,7 +182,7 @@ const OnboardingScreen: React.FC = () => {
       );
       setIsLoading(false);
     }
-  }, [selectedGoalKey, selectedActivities, quickDetails, userLocation, refreshAuth, trackJob, router]);
+  }, [selectedGoalKey, selectedActivities, quickDetails, aboutYou, userLocation, refreshAuth, trackJob, router]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -196,6 +223,16 @@ const OnboardingScreen: React.FC = () => {
           <StepQuickDetails
             details={quickDetails}
             onUpdate={handleUpdateDetail}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 5:
+        return (
+          <StepAboutYou
+            details={aboutYou}
+            onUpdate={handleUpdateAboutYou}
+            onToggleLookingFor={handleToggleLookingFor}
             onNext={handleFinish}
             onBack={handleBack}
             loading={isLoading}

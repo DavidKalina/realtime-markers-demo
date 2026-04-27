@@ -87,7 +87,7 @@ function makePromptContext(
 }
 
 describe("analyzeOpportunityZones", () => {
-  test("keeps home base during early calibration", () => {
+  test("keeps home base during early calibration even when viability is weak", () => {
     const analysis = analyzeOpportunityZones({
       homeCity: "Frederick, CO",
       nearbyCities: [
@@ -105,8 +105,67 @@ describe("analyzeOpportunityZones", () => {
       journeyPhase: "calibration",
     });
 
+    // Honest viability label — Frederick is sparse for a dating goal even on
+    // quest 1. But during early calibration we still recommend home as the
+    // safe trust zone, so the search-anchor redirect won't fire.
+    expect(analysis.homeBaseViability).toBe("weak");
     expect(analysis.recommendedCity).toBe("Frederick, CO");
-    expect(analysis.homeBaseViability).toBe("limited");
+  });
+
+  test("classifies sparse home as weak from quest 1 (no 5-quest gate)", () => {
+    const analysis = analyzeOpportunityZones({
+      homeCity: "Frederick, CO",
+      nearbyCities: [
+        {
+          name: "Longmont, CO",
+          lat: 40.16,
+          lng: -105.1,
+          population: 98700,
+          distanceMeters: 18000,
+        },
+      ],
+      goalTags: ["dating"],
+      completedQuestCount: 0,
+      isEarlyCalibration: false,
+      journeyPhase: "calibration",
+    });
+
+    expect(analysis.homeBaseViability).toBe("weak");
+    expect(analysis.recommendedCity).toBe("Longmont, CO");
+  });
+
+  test("penalizes far cities past the 25-mile knee even when population is huge", () => {
+    const analysis = analyzeOpportunityZones({
+      homeCity: "Frederick, CO",
+      nearbyCities: [
+        {
+          name: "Longmont, CO",
+          lat: 40.16,
+          lng: -105.1,
+          population: 98700,
+          distanceMeters: 18000, // ~11 mi
+        },
+        {
+          name: "Denver, CO",
+          lat: 39.74,
+          lng: -104.99,
+          population: 720000,
+          distanceMeters: 80000, // ~50 mi
+        },
+      ],
+      goalTags: ["dating"],
+      completedQuestCount: 5,
+      isEarlyCalibration: false,
+      journeyPhase: "calibration",
+    });
+
+    // Longmont (11mi) should outrank Denver (50mi) despite Denver's larger pop.
+    expect(analysis.recommendedCity).toBe("Longmont, CO");
+    const denverZone = analysis.zones.find((z) => z.city === "Denver, CO");
+    const longmontZone = analysis.zones.find((z) => z.city === "Longmont, CO");
+    expect(longmontZone!.opportunityScore).toBeGreaterThan(
+      denverZone!.opportunityScore,
+    );
   });
 
   test("prefers a stronger nearby city once a sparse home base is limiting growth", () => {
@@ -159,6 +218,8 @@ describe("applyOpportunityZonePolicy", () => {
           zones: [
             {
               city: "Longmont, CO",
+              lat: 40.16,
+              lng: -105.1,
               distanceMiles: 12.2,
               population: 98700,
               opportunityScore: 6.2,
@@ -168,6 +229,8 @@ describe("applyOpportunityZonePolicy", () => {
             },
             {
               city: "Frederick, CO",
+              lat: 40.1,
+              lng: -105,
               distanceMiles: 0,
               population: 14000,
               opportunityScore: 2.9,
@@ -198,6 +261,8 @@ describe("applyOpportunityZonePolicy", () => {
           zones: [
             {
               city: "Firestone, CO",
+              lat: 40.12,
+              lng: -104.95,
               distanceMiles: 4,
               population: 17000,
               opportunityScore: 3.5,
@@ -207,6 +272,8 @@ describe("applyOpportunityZonePolicy", () => {
             },
             {
               city: "Frederick, CO",
+              lat: 40.1,
+              lng: -105,
               distanceMiles: 0,
               population: 14000,
               opportunityScore: 3.1,

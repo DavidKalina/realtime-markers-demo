@@ -11,6 +11,10 @@ export type OpportunityTier =
 
 export interface RankedOpportunityZone {
   city: string;
+  /** Latitude of the city centroid — used to redirect the search anchor. */
+  lat: number;
+  /** Longitude of the city centroid — used to redirect the search anchor. */
+  lng: number;
   distanceMiles: number;
   population: number | null;
   opportunityScore: number;
@@ -172,12 +176,24 @@ export function analyzeOpportunityZones(input: {
         opportunityScore += 0.5;
       }
 
+      // Distance friction is non-linear in real life. Up to ~25mi feels like
+      // an easy detour; past that there's a knee where commitment cost spikes
+      // (evening commitment, dark, expensive, traffic). The smooth penalty
+      // alone lets a 700k-pop city 50mi away outscore a viable neighbor at
+      // 12mi, which doesn't match how users actually experience travel.
       const travelPenaltyDivisor = input.isEarlyCalibration
         ? 4.5
         : peopleRichGoal
           ? 8.5
           : 10;
       opportunityScore -= distanceMiles / travelPenaltyDivisor;
+      if (!isHomeBase && distanceMiles > 25) {
+        const knee = distanceMiles - 25;
+        opportunityScore -= Math.min(knee * 0.25, 6);
+        if (distanceMiles > 40) {
+          rationale.push("real travel commitment past 40 mi");
+        }
+      }
 
       const tier: OpportunityTier = isHomeBase
         ? "home_base"
@@ -187,6 +203,8 @@ export function analyzeOpportunityZones(input: {
 
       return {
         city: city.name,
+        lat: city.lat,
+        lng: city.lng,
         distanceMiles,
         population: city.population,
         opportunityScore: Number(opportunityScore.toFixed(2)),
@@ -202,15 +220,17 @@ export function analyzeOpportunityZones(input: {
       (zone) => zone.city.toLowerCase() === input.homeCity.toLowerCase(),
     ) ?? ranked[0];
   const homePopulation = normalizePopulation(homeZone?.population ?? null);
+  // Don't grind users through 5 dead-end Frederick quests before admitting
+  // their home town is too sparse for a people-rich goal. If pop is small,
+  // call it weak from quest 1 — the redirect logic uses this signal to move
+  // the search anchor to a viable neighbor.
   const homeBaseViability: HomeBaseViability = !peopleRichGoal
     ? "strong"
     : homePopulation >= 60000
       ? "strong"
       : homePopulation >= 25000
         ? "limited"
-        : input.completedQuestCount >= 5
-          ? "weak"
-          : "limited";
+        : "weak";
 
   const recommendedZone = input.isEarlyCalibration ? homeZone : ranked[0];
   const fallbackZone =

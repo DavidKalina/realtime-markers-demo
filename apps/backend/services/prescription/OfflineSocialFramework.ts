@@ -47,7 +47,9 @@ export type ContainerType =
   | "food_social"
   | "coworking_social"
   | "library_program"
-  | "quiet_public_place";
+  | "quiet_public_place"
+  | "outdoor_public_place"
+  | "active_recreation";
 
 export type FrameworkPhase = "foundation" | "container_bfs" | "container_dfs";
 
@@ -81,20 +83,54 @@ const PLAYBOOKS: Record<GoalLens, GoalLensPlaybook> = {
     stages: {
       foundation: {
         reps: ["activation", "public_presence", "returnability"],
-        containers: ["casual_third_place", "quiet_public_place"],
-        searchSeeds: ["low-key art gallery", "quiet library", "community reading room", "brunch spot"],
-        instruction: "Start with calm public rooms that feel date-plausible or invite-able without relying only on cafes.",
+        containers: ["casual_third_place", "quiet_public_place", "outdoor_public_place"],
+        searchSeeds: [
+          "low-key art gallery",
+          "popular trail",
+          "small park",
+          "farmers market",
+          "specialty shop",
+          "brunch spot",
+          "bookstore",
+          "community event",
+        ],
+        instruction:
+          "Start with date-plausible public rooms — but mix indoor *and* outdoor. A popular trail, a farmers market, or a park event counts the same as a quiet cafe. Do not pile up library/cafe/art gallery reps in a row.",
       },
       container_bfs: {
         reps: ["group_participation", "micro_interaction", "identity_evidence"],
-        containers: ["structured_class", "group_fitness_class", "partner_dance_social", "board_game_social", "movement_group", "creative_workshop", "community_event"],
-        searchSeeds: ["beginner dance class", "board game night", "trivia night", "group fitness class", "run club", "art workshop", "volunteer event", "pickleball open play"],
-        instruction: "Search broadly for rooms where meeting people is natural: classes, games, movement, volunteering, and recurring events.",
+        containers: ["structured_class", "group_fitness_class", "partner_dance_social", "board_game_social", "movement_group", "creative_workshop", "community_event", "active_recreation"],
+        searchSeeds: [
+          "beginner dance class",
+          "board game night",
+          "trivia night",
+          "group fitness class",
+          "run club",
+          "climbing gym",
+          "pickleball open play",
+          "disc golf course",
+          "bowling league",
+          "karaoke night",
+          "art workshop",
+          "volunteer event",
+        ],
+        instruction:
+          "Search broadly for rooms where meeting people is natural: classes, games, movement, volunteering, recurring events, and active recreation. Indoor seated rooms (libraries, cafes, art galleries) are NOT the only valid third places — climbing gyms, disc golf courses, bowling alleys, and karaoke venues are first-class containers for this stage.",
       },
       container_dfs: {
         reps: ["returnability", "social_extension", "invitation", "micro_interaction"],
         containers: ["singles_event", "partner_dance_social", "recurring_club", "rec_league_or_open_play", "food_social", "performance_event", "movement_group"],
-        searchSeeds: ["singles meetup", "speed dating", "partner dance social", "recurring board game night", "live music with mingling", "social brunch", "adult sports league"],
+        searchSeeds: [
+          "singles meetup",
+          "speed dating",
+          "partner dance social",
+          "recurring board game night",
+          "live music with mingling",
+          "social brunch",
+          "adult sports league",
+          "outdoor concert series",
+          "weekly run club",
+        ],
         instruction: "Go deeper where resonance appears, then introduce gentle romantic/social initiative and low-stakes invitations.",
       },
     },

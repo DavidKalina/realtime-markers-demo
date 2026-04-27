@@ -37,6 +37,8 @@ describe("buildJourneyDiversityContext", () => {
     expect(ctx.shouldCooldownMilestone).toBe(true);
     expect(ctx.questsSinceDirectGoalTouch).toBe(0);
     expect(ctx.recentDirectGoalTouchCount).toBe(1);
+    expect(ctx.questsSinceDirectDatingRep).toBe(0);
+    expect(ctx.recentDirectDatingRepCount).toBe(1);
   });
 
   test("flags coffee gravity when coffee dominates the recent mix", async () => {

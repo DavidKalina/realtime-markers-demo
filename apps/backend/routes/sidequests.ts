@@ -202,7 +202,7 @@ sidequestRouter.put(
         goalTags?: string[];
         primaryGoal?: string;
       };
-      onboardingProfile?: { activities: string[] };
+      onboardingProfile?: { activities: string[]; pace?: string };
       fearLadder?: {
         overallScore: number;
         dimensionScores: Record<string, number>;

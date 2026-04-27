@@ -145,7 +145,7 @@ describe("buildSearchEnvelope", () => {
     });
 
     expect(envelope.maxRadiusMiles).toBe(localSearchCeilingMiles(3.5));
-    expect(envelope.queryFamilies[0]).toContain("near Frederick");
+    expect(envelope.queryFamilies[0]).toContain("in Colorado");
     expect(envelope.preferredZoneHints.length).toBe(0);
   });
 
@@ -170,5 +170,46 @@ describe("buildSearchEnvelope", () => {
     expect(envelope.preferredZoneHints.map((hint) => hint.city)).toContain(
       "Longmont, CO",
     );
+  });
+
+  test("broadens event discovery queries to statewide goal-shaped searches instead of hybrid local queries", () => {
+    const envelope = buildSearchEnvelope({
+      brief: makeBrief({
+        experienceType: "observer-friendly live event with a quieter edge",
+        suggestedCategories: ["Music Venue / Concert Hall", "Board Game Venue"],
+        searchQueries: [
+          "live music near Frederick CO",
+          "open mic near Frederick CO",
+        ],
+      }),
+      ctx: makeCtx(),
+      distancePolicy: makeDistancePolicy(),
+    });
+
+    expect(envelope.queryFamilies).toEqual([
+      "social live music in Colorado",
+      "social open mic in Colorado",
+    ]);
+    expect(
+      envelope.queryFamilies.some((query) =>
+        /coffee shop live music/i.test(query),
+      ),
+    ).toBe(false);
+  });
+
+  test("keeps stable venue queries anchored near home", () => {
+    const envelope = buildSearchEnvelope({
+      brief: makeBrief({
+        suggestedCategories: ["Coffee Shop", "Brewery / Taproom"],
+        searchQueries: ["coffee shop Frederick CO", "brewery Longmont CO"],
+      }),
+      ctx: makeCtx(),
+      distancePolicy: makeDistancePolicy(),
+    });
+
+    expect(envelope.queryFamilies).toEqual([
+      "coffee shop near Frederick",
+      "brewery near Frederick",
+    ]);
   });
 });

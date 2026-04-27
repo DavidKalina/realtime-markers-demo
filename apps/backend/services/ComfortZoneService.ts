@@ -375,7 +375,7 @@ export class ComfortZoneService {
         scenarios?: { id: string; text: string; dimension: string }[];
         dimensions?: string[];
       };
-      onboardingProfile?: { activities: string[] };
+      onboardingProfile?: { activities: string[]; pace?: string };
       socialSituation?: {
         ageRange: string;
         gender: string;

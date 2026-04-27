@@ -225,6 +225,9 @@ export class Sidequest {
   @Column({ name: "ai_reflection", type: "text", nullable: true })
   aiReflection?: string;
 
+  @Column({ name: "market_reflection", type: "text", nullable: true })
+  marketReflection?: string;
+
   // ── Capacity rep (Slice C) ──
   // The strategist picks ONE capacity track per prescription before selecting
   // a venue. `repIntent` is the strategist's one-line description of what
@@ -240,6 +243,24 @@ export class Sidequest {
 
   @Column({ name: "rep_intent", type: "varchar", length: 500, nullable: true })
   repIntent?: string;
+
+  /** GoalProgram capability ID exercised by this quest (e.g. "micro_conversation"). */
+  @Column({
+    name: "capability_id",
+    type: "varchar",
+    length: 128,
+    nullable: true,
+  })
+  capabilityId?: string;
+
+  /** Specific enactment pattern within the capability (e.g. "micro_conversation_context_questions"). */
+  @Column({
+    name: "enactment_pattern_id",
+    type: "varchar",
+    length: 128,
+    nullable: true,
+  })
+  enactmentPatternId?: string;
 
   @Column({ name: "opportunity_scope", type: "varchar", length: 50, nullable: true })
   opportunityScope?: string;

@@ -21,6 +21,7 @@ import { ComfortZoneService } from "./ComfortZoneService";
 import { CoverageService } from "./CoverageService";
 import { ResonanceService } from "./ResonanceService";
 import { PathwayService } from "./PathwayService";
+import { TraceCollector } from "./TraceCollector";
 
 export interface ServiceContainer {
   dataSource: DataSource;
@@ -35,6 +36,7 @@ export interface ServiceContainer {
   coverageService: CoverageService;
   resonanceService: ResonanceService;
   pathwayService: PathwayService;
+  traceCollector: TraceCollector;
   sidequestPrescriptionService: SidequestPrescriptionService;
   pushNotificationService: PushNotificationService;
   jobNotificationService: JobNotificationService;
@@ -91,6 +93,7 @@ export async function createServices(
   const coverageService = new CoverageService({ dataSource });
   const resonanceService = new ResonanceService({ dataSource });
   const pathwayService = new PathwayService({ dataSource });
+  const traceCollector = new TraceCollector({ dataSource });
 
   const sidequestPrescriptionService = new SidequestPrescriptionService({
     dataSource,
@@ -104,6 +107,7 @@ export async function createServices(
     coverageService,
     resonanceService,
     pathwayService,
+    traceCollector,
     prescriptionModel: process.env.PRESCRIPTION_MODEL || undefined,
     promptVersion: process.env.PRESCRIPTION_PROMPT_VERSION || undefined,
   });
@@ -176,6 +180,7 @@ export async function createServices(
     coverageService,
     resonanceService,
     pathwayService,
+    traceCollector,
     sidequestPrescriptionService,
     pushNotificationService,
     jobNotificationService,

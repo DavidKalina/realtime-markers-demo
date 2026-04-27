@@ -20,6 +20,7 @@ import { NotificationSchedulerService } from "./services/NotificationSchedulerSe
 
 // Route imports
 import { adminRouter } from "./routes/admin";
+import { devTracerRouter } from "./routes/devTracer";
 import { authRouter } from "./routes/auth";
 import { jobsRouter } from "./routes/jobs";
 import { jobStreamingRouter } from "./routes/jobStreaming";
@@ -169,6 +170,8 @@ app.route("/api/public/sidequests", publicSidequestRouter);
 
 app.route("/api/auth", authRouter);
 app.route("/api/admin", adminRouter);
+// Dev-only tracer (no auth) — local development only.
+app.route("/dev", devTracerRouter);
 app.route("/api/push-notifications", pushNotificationRouter);
 app.route("/api/users", usersRouter);
 app.route("/api/sidequests", sidequestRouter);

@@ -14,6 +14,8 @@ import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
 import type { ResonanceService } from "./ResonanceService";
 import type { PathwayService } from "./PathwayService";
+import { CapabilityProgressService } from "./prescription/CapabilityProgressService";
+import { DATING_GOAL_PROGRAM } from "./prescription/programs/DatingGoalProgram";
 
 export type {
   SidequestProgressCallback,
@@ -910,6 +912,34 @@ export class SidequestService {
         `[SidequestService] Resonance ${resonance.score.toFixed(3)} for quest ${sidequestId}, ` +
         `pathway "${result.pathway.themeLabel}" (${result.pathway.phase}, ${result.isNew ? "new" : "updated"})`,
       );
+    }
+
+    if (sidequest.capabilityId && sidequest.enactmentPatternId) {
+      try {
+        const capabilityProgressService = new CapabilityProgressService(
+          this.dataSource,
+        );
+        const progress = await capabilityProgressService.updateOnQuestComplete({
+          userId,
+          program: DATING_GOAL_PROGRAM,
+          capabilityId: sidequest.capabilityId,
+          patternId: sidequest.enactmentPatternId,
+          resonance: resonance.score,
+          sidequestId,
+        });
+        console.log(
+          `[SidequestService] Capability "${progress.capabilityId}" progress: phase=${progress.phase}` +
+            (progress.activePatternId
+              ? `, locked=${progress.activePatternId} (${progress.repsAtCurrentPattern} reps)`
+              : "") +
+            `, avgRes=${Number(progress.avgResonance).toFixed(2)}`,
+        );
+      } catch (err) {
+        console.error(
+          "[SidequestService] Capability progress update failed:",
+          err,
+        );
+      }
     }
   }
 }

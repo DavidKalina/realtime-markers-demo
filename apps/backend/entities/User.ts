@@ -17,6 +17,54 @@ import type { UserPushToken } from "./UserPushToken";
 
 type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
 
+export interface BehavioralProfileV1 {
+  summary: string;
+  generatedAt: string;
+  questCount: number;
+  schemaVersion?: 1;
+}
+
+export interface BehavioralAggregates {
+  completedCount: number;
+  avgRating: number | null;
+  topCategories: {
+    category: string;
+    count: number;
+    avgRating: number | null;
+  }[];
+  topVenues: {
+    venueName: string;
+    count: number;
+    avgRating: number | null;
+    lastVisitedAt: string;
+  }[];
+  rejectedVenues: { name: string; category: string | null }[];
+  travelRange: {
+    medianMiles: number;
+    maxMiles: number;
+    recentMaxMiles: number;
+  };
+  anchors: string[];
+}
+
+export interface BehavioralProfileV2 {
+  schemaVersion: 2;
+  generatedAt: string;
+  questCount: number;
+  capabilityArc: string;
+  categoryAffinity: string;
+  venueAffinity: string;
+  travelWillingness: string;
+  blockerPattern: string;
+  aggregates: BehavioralAggregates;
+}
+
+export function isBehavioralProfileV2(
+  p: BehavioralProfileV1 | BehavioralProfileV2 | null | undefined,
+): p is BehavioralProfileV2 {
+  return !!p && (p as BehavioralProfileV2).schemaVersion === 2;
+}
+
 export enum UserRole {
   USER = "USER",
   MODERATOR = "MODERATOR",
@@ -160,11 +208,7 @@ export class User {
   };
 
   @Column({ name: "behavioral_profile", type: "jsonb", nullable: true })
-  behavioralProfile?: {
-    summary: string;
-    generatedAt: string;
-    questCount: number;
-  };
+  behavioralProfile?: BehavioralProfileV2 | BehavioralProfileV1;
 
   @Column({ name: "ai_focus", type: "jsonb", nullable: true })
   aiFocus?: {
@@ -184,6 +228,18 @@ export class User {
     dailyRoutine?: string;
     transportation?: string;
     budget?: string;
+  };
+
+  /**
+   * User-level venue quality preferences. Merged with policy-derived qualities
+   * at prescription time; user `avoid` always wins. Surfacing here so the
+   * filter is durable across sessions and can be edited from settings later.
+   */
+  @Column({ name: "venue_qualities", type: "jsonb", nullable: true })
+  venueQualities?: {
+    must?: string[];
+    prefer?: string[];
+    avoid?: string[];
   };
 
   @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })

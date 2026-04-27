@@ -1,12 +1,11 @@
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
 import type { ContainerType } from "./OfflineSocialFramework";
 import {
-  classifyJourneyCategoryFamily,
   isSafeRepeatableFamily,
   type JourneyCategoryFamily,
 } from "./JourneyDiversityContext";
 import type { StrategyBrief } from "./PrescriptionStrategy";
-import { normalizeVenueCategory } from "./ScoutCandidateGrounding";
+import type { VenueQualityProfile } from "./VenueQualities";
 
 export interface ContainerOpportunityDecision {
   applied: boolean;
@@ -14,39 +13,20 @@ export interface ContainerOpportunityDecision {
 }
 
 type ContainerBlueprint = {
-  categories: string[];
-  queries: (city: string) => string[];
   experienceLabel: string;
+  /**
+   * Quality profile for this container. Tells the strategist + validator what
+   * kind of room this represents in qualitative language. The Strategist LLM
+   * picks specific venue categories from these qualities; application code
+   * stays out of the category business.
+   */
+  qualities: VenueQualityProfile;
 };
 
-const BASE_RECOVERY_CATEGORIES = new Set([
-  "Bakery / Dessert Shop",
-  "Bookstore",
-  "Brunch Spot",
-  "Coffee Shop",
-  "Library",
-  "Restaurant",
-  "Specialty Shop",
-  "Trail / Park",
-]);
-
-const STRUCTURED_CATEGORIES = new Set([
-  "Art Studio / Workshop",
-  "Board Game Venue",
-  "Climbing Gym",
-  "College / Adult Education",
-  "Community Center",
-  "Coworking Space",
-  "Gym / Fitness Studio",
-  "Karaoke Venue",
-  "Maker Space",
-  "Music Venue / Concert Hall",
-  "Recreation Center",
-  "Sports Club",
-  "Theatre / Performing Arts",
-  "Workshop / Class Venue",
-  "Yoga / Pilates Studio",
-]);
+const COMMON_AVOID: VenueQualityProfile["avoid"] = [
+  "scene-y-exclusive",
+  "high-friction-pricing",
+];
 
 const SOCIAL_GOAL_TAGS = new Set([
   "dating",
@@ -59,221 +39,174 @@ const SOCIAL_GOAL_TAGS = new Set([
   "fitness",
 ]);
 
-const COFFEE_GRAVITY_CATEGORIES = new Set([
-  "Coffee Shop",
-  "Bookstore",
-  "Brunch Spot",
-  "Restaurant",
-]);
-
 const CONTAINER_BLUEPRINTS: Record<ContainerType, ContainerBlueprint> = {
   casual_third_place: {
-    categories: ["Coffee Shop", "Bookstore", "Brewery / Taproom"],
-    queries: (city) => [
-      `local cafe ${city}`,
-      `bookstore cafe ${city}`,
-      `quiet taproom ${city}`,
-    ],
     experienceLabel: "repeatable third place with light social energy",
+    qualities: {
+      must: ["drop-in-friendly", "single-friendly"],
+      prefer: ["ambient-presence", "low-social-pressure", "bustling-neutral", "indoor-public"],
+      avoid: [...COMMON_AVOID, "intimate-hushed", "couples-coded"],
+    },
   },
   structured_class: {
-    categories: [
-      "Workshop / Class Venue",
-      "College / Adult Education",
-      "Community Center",
-    ],
-    queries: (city) => [
-      `beginner class ${city}`,
-      `adult education ${city}`,
-      `community class ${city}`,
-    ],
     experienceLabel: "beginner-friendly class with a clear structure",
+    qualities: {
+      must: ["structured-activity", "time-bounded", "single-friendly"],
+      prefer: ["parallel-play", "conversation-friendly", "regulars-heavy", "indoor-public"],
+      avoid: [...COMMON_AVOID, "high-social-pressure"],
+    },
   },
   recurring_club: {
-    categories: ["Board Game Venue", "Community Center", "Library"],
-    queries: (city) => [
-      `book club ${city}`,
-      `board game night ${city}`,
-      `meetup group ${city}`,
-    ],
     experienceLabel: "recurring room with repeated faces",
+    qualities: {
+      must: ["regulars-heavy", "single-friendly"],
+      prefer: ["structured-activity", "conversation-friendly", "parallel-play", "time-bounded"],
+      avoid: [...COMMON_AVOID, "tourist-heavy"],
+    },
   },
   movement_group: {
-    categories: [
-      "Gym / Fitness Studio",
-      "Yoga / Pilates Studio",
-      "Climbing Gym",
-      "Sports Club",
-    ],
-    queries: (city) => [
-      `group fitness ${city}`,
-      `climbing gym ${city}`,
-      `dance class ${city}`,
-      `run club ${city}`,
-    ],
-    experienceLabel:
-      "movement-based group where being around people is built in",
+    experienceLabel: "movement-based group where being around people is built in",
+    qualities: {
+      must: ["parallel-play", "single-friendly"],
+      prefer: ["structured-activity", "time-bounded", "regulars-heavy", "drop-in-friendly"],
+      avoid: [...COMMON_AVOID, "requires-membership"],
+    },
   },
   group_fitness_class: {
-    categories: [
-      "Gym / Fitness Studio",
-      "Yoga / Pilates Studio",
-      "Recreation Center",
-    ],
-    queries: (city) => [
-      `group fitness class ${city}`,
-      `yoga class ${city}`,
-      `pilates class ${city}`,
-    ],
     experienceLabel: "drop-in fitness class with a beginner on-ramp",
+    qualities: {
+      must: ["structured-activity", "time-bounded", "parallel-play", "single-friendly"],
+      prefer: ["drop-in-friendly", "low-cost-drop-in", "indoor-public"],
+      avoid: [...COMMON_AVOID, "requires-membership"],
+    },
   },
   run_walk_club: {
-    categories: ["Sports Club", "Recreation Center", "Trail / Park"],
-    queries: (city) => [
-      `run club ${city}`,
-      `walking group ${city}`,
-      `social run ${city}`,
-    ],
     experienceLabel: "group walk or run with easy conversation windows",
+    qualities: {
+      must: ["outdoor-public", "parallel-play", "single-friendly"],
+      prefer: ["structured-activity", "time-bounded", "regulars-heavy", "free", "conversation-friendly"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   rec_league_or_open_play: {
-    categories: ["Sports Club", "Recreation Center", "Gym / Fitness Studio"],
-    queries: (city) => [
-      `pickleball open play ${city}`,
-      `adult sports league ${city}`,
-      `open gym ${city}`,
-    ],
     experienceLabel: "adult rec play with repeated faces and easy structure",
+    qualities: {
+      must: ["parallel-play", "structured-activity", "single-friendly"],
+      prefer: ["regulars-heavy", "drop-in-friendly", "low-cost-drop-in", "indoor-public"],
+      avoid: [...COMMON_AVOID, "requires-membership"],
+    },
   },
   creative_workshop: {
-    categories: [
-      "Art Studio / Workshop",
-      "Maker Space",
-      "Workshop / Class Venue",
-    ],
-    queries: (city) => [
-      `art workshop ${city}`,
-      `pottery class ${city}`,
-      `maker space ${city}`,
-    ],
     experienceLabel: "hands-on creative room with a built-in activity",
+    qualities: {
+      must: ["structured-activity", "parallel-play", "single-friendly"],
+      prefer: ["time-bounded", "requires-signup", "conversation-friendly", "regulars-heavy", "indoor-public"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   makers_night: {
-    categories: ["Maker Space", "Art Studio / Workshop", "Library"],
-    queries: (city) => [
-      `maker night ${city}`,
-      `open studio ${city}`,
-      `craft night ${city}`,
-    ],
     experienceLabel: "open maker room with a social reason to linger",
+    qualities: {
+      must: ["parallel-play", "single-friendly", "low-social-pressure"],
+      prefer: ["regulars-heavy", "ambient-presence", "drop-in-friendly", "indoor-public"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   volunteering: {
-    categories: ["Community Center", "Library", "Other"],
-    queries: (city) => [
-      `volunteer event ${city}`,
-      `community volunteer ${city}`,
-      `volunteer shift ${city}`,
-    ],
     experienceLabel: "service-oriented room where the social script is obvious",
+    qualities: {
+      must: ["structured-activity", "single-friendly", "free"],
+      prefer: ["time-bounded", "low-social-pressure", "parallel-play", "regulars-heavy"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   singles_event: {
-    categories: [
-      "Board Game Venue",
-      "Brewery / Taproom",
-      "Bar",
-      "Community Center",
-    ],
-    queries: (city) => [
-      `singles meetup ${city}`,
-      `speed dating ${city}`,
-      `social mixer ${city}`,
-    ],
     experienceLabel: "explicit dating container with gentle entry points",
+    qualities: {
+      must: ["people-rich", "conversation-friendly", "single-friendly"],
+      prefer: ["time-bounded", "requires-signup", "structured-activity", "indoor-public"],
+      avoid: ["scene-y-exclusive", "couples-coded", "high-friction-pricing", "intimate-hushed"],
+    },
   },
   partner_dance_social: {
-    categories: [
-      "Workshop / Class Venue",
-      "Theatre / Performing Arts",
-      "Community Center",
-    ],
-    queries: (city) => [
-      `salsa class ${city}`,
-      `partner dance social ${city}`,
-      `swing dance ${city}`,
-    ],
     experienceLabel: "dance-based social room with built-in interaction",
+    qualities: {
+      must: ["structured-activity", "parallel-play", "single-friendly", "conversation-friendly"],
+      prefer: ["time-bounded", "regulars-heavy", "indoor-public"],
+      avoid: [...COMMON_AVOID, "intimate-hushed"],
+    },
   },
   board_game_social: {
-    categories: ["Board Game Venue", "Brewery / Taproom", "Library"],
-    queries: (city) => [
-      `board game night ${city}`,
-      `tabletop meetup ${city}`,
-      `game cafe ${city}`,
-    ],
     experienceLabel: "game night where conversation happens naturally",
+    qualities: {
+      must: ["parallel-play", "conversation-friendly", "single-friendly"],
+      prefer: ["regulars-heavy", "structured-activity", "indoor-public", "low-cost-drop-in"],
+      avoid: [...COMMON_AVOID, "loud-lively"],
+    },
   },
   performance_event: {
-    categories: [
-      "Theatre / Performing Arts",
-      "Music Venue / Concert Hall",
-      "Brewery / Taproom",
-    ],
-    queries: (city) => [
-      `open mic ${city}`,
-      `live music ${city}`,
-      `comedy night ${city}`,
-    ],
     experienceLabel: "performance-driven room with mingling around the edges",
+    qualities: {
+      must: ["ambient-presence", "time-bounded", "single-friendly"],
+      prefer: ["people-rich", "conversation-friendly", "low-social-pressure", "indoor-public"],
+      avoid: ["scene-y-exclusive", "high-friction-pricing", "intimate-hushed"],
+    },
   },
   community_event: {
-    categories: [
-      "Community Center",
-      "Library",
-      "Food Market / Farmers Market",
-      "Recreation Center",
-    ],
-    queries: (city) => [
-      `community event ${city}`,
-      `farmers market ${city}`,
-      `library event ${city}`,
-    ],
     experienceLabel: "community gathering with low-pressure participation",
+    qualities: {
+      must: ["ambient-presence", "single-friendly", "low-social-pressure"],
+      prefer: ["people-rich", "free", "time-bounded", "drop-in-friendly", "outdoor-public"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   food_social: {
-    categories: ["Restaurant", "Brunch Spot", "Brewery / Taproom"],
-    queries: (city) => [
-      `trivia night ${city}`,
-      `social brunch ${city}`,
-      `food hall ${city}`,
-    ],
     experienceLabel: "food-and-drink room that makes lingering easy",
+    qualities: {
+      must: ["bustling-neutral", "single-friendly"],
+      prefer: ["conversation-friendly", "people-rich", "drop-in-friendly", "indoor-public"],
+      avoid: [...COMMON_AVOID, "intimate-hushed", "couples-coded"],
+    },
   },
   coworking_social: {
-    categories: ["Coworking Space", "Coffee Shop", "Library"],
-    queries: (city) => [
-      `coworking day pass ${city}`,
-      `remote work cafe ${city}`,
-      `study meetup ${city}`,
-    ],
     experienceLabel: "third place with familiar faces and ambient contact",
+    qualities: {
+      must: ["ambient-presence", "single-friendly", "low-social-pressure"],
+      prefer: ["regulars-heavy", "drop-in-friendly", "quiet-contemplative", "indoor-public"],
+      avoid: [...COMMON_AVOID],
+    },
   },
   library_program: {
-    categories: ["Library", "Community Center", "Bookstore"],
-    queries: (city) => [
-      `library program ${city}`,
-      `author event ${city}`,
-      `community reading ${city}`,
-    ],
     experienceLabel: "quiet structured program with an obvious topic",
+    qualities: {
+      must: ["structured-activity", "time-bounded", "single-friendly", "free"],
+      prefer: ["low-social-pressure", "ambient-presence", "indoor-public"],
+      avoid: [...COMMON_AVOID, "loud-lively"],
+    },
   },
   quiet_public_place: {
-    categories: ["Library", "Bookstore", "Museum", "Coffee Shop"],
-    queries: (city) => [
-      `quiet cafe ${city}`,
-      `library ${city}`,
-      `museum ${city}`,
-    ],
     experienceLabel: "calm public room for low-pressure visibility",
+    qualities: {
+      must: ["ambient-presence", "low-social-pressure", "single-friendly", "drop-in-friendly"],
+      prefer: ["low-traffic", "quiet-contemplative", "indoor-public"],
+      avoid: [...COMMON_AVOID, "loud-lively", "people-rich"],
+    },
+  },
+  outdoor_public_place: {
+    experienceLabel: "outdoor third place — being-out-in-the-world counts the same as a structured room",
+    qualities: {
+      must: ["outdoor-public", "single-friendly", "drop-in-friendly"],
+      prefer: ["ambient-presence", "free", "low-social-pressure"],
+      avoid: [...COMMON_AVOID],
+    },
+  },
+  active_recreation: {
+    experienceLabel: "active recreation room — built-in conversation while doing something",
+    qualities: {
+      must: ["parallel-play", "single-friendly"],
+      prefer: ["conversation-friendly", "drop-in-friendly", "low-cost-drop-in", "regulars-heavy"],
+      avoid: [...COMMON_AVOID, "requires-membership"],
+    },
   },
 };
 
@@ -287,20 +220,53 @@ function wantsContainerBreadth(ctx: PrescriptionPromptContext): boolean {
   return ctx.goalTags.some((tag) => SOCIAL_GOAL_TAGS.has(tag));
 }
 
-function hasRecentCoffeeGravity(ctx: PrescriptionPromptContext): boolean {
+// Map each container type to the journey family it tends to land in, so
+// diversity logic can reason about overlap without referencing specific
+// venue categories. Qualitative — describes the kind of room, not which
+// venues. Empty array = container spans multiple families.
+const CONTAINER_FAMILY_HINTS: Partial<
+  Record<ContainerType, JourneyCategoryFamily[]>
+> = {
+  casual_third_place: ["coffee_family", "food_social"],
+  food_social: ["food_social"],
+  coworking_social: ["coffee_family"],
+  quiet_public_place: ["library_quiet", "coffee_family"],
+  library_program: ["library_quiet", "community_room"],
+  community_event: ["community_room"],
+  outdoor_public_place: ["park_outdoor"],
+  run_walk_club: ["park_outdoor"],
+  performance_event: ["nightlife_social"],
+  structured_class: ["structured_social", "community_room"],
+  recurring_club: ["structured_social", "community_room"],
+  movement_group: ["structured_social"],
+  group_fitness_class: ["structured_social"],
+  rec_league_or_open_play: ["structured_social"],
+  creative_workshop: ["structured_social"],
+  makers_night: ["structured_social"],
+  board_game_social: ["structured_social"],
+  singles_event: ["structured_social", "nightlife_social"],
+  partner_dance_social: ["structured_social"],
+  active_recreation: ["structured_social"],
+  volunteering: ["community_room"],
+};
+
+function hasRecentLowFrictionGravity(ctx: PrescriptionPromptContext): boolean {
   const mix = ctx.journeyDiversity;
   if (!mix) return false;
-  if (mix.dominantRecentCategory === "Coffee Shop") return true;
+  // Coffee/food/retail families are the easy fallback rooms. If they're
+  // dominating consecutively, that's the "comfort cluster" gravity we're
+  // trying to break out of. Expressed at family granularity, not categories.
+  if (mix.dominantRecentFamily === "coffee_family") return true;
   if (
-    mix.consecutiveSameCategoryCount >= 2 &&
-    COFFEE_GRAVITY_CATEGORIES.has(mix.recentCategories[0] ?? "")
+    mix.consecutiveSameFamilyCount >= 2 &&
+    mix.recentFamilies[0] === "coffee_family"
   ) {
     return true;
   }
   return (
-    mix.recentCategories
+    mix.recentFamilies
       .slice(0, 4)
-      .filter((category) => category === "Coffee Shop").length >= 2
+      .filter((family) => family === "coffee_family").length >= 2
   );
 }
 
@@ -317,11 +283,9 @@ function blueprintTouchesFamily(
   family: ContainerType,
   dominantFamily: JourneyCategoryFamily,
 ): boolean {
-  const blueprint = CONTAINER_BLUEPRINTS[family];
-  if (!blueprint) return false;
-  return blueprint.categories.some(
-    (category) => classifyJourneyCategoryFamily(category) === dominantFamily,
-  );
+  const hints = CONTAINER_FAMILY_HINTS[family];
+  if (!hints) return false;
+  return hints.includes(dominantFamily);
 }
 
 function shouldDiversifyAfterDirectGoalTouch(
@@ -337,17 +301,21 @@ function shouldForceStructuredFloor(ctx: PrescriptionPromptContext): boolean {
   );
 }
 
+// "Brief is base-heavy" = the brief hasn't been narrowed to anything
+// structured yet. With categories no longer driving this, we infer it from
+// the absence of structured-activity in the brief's qualities.
 function isBaseHeavyBrief(brief: StrategyBrief): boolean {
-  if (brief.suggestedCategories.length === 0) return true;
-  return brief.suggestedCategories.every((category) =>
-    BASE_RECOVERY_CATEGORIES.has(normalizeVenueCategory(category)),
+  const must = brief.venueQualities?.must ?? [];
+  const prefer = brief.venueQualities?.prefer ?? [];
+  return (
+    !must.includes("structured-activity") &&
+    !prefer.includes("structured-activity")
   );
 }
 
 function alreadyStructured(brief: StrategyBrief): boolean {
-  return brief.suggestedCategories.some((category) =>
-    STRUCTURED_CATEGORIES.has(normalizeVenueCategory(category)),
-  );
+  const must = brief.venueQualities?.must ?? [];
+  return must.includes("structured-activity");
 }
 
 function shouldOverrideStructuredBrief(
@@ -357,11 +325,12 @@ function shouldOverrideStructuredBrief(
   if (!alreadyStructured(brief)) return false;
   const mix = ctx.journeyDiversity;
   if (!mix) return false;
-  const category = normalizeVenueCategory(brief.suggestedCategories[0]);
+  // If the recent journey is stuck in one family AND the structured brief
+  // is still pointing at that same family, override it.
   return (
-    mix.consecutiveSameCategoryCount >= 2 &&
-    category.length > 0 &&
-    category === mix.recentCategories[0]
+    mix.consecutiveSameFamilyCount >= 2 &&
+    mix.dominantRecentFamily !== null &&
+    mix.recentFamilies[0] === mix.dominantRecentFamily
   );
 }
 
@@ -372,7 +341,7 @@ function familyPriority(
   const tags = new Set(ctx.goalTags);
   let score = 0;
   const cooldown = shouldDiversifyAfterDirectGoalTouch(ctx);
-  const coffeeGravity = hasRecentCoffeeGravity(ctx);
+  const coffeeGravity = hasRecentLowFrictionGravity(ctx);
   const safeFamily = dominantSafeFamily(ctx);
   const structuredFloor = shouldForceStructuredFloor(ctx);
   if (ctx.activeGoalMilestone?.goalClosureDue) {
@@ -540,9 +509,12 @@ export function applyContainerOpportunityPolicy(input: {
   ctx: PrescriptionPromptContext;
 }): ContainerOpportunityDecision {
   const { brief, ctx } = input;
+  if (brief.questContract?.programId === "dating") {
+    return { applied: false };
+  }
   const framework = ctx.offlineSocialFrameworkPlan;
   const diversifyAfterGoalTouch = shouldDiversifyAfterDirectGoalTouch(ctx);
-  const coffeeGravity = hasRecentCoffeeGravity(ctx);
+  const coffeeGravity = hasRecentLowFrictionGravity(ctx);
   const safeFamily = dominantSafeFamily(ctx);
   const structuredFloor = shouldForceStructuredFloor(ctx);
   if (!framework || framework.phase === "foundation") {
@@ -610,18 +582,30 @@ export function applyContainerOpportunityPolicy(input: {
   if (topFamilies.length === 0) {
     return { applied: false };
   }
-  const categories = unique(
-    topFamilies.flatMap((family) => CONTAINER_BLUEPRINTS[family].categories),
-  ).slice(0, 4);
-  const searchQueries = unique(
-    topFamilies.flatMap((family) => CONTAINER_BLUEPRINTS[family].queries(city)),
-  ).slice(0, 5);
   const experienceLabel = CONTAINER_BLUEPRINTS[topFamilies[0]].experienceLabel;
+  // Merge qualities across the selected families. Picking 3-4 containers
+  // gives the strategist a profile that's actually achievable — every
+  // candidate still needs the universal must, but the prefer set can union.
+  const mergedQualities = topFamilies.reduce<
+    import("./VenueQualities").VenueQualityProfile
+  >(
+    (acc, family) => {
+      const q = CONTAINER_BLUEPRINTS[family].qualities;
+      return {
+        must: [...new Set([...acc.must, ...q.must])],
+        prefer: [...new Set([...acc.prefer, ...q.prefer])],
+        avoid: [...new Set([...acc.avoid, ...q.avoid])],
+      };
+    },
+    { must: [], prefer: [], avoid: [] },
+  );
 
   const previousCategories = brief.suggestedCategories.join(", ") || "none";
-  brief.suggestedCategories = categories;
-  brief.searchQueries = searchQueries;
+  // No category override — the Strategist's LLM picks categories informed
+  // by these qualities. This was the policy fencing the LLM into 4
+  // categories per stage; that's gone now.
   brief.experienceType = experienceLabel;
+  brief.venueQualities = mergedQualities;
   if (diversifyAfterGoalTouch) {
     brief.repIntent =
       "Keep the social thread alive in a new room instead of repeating the same direct invite.";
@@ -658,7 +642,7 @@ export function applyContainerOpportunityPolicy(input: {
   return {
     applied: true,
     logLine:
-      `[multi-agent] Container opportunity policy: categories ${previousCategories}→${categories.join(", ")} (${topFamilies.join(", ")})` +
+      `[multi-agent] Container opportunity policy: containers ${topFamilies.join(", ")}, qualities must=${mergedQualities.must.join(",")} avoid=${mergedQualities.avoid.join(",")} (was: ${previousCategories})` +
       `${diversifyAfterGoalTouch ? " [milestone cooldown]" : structuredFloor ? " [structured floor]" : coffeeGravity ? " [coffee gravity]" : safeFamily ? ` [safe-family:${safeFamily}]` : ""}`,
   };
 }

@@ -1,28 +1,14 @@
 import { CapacityTrack } from "../../entities/Sidequest";
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
+import {
+  downgradeDatingRepShape,
+  type DatingRepShape,
+} from "./DatingProgressionPolicy";
 import type { StrategyBrief } from "./PrescriptionStrategy";
-
-export const DENSE_PUBLIC_CATEGORIES = [
-  "Bar",
-  "Brewery / Taproom",
-  "Music Venue / Concert Hall",
-  "Theatre / Performing Arts",
-  "Karaoke Venue",
-  "Board Game Venue",
-  "Food Market / Farmers Market",
-  "Arcade / Entertainment",
-  "Bowling Alley",
-] as const;
-
-export const FIXED_TIMING_CATEGORIES = [
-  "Theatre / Performing Arts",
-  "Music Venue / Concert Hall",
-  "Workshop / Class Venue",
-  "College / Adult Education",
-  "Sports Club",
-  "Community Center",
-  "Board Game Venue",
-] as const;
+import {
+  mergeQualityProfiles,
+  type VenueQualityProfile,
+} from "./VenueQualities";
 
 export interface StrategyBriefPatch {
   socialChallengeLevel?: StrategyBrief["socialChallengeLevel"];
@@ -36,6 +22,11 @@ export interface StrategyBriefPatch {
   capacityTrack?: CapacityTrack;
   repIntent?: string;
   preferredVenue?: string;
+  datingRepShape?: DatingRepShape;
+  allowDirectDatingRep?: boolean;
+  preferredDatingRepShapes?: DatingRepShape[];
+  /** Quality patch — merged into brief.venueQualities. */
+  venueQualities?: VenueQualityProfile;
 }
 
 export interface RecalibrationPolicyDecision {
@@ -56,32 +47,76 @@ export function buildLocalSearchQueries(
     .map((category) => `${category} near ${city}`.replace(/\s+/g, " ").trim());
 }
 
-const GENTLE_LOCAL_CATEGORIES = [
-  "Library",
-  "Community Center",
-  "Trail / Park",
-] as const;
+// ── Quality patches keyed off rejection reasons ────────────────
+// These describe *what kind of room* the next rep needs, not which
+// categories. The Strategist + Scout pick venues that fit; the validator
+// double-checks via classifyCandidateQualities.
 
-function buildGentleLocalSearchQueries(city: string): string[] {
-  return [
-    `library near ${city}`,
-    `community center near ${city}`,
-    `park near ${city}`,
-  ];
+const TOO_PUBLIC_QUALITIES: VenueQualityProfile = {
+  must: [],
+  prefer: ["low-traffic", "quiet-contemplative", "low-social-pressure"],
+  avoid: ["loud-lively", "people-rich", "scene-y-exclusive"],
+};
+
+const NEED_GENTLER_QUALITIES: VenueQualityProfile = {
+  must: ["drop-in-friendly", "low-social-pressure"],
+  prefer: ["ambient-presence", "single-friendly"],
+  avoid: ["high-social-pressure", "loud-lively", "scene-y-exclusive"],
+};
+
+const TOO_MUCH_EFFORT_QUALITIES: VenueQualityProfile = {
+  must: ["drop-in-friendly"],
+  prefer: ["free", "low-cost-drop-in"],
+  avoid: ["requires-membership", "requires-signup", "requires-reservation"],
+};
+
+const BAD_TIMING_QUALITIES: VenueQualityProfile = {
+  must: [],
+  prefer: ["drop-in-friendly", "walk-in-only"],
+  avoid: ["time-bounded", "requires-reservation"],
+};
+
+interface DatingRepFallback {
+  datingRepShape: DatingRepShape;
+  allowDirectDatingRep: boolean;
+  experienceType: string;
+  repIntent: string;
 }
 
-const GENTLE_STRUCTURED_LOCAL_CATEGORIES = [
-  "Library",
-  "Community Center",
-  "Recreation Center",
-] as const;
-
-function buildGentleStructuredLocalSearchQueries(city: string): string[] {
-  return [
-    `library program near ${city}`,
-    `community center near ${city}`,
-    `recreation center near ${city}`,
-  ];
+function buildGentlerDatingRepFallback(
+  brief: StrategyBrief,
+): DatingRepFallback | null {
+  if (!brief.datingRepShape) return null;
+  const nextShape = downgradeDatingRepShape(brief.datingRepShape);
+  switch (nextShape) {
+    case "draft_message":
+      return {
+        datingRepShape: nextShape,
+        allowDirectDatingRep: false,
+        experienceType:
+          "date-worthy local place that supports drafting one honest message",
+        repIntent:
+          "Pick a real place and draft one honest dating message without sending it yet.",
+      };
+    case "continue_conversation":
+      return {
+        datingRepShape: nextShape,
+        allowDirectDatingRep: false,
+        experienceType:
+          "social container that supports one light conversation follow-up",
+        repIntent:
+          "Keep one promising conversation alive with one honest follow-up from a real outing.",
+      };
+    case "venue_selection":
+    default:
+      return {
+        datingRepShape: "venue_selection",
+        allowDirectDatingRep: false,
+        experienceType: "date-worthy room with no romantic pressure",
+        repIntent:
+          "Spend time in a date-worthy room and notice one place you would genuinely suggest later.",
+      };
+  }
 }
 
 export function resolveRecalibrationPolicy(input: {
@@ -92,12 +127,13 @@ export function resolveRecalibrationPolicy(input: {
   const { brief, ctx, homeCity } = input;
   const patch: StrategyBriefPatch = {};
   const avoidCategories = new Set<string>();
+  const qualityPatches: VenueQualityProfile[] = [];
   const logLines: string[] = [];
-  const fallbackLane = ctx.journeyPhase?.fallbackLane ?? "open";
   const lateJourneyStructuredGuard =
     ctx.questRole !== "enjoy" &&
     (ctx.journeyPhase?.requireStructuredNonEnjoy === true ||
       ctx.journeyPhase?.forbidParkForNonEnjoy === true);
+  const gentleDatingRepFallback = buildGentlerDatingRepFallback(brief);
 
   const setDifficultyRange = (range: StrategyBrief["difficultyRange"]) => {
     patch.difficultyRange = [Math.min(range[0], range[1]), range[1]];
@@ -127,6 +163,7 @@ export function resolveRecalibrationPolicy(input: {
   const pattern = ctx.rejectionPattern;
   if (pattern) {
     const beforeAvoid = avoidCategories.size;
+    const beforeQualityCount = qualityPatches.length;
     switch (pattern.reason) {
       case "TOO_SOCIAL":
         patch.socialChallengeLevel = "none";
@@ -141,9 +178,14 @@ export function resolveRecalibrationPolicy(input: {
         ]);
         if (pattern.reason === "NEED_GENTLER") {
           patch.socialChallengeLevel = "none";
+          qualityPatches.push(NEED_GENTLER_QUALITIES);
+        } else {
+          qualityPatches.push(TOO_MUCH_EFFORT_QUALITIES);
         }
         break;
       case "NOT_MY_VIBE":
+        // NOT_MY_VIBE legitimately works at the category level — it's the
+        // user's own signal about specific category strings.
         for (const category of pattern.categories)
           avoidCategories.add(category);
         break;
@@ -153,8 +195,7 @@ export function resolveRecalibrationPolicy(input: {
           1,
           Math.min(4, patch.difficultyRange?.[1] ?? brief.difficultyRange[1]),
         ]);
-        for (const category of DENSE_PUBLIC_CATEGORIES)
-          avoidCategories.add(category);
+        qualityPatches.push(TOO_PUBLIC_QUALITIES);
         if (
           !brief.suggestedTiming ||
           /evening|night|peak|busy/i.test(brief.suggestedTiming)
@@ -175,8 +216,7 @@ export function resolveRecalibrationPolicy(input: {
           ),
           maxDifficulty,
         ]);
-        for (const category of FIXED_TIMING_CATEGORIES)
-          avoidCategories.add(category);
+        qualityPatches.push(BAD_TIMING_QUALITIES);
         patch.suggestedTiming = brief.suggestedTiming
           ? `${brief.suggestedTiming}; avoid fixed-time events and pick a flexible walk-in window`
           : "flexible walk-in window; avoid fixed-time events";
@@ -187,7 +227,8 @@ export function resolveRecalibrationPolicy(input: {
       patch.socialChallengeLevel !== undefined ||
       patch.difficultyRange !== undefined ||
       patch.suggestedTiming !== undefined ||
-      avoidCategories.size !== beforeAvoid;
+      avoidCategories.size !== beforeAvoid ||
+      qualityPatches.length !== beforeQualityCount;
     if (changed) {
       logLines.push(
         `[multi-agent] Rejection-pattern policy (${pattern.reason} × ${pattern.count})`,
@@ -201,53 +242,54 @@ export function resolveRecalibrationPolicy(input: {
       patch.difficultyRange?.[1] ?? brief.difficultyRange[1];
     switch (last.reason) {
       case "TOO_FAR":
-        patch.searchQueries =
-          fallbackLane === "gentler_same_intent"
-            ? buildGentleStructuredLocalSearchQueries(homeCity)
-            : buildLocalSearchQueries(brief, homeCity);
-        if (lateJourneyStructuredGuard) {
-          patch.suggestedCategories = [...GENTLE_STRUCTURED_LOCAL_CATEGORIES];
-          avoidCategories.add("Trail / Park");
-        }
+        // No category prescription — let the Strategist regenerate searches
+        // tightened to the home radius. Pull suggested categories the LLM
+        // already picked into local queries as a hint, otherwise leave blank.
+        patch.searchQueries = buildLocalSearchQueries(brief, homeCity);
         patch.preferredVenue = undefined;
         break;
       case "NEED_GENTLER":
         setDifficultyRange([1, Math.min(3, currentMaxDifficulty)]);
         patch.socialChallengeLevel = "none";
-        patch.experienceType =
-          fallbackLane === "gentler_same_intent"
-            ? "gentle structured local step"
-            : "gentle local reset";
-        patch.suggestedCategories =
-          fallbackLane === "gentler_same_intent"
-            ? [...GENTLE_STRUCTURED_LOCAL_CATEGORIES]
-            : [...GENTLE_LOCAL_CATEGORIES];
-        patch.searchQueries =
-          fallbackLane === "gentler_same_intent"
-            ? buildGentleStructuredLocalSearchQueries(homeCity)
-            : buildGentleLocalSearchQueries(homeCity);
+        qualityPatches.push(NEED_GENTLER_QUALITIES);
+        patch.experienceType = "gentle local reset";
         patch.preferredVenue = undefined;
+        if (gentleDatingRepFallback) {
+          patch.datingRepShape = gentleDatingRepFallback.datingRepShape;
+          patch.allowDirectDatingRep =
+            gentleDatingRepFallback.allowDirectDatingRep;
+          patch.preferredDatingRepShapes = [
+            gentleDatingRepFallback.datingRepShape,
+          ];
+          patch.experienceType = gentleDatingRepFallback.experienceType;
+          patch.repIntent = gentleDatingRepFallback.repIntent;
+        }
         if (
           brief.capacityTrack !== CapacityTrack.ACTIVATION &&
           brief.capacityTrack !== CapacityTrack.PUBLIC_PRESENCE &&
           brief.capacityTrack !== CapacityTrack.RECOVERY &&
           brief.capacityTrack !== CapacityTrack.RETURNABILITY
         ) {
-          patch.capacityTrack = CapacityTrack.ACTIVATION;
-          patch.repIntent =
-            "Do the gentlest version that still gets you out the door.";
+          patch.capacityTrack = gentleDatingRepFallback
+            ? CapacityTrack.SOCIAL_EXTENSION
+            : CapacityTrack.ACTIVATION;
+          if (!gentleDatingRepFallback) {
+            patch.repIntent =
+              "Do the gentlest version that still gets you out the door.";
+          }
         }
-        for (const category of DENSE_PUBLIC_CATEGORIES)
-          avoidCategories.add(category);
         if (lateJourneyStructuredGuard) {
-          avoidCategories.add("Trail / Park");
           if (
             (patch.capacityTrack ?? brief.capacityTrack) ===
             CapacityTrack.ACTIVATION
           ) {
-            patch.capacityTrack = CapacityTrack.PUBLIC_PRESENCE;
-            patch.repIntent =
-              "Show up in a gentle structured room without needing to perform.";
+            patch.capacityTrack = gentleDatingRepFallback
+              ? CapacityTrack.SOCIAL_EXTENSION
+              : CapacityTrack.PUBLIC_PRESENCE;
+            if (!gentleDatingRepFallback) {
+              patch.repIntent =
+                "Show up in a gentle structured room without needing to perform.";
+            }
           }
         }
         break;
@@ -257,22 +299,14 @@ export function resolveRecalibrationPolicy(input: {
           Math.min(patch.difficultyRange?.[0] ?? brief.difficultyRange[0], 4),
           Math.min(4, currentMaxDifficulty),
         ]);
-        for (const category of DENSE_PUBLIC_CATEGORIES)
-          avoidCategories.add(category);
+        qualityPatches.push(TOO_PUBLIC_QUALITIES);
         patch.suggestedTiming =
           "off-peak weekday late morning or early afternoon";
-        if (lateJourneyStructuredGuard) {
-          patch.suggestedCategories = [...GENTLE_STRUCTURED_LOCAL_CATEGORIES];
-          patch.searchQueries =
-            buildGentleStructuredLocalSearchQueries(homeCity);
-          avoidCategories.add("Trail / Park");
-        }
         break;
       case "TOO_MUCH_EFFORT":
         setDifficultyRange([1, Math.min(3, currentMaxDifficulty)]);
         patch.socialChallengeLevel = "none";
-        for (const category of FIXED_TIMING_CATEGORIES)
-          avoidCategories.add(category);
+        qualityPatches.push(TOO_MUCH_EFFORT_QUALITIES);
         break;
       case "TOO_SOCIAL":
         patch.socialChallengeLevel = "none";
@@ -281,8 +315,7 @@ export function resolveRecalibrationPolicy(input: {
         if (last.venueCategory) avoidCategories.add(last.venueCategory);
         break;
       case "BAD_TIMING":
-        for (const category of FIXED_TIMING_CATEGORIES)
-          avoidCategories.add(category);
+        qualityPatches.push(BAD_TIMING_QUALITIES);
         patch.suggestedTiming =
           "flexible walk-in window; avoid fixed-time events";
         break;
@@ -292,6 +325,10 @@ export function resolveRecalibrationPolicy(input: {
 
   if (avoidCategories.size > 0) {
     patch.avoidCategories = [...avoidCategories];
+  }
+  if (qualityPatches.length > 0) {
+    const merged = mergeQualityProfiles(brief.venueQualities, ...qualityPatches);
+    patch.venueQualities = merged;
   }
 
   return { patch, logLines };
@@ -317,7 +354,14 @@ export function applyStrategyBriefPatch(
   if (patch.capacityTrack !== undefined)
     brief.capacityTrack = patch.capacityTrack;
   if (patch.repIntent !== undefined) brief.repIntent = patch.repIntent;
+  if (patch.datingRepShape !== undefined)
+    brief.datingRepShape = patch.datingRepShape;
+  if (patch.allowDirectDatingRep !== undefined)
+    brief.allowDirectDatingRep = patch.allowDirectDatingRep;
+  if (patch.preferredDatingRepShapes !== undefined)
+    brief.preferredDatingRepShapes = patch.preferredDatingRepShapes;
   if ("preferredVenue" in patch) brief.preferredVenue = patch.preferredVenue;
+  if (patch.venueQualities !== undefined) brief.venueQualities = patch.venueQualities;
   for (const category of patch.avoidCategories ?? []) {
     if (
       !brief.avoidCategories.some(

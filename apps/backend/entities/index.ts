@@ -13,3 +13,7 @@ export * from "./CoverageCluster";
 export * from "./CoverageSnapshot";
 
 export * from "./Pathway";
+export * from "./CapabilityProgress";
+
+export * from "./PrescriptionTrace";
+export * from "./TraceEvent";

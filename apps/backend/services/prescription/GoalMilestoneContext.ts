@@ -16,6 +16,7 @@ export type GoalActionType =
 export interface GoalMilestoneContext {
   isRelevant: boolean;
   isDatingGoal: boolean;
+  effectiveCompletedQuestCount: number;
   activeMilestoneKey: string | null;
   activeMilestoneTitle: string | null;
   directGoalTouched: boolean;
@@ -36,6 +37,7 @@ interface QuestSignalRow {
   goal_action_type: string | null;
   rating: number | null;
   completed_at: Date | null;
+  deleted_at: Date | null;
   description: string | null;
   hook: string | null;
   suggested_activities: string[] | null;
@@ -86,6 +88,9 @@ const DATING_PREP_ONLY_PATTERNS = [
   /\binviting life\b/gi,
   /\binviting later\b/gi,
   /\bwould invite someone\b/gi,
+  /\bwould (?:genuinely )?suggest\b.{0,80}\blater\b/gi,
+  /\bcould (?:honestly )?(?:say|use|suggest|recommend)\b.{0,100}\blater\b/gi,
+  /\blow-pressure date (?:menu|spot|later)\b/gi,
   /\b(?:tell|mention) someone about later\b/gi,
   /\b(?:mention|tell) a friend later\b/gi,
   /\bwarm social signal\b/gi,
@@ -316,6 +321,7 @@ export async function buildGoalMilestoneContext(input: {
     return {
       isRelevant: false,
       isDatingGoal: false,
+      effectiveCompletedQuestCount: input.completedQuestCount,
       activeMilestoneKey: null,
       activeMilestoneTitle: null,
       directGoalTouched: false,
@@ -338,6 +344,7 @@ export async function buildGoalMilestoneContext(input: {
        s.goal_action_type,
        s.rating,
        s.completed_at,
+       s.deleted_at,
        o.description,
        o.hook,
        o.suggested_activities,
@@ -348,7 +355,6 @@ export async function buildGoalMilestoneContext(input: {
      FROM sidequests s
      LEFT JOIN objectives o ON o.sidequest_id = s.id AND o.sort_order = 0
      WHERE s.user_id = $1
-       AND s.deleted_at IS NULL
        AND (s.completed_at IS NOT NULL OR s.status IN ('READY', 'GENERATING'))
      ORDER BY COALESCE(s.completed_at, s.created_at) DESC
      LIMIT 40`,
@@ -356,7 +362,14 @@ export async function buildGoalMilestoneContext(input: {
   );
 
   const completedRows = rows.filter((row) => row.completed_at !== null);
-  const recentRatings = completedRows
+  const retainedCompletedRows = completedRows.filter(
+    (row) => row.deleted_at === null,
+  );
+  const effectiveCompletedQuestCount = Math.max(
+    input.completedQuestCount,
+    completedRows.length,
+  );
+  const recentRatings = retainedCompletedRows
     .filter((row) => row.rating !== null)
     .slice(0, 5)
     .map((row) => Number(row.rating));
@@ -367,26 +380,31 @@ export async function buildGoalMilestoneContext(input: {
     rows.some((row) =>
       isConcreteGoalActionType(normalizeGoalActionType(row.goal_action_type)),
     ) || rows.some((row) => hasConcreteDatingAction(directGoalActionText(row)));
-  const structuredCount = completedRows.filter(isStructuredContainer).length;
-  const nonSoloCount = completedRows.filter(
+  const structuredCount = retainedCompletedRows.filter(
+    isStructuredContainer,
+  ).length;
+  const nonSoloCount = retainedCompletedRows.filter(
     (row) => row.social_context && row.social_context !== "solo",
   ).length;
-  const metNewCount = completedRows.filter(
+  const metNewCount = retainedCompletedRows.filter(
     (row) =>
       row.social_context === "met_someone_new" ||
       row.social_context === "group_activity",
   ).length;
-  const wouldReturnCount = completedRows.filter(
+  const wouldReturnCount = retainedCompletedRows.filter(
     (row) => row.would_return === true,
+  ).length;
+  const recentPositiveRatingCount = recentRatings.filter(
+    (rating) => rating >= 3,
   ).length;
   const stableRatings =
     recentRatings.length >= 3 &&
     average(recentRatings) >= 3.2 &&
-    recentRatings.every((rating) => rating >= 3);
+    recentPositiveRatingCount >= Math.min(4, recentRatings.length);
   const adjacentEvidence =
     nonSoloCount >= 2 || metNewCount >= 1 || structuredCount >= 2;
   const readinessReached =
-    input.completedQuestCount >= 10 && stableRatings && adjacentEvidence;
+    effectiveCompletedQuestCount >= 6 && stableRatings && adjacentEvidence;
   const deferredByBlocker =
     input.blockerMeta?.phase === "avoid" ||
     (input.blockerMeta?.phase === "building" && !readinessReached);
@@ -395,7 +413,7 @@ export async function buildGoalMilestoneContext(input: {
     (!directGoalTouched || !milestoneQuestSeen) &&
     !deferredByBlocker;
   const active = milestoneForSignals({
-    completedQuestCount: input.completedQuestCount,
+    completedQuestCount: effectiveCompletedQuestCount,
     wouldReturnCount,
     structuredCount,
     nonSoloCount,
@@ -409,7 +427,7 @@ export async function buildGoalMilestoneContext(input: {
     `- North star: ${input.comfortProfile?.primaryGoal ?? "Start dating again through a richer offline life."}`,
     "- Ladder: Visible Again → Invite-able Life → People-Rich Room → Warm Social Signal → Dating Intent.",
     `- Current milestone: ${active.title} — ${active.purpose}`,
-    `- Evidence: ${input.completedQuestCount} completed quests; ${wouldReturnCount} would-return anchors; ${structuredCount} structured containers; ${nonSoloCount} non-solo reps; ${metNewCount} met-new/group reps; recent rating avg ${recentRatings.length ? average(recentRatings).toFixed(1) : "n/a"}.`,
+    `- Evidence: ${effectiveCompletedQuestCount} completed quests (${retainedCompletedRows.length} still in deck); ${wouldReturnCount} would-return anchors; ${structuredCount} structured containers; ${nonSoloCount} non-solo reps; ${metNewCount} met-new/group reps; recent rating avg ${recentRatings.length ? average(recentRatings).toFixed(1) : "n/a"}.`,
     `- Direct dating-goal touch so far: ${directGoalTouched ? "yes" : "no"}. Do not count "date-friendly", "date-plausible", or "invite-able life" language as direct dating action.`,
     `- Goal-closure milestone quest seen so far: ${milestoneQuestSeen ? "yes" : "no"}. Direct reps do not fully close the goal gap until a true milestone quest lands.`,
   ];
@@ -441,6 +459,7 @@ export async function buildGoalMilestoneContext(input: {
   return {
     isRelevant: true,
     isDatingGoal: true,
+    effectiveCompletedQuestCount,
     activeMilestoneKey: active.key,
     activeMilestoneTitle: active.title,
     directGoalTouched,

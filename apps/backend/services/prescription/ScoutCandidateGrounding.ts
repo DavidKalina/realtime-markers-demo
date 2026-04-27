@@ -36,6 +36,62 @@ function compactKey(value: string | undefined | null): string {
   return canonicalKey(value).replace(/\s+/g, "");
 }
 
+function googleTypeKey(value: string | undefined | null): string {
+  return canonicalKey(value).replace(/\s+/g, "_");
+}
+
+const DISALLOWED_SOCIAL_GOOGLE_TYPES = new Set([
+  "barber_shop",
+  "beauty_salon",
+  "hair_care",
+  "hair_salon",
+  "nail_salon",
+  "skin_care_clinic",
+  "massage",
+]);
+
+const DISALLOWED_SOCIAL_NAME_RE =
+  /\b(barber|barbershop|hair\s*(care|cut|cuts|salon|studio)|nail\s*(salon|spa|studio)|beauty\s*(bar|salon|spa)|lash(es)?|brow(s)?|waxing|esthetician)\b/i;
+
+export function disallowedSocialVenueReason(
+  venue: Partial<VerifiedVenue> & Partial<ScoutCandidate>,
+): string | null {
+  const googleTypeValues = [
+    venue.primaryType,
+    venue.googlePrimaryType,
+    venue.primaryTypeDisplayName,
+    venue.googlePrimaryTypeDisplayName,
+    ...(venue.types ?? []),
+    ...(venue.googleTypes ?? []),
+  ];
+  const disallowedType = googleTypeValues.find((value) =>
+    DISALLOWED_SOCIAL_GOOGLE_TYPES.has(googleTypeKey(value)),
+  );
+  if (disallowedType) {
+    return `Google Places classified it as "${disallowedType}", which is a personal-service venue rather than an offline social venue`;
+  }
+
+  const venueText = [
+    venue.name,
+    venue.venueName,
+    venue.address,
+    venue.venueAddress,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (DISALLOWED_SOCIAL_NAME_RE.test(venueText)) {
+    return "The venue name/address looks like a personal-service business rather than an offline social venue";
+  }
+
+  return null;
+}
+
+export function isDisallowedSocialVenue(
+  venue: Partial<VerifiedVenue> & Partial<ScoutCandidate>,
+): boolean {
+  return disallowedSocialVenueReason(venue) !== null;
+}
+
 export function normalizeVenueCategory(raw: string | undefined | null): string {
   const lower = (raw ?? "").toLowerCase();
 
@@ -45,6 +101,7 @@ export function normalizeVenueCategory(raw: string | undefined | null): string {
     bar: "Bar",
     book_store: "Bookstore",
     bowling_alley: "Bowling Alley",
+    beauty_salon: "Other",
     cafe: "Coffee Shop",
     coffee_shop: "Coffee Shop",
     community_center: "Community Center",
@@ -58,6 +115,7 @@ export function normalizeVenueCategory(raw: string | undefined | null): string {
     library: "Library",
     market: "Food Market / Farmers Market",
     museum: "Museum",
+    nail_salon: "Other",
     park: "Trail / Park",
     performing_arts_theater: "Theatre / Performing Arts",
     restaurant: "Restaurant",
@@ -182,16 +240,25 @@ export function categoryFromVerifiedVenue(
   venue: VerifiedVenue,
   fallbackText = "",
 ): string {
-  const googleTypeText = [
-    venue.primaryType,
-    venue.primaryTypeDisplayName,
-    ...(venue.types ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const primaryCategory = normalizeVenueCategory(venue.primaryType);
+  if (primaryCategory !== "Other") {
+    return primaryCategory;
+  }
 
-  if (googleTypeText.trim()) {
-    return normalizeVenueCategory(googleTypeText);
+  const primaryDisplayCategory = normalizeVenueCategory(
+    venue.primaryTypeDisplayName,
+  );
+  if (primaryDisplayCategory !== "Other") {
+    return primaryDisplayCategory;
+  }
+
+  if (venue.types?.length) {
+    for (const type of venue.types) {
+      const secondaryCategory = normalizeVenueCategory(type);
+      if (secondaryCategory !== "Other") {
+        return secondaryCategory;
+      }
+    }
   }
 
   return normalizeVenueCategory(fallbackText);
@@ -267,69 +334,36 @@ export function matchVerifiedVenue(
   });
 }
 
-const STRUCTURED_CONTAINER_CATEGORIES = new Set([
-  "Art Studio / Workshop",
-  "Board Game Venue",
-  "Climbing Gym",
-  "College / Adult Education",
-  "Community Center",
-  "Gym / Fitness Studio",
-  "Maker Space",
-  "Recreation Center",
-  "Sports Club",
-  "Theatre / Performing Arts",
-  "Workshop / Class Venue",
-  "Yoga / Pilates Studio",
-]);
-
-function strategyRequestsStructuredContainer(brief: StrategyBrief): boolean {
-  const text = [
-    brief.experienceType,
-    brief.rationale,
-    brief.repIntent,
-    brief.suggestedCategories.join(" "),
-  ].join(" ");
-  return /\b(class|club|meetup|workshop|fitness|dance|game night|social container|league|open play|open gym)\b/i.test(
-    text,
-  );
-}
-
-function isSpirituallyWrongFallback(
-  candidate: ScoutCandidate,
-  brief: StrategyBrief,
-): boolean {
-  const strategyText = [
-    brief.experienceType,
-    brief.rationale,
-    brief.suggestedCategories.join(" "),
-  ].join(" ");
-  if (/\b(brows|wander|recovery|gentle|no-pressure)\b/i.test(strategyText))
-    return false;
-  const asksForArtOrClass =
-    /\b(art|gallery|museum|class|workshop|studio|creative)\b/i.test(
-      strategyText,
-    );
-  return (
-    asksForArtOrClass &&
-    categoryMatches(candidate.venueCategory, [
-      "Bar",
-      "Restaurant",
-      "Brewery / Taproom",
-      "Specialty Shop",
-      "Bakery / Dessert Shop",
-      "Coffee Shop",
-    ])
-  );
-}
-
 function scoreCandidate(
   candidate: ScoutCandidate,
   brief: StrategyBrief,
 ): number {
   const category = normalizeVenueCategory(candidate.venueCategory);
-  const distance = candidate.distanceFromHome ?? Infinity;
+  // When the search anchor has been redirected away from home (weak home
+  // base), the distance penalty must be measured from the anchor — otherwise
+  // the closest-to-home venue keeps winning even after we move the search.
+  const envelopeOrigin = brief.searchEnvelope?.originLatLng;
+  const distFromAnchor =
+    envelopeOrigin &&
+    typeof candidate.latitude === "number" &&
+    typeof candidate.longitude === "number"
+      ? haversineMiles(
+          envelopeOrigin.lat,
+          envelopeOrigin.lng,
+          candidate.latitude,
+          candidate.longitude,
+        )
+      : null;
+  const distFromHome = candidate.distanceFromHome ?? Infinity;
+  // Use anchor distance as the penalty driver when the envelope tells us
+  // home is weak; fall back to home distance otherwise. This is the lever
+  // that makes redirect actually redirect.
+  const distance =
+    brief.searchEnvelope?.homeBaseViability === "weak" &&
+    distFromAnchor !== null
+      ? distFromAnchor
+      : distFromHome;
   const withinDistance = distance <= brief.maxDistanceMiles + 0.25;
-  const requestedStructured = strategyRequestsStructuredContainer(brief);
   const categoryText = [
     category,
     candidate.venueName,
@@ -342,7 +376,7 @@ function scoreCandidate(
     .toLowerCase();
   const strategyTokens = [
     brief.experienceType,
-    brief.suggestedCategories.join(" "),
+    brief.repIntent,
     brief.rationale,
   ]
     .join(" ")
@@ -353,33 +387,50 @@ function scoreCandidate(
   const tokenFit = new Set(
     strategyTokens.filter((token) => categoryText.includes(token)),
   ).size;
+  const avoidCategory = brief.avoidCategories.some(
+    (cat) => normalizeVenueCategory(cat) === category,
+  );
   let score = 0;
   score += withinDistance ? 1000 : -500;
-  if (
-    brief.suggestedCategories.some(
-      (cat) => normalizeVenueCategory(cat) === category,
-    )
-  )
-    score += 200;
+  if (avoidCategory) score -= 260;
   if (VENUE_CATEGORIES.includes(category as any) && category !== "Other")
     score += 30;
   score += Math.min(80, tokenFit * 12);
-  if (requestedStructured) {
-    score += STRUCTURED_CONTAINER_CATEGORIES.has(category) ? 100 : -80;
+  // Zone-bias logic. The candidate's address is matched against home city and
+  // the opportunity-zone recommendations to figure out if it's home-base or
+  // away-zone. When homeBaseViability is "weak", the scorer applies a real
+  // tilt away from home base — without this, the per-mile distance penalty
+  // (-3/mi) means the closest home-base cafe always beats a better but
+  // farther recommended-zone option.
+  const envelope = brief.searchEnvelope;
+  const homeBaseViability = envelope?.homeBaseViability ?? null;
+  const addressText = candidate.venueAddress.toLowerCase();
+  const homeCityToken = envelope?.homeCity
+    ? envelope.homeCity.split(",")[0]!.trim().toLowerCase()
+    : null;
+  const zoneHint = envelope?.preferredZoneHints?.find((zone) =>
+    addressText.includes(zone.city.split(",")[0]!.trim().toLowerCase()),
+  );
+  const isInRecommendedZone = Boolean(zoneHint);
+  const isInHomeBase = Boolean(
+    homeCityToken && addressText.includes(homeCityToken),
+  );
+
+  if (zoneHint) {
+    // Weak markets get a much stronger pull toward the recommended zone —
+    // enough to overcome the distance penalty from a 5-12mi trip.
+    const cap = homeBaseViability === "weak" ? 250 : 90;
+    const base = homeBaseViability === "weak" ? 80 : 24;
+    score += Math.min(cap, base + zoneHint.opportunityScore * 10);
   }
-  if (
-    isSpirituallyWrongFallback({ ...candidate, venueCategory: category }, brief)
-  )
-    score -= 180;
-  if (brief.searchEnvelope?.preferredZoneHints?.length) {
-    const addressText = candidate.venueAddress.toLowerCase();
-    const zoneHint = brief.searchEnvelope.preferredZoneHints.find((zone) =>
-      addressText.includes(zone.city.split(",")[0]!.trim().toLowerCase()),
-    );
-    if (zoneHint) {
-      score += Math.min(90, 24 + zoneHint.opportunityScore * 10);
-    }
+
+  if (homeBaseViability === "weak" && isInHomeBase && !isInRecommendedZone) {
+    // Don't strand the user if every candidate is in the home base — only
+    // tilt against home-base when there's a real away-zone alternative in the
+    // candidate pool (other candidates will be checked by the ranker too).
+    score -= 200;
   }
+
   score -= Number.isFinite(distance) ? distance * 3 : 100;
   score += (candidate.rating ?? 0) * 6;
   return score;
@@ -408,8 +459,10 @@ export function fallbackCandidatesFromVenues(input: {
   notes: string;
 }): ScoutCandidate[] {
   const fallbackText = `${input.brief.suggestedCategories.join(" ")} ${input.brief.experienceType}`;
-  const candidates = input.venues.map((venue) =>
-    scoutCandidateFromVenue(venue, input.ctx, fallbackText, input.notes),
-  );
+  const candidates = input.venues
+    .filter((venue) => !isDisallowedSocialVenue(venue))
+    .map((venue) =>
+      scoutCandidateFromVenue(venue, input.ctx, fallbackText, input.notes),
+    );
   return rankScoutCandidates(candidates, input.brief).slice(0, 5);
 }

@@ -47,21 +47,46 @@ function ctx(overrides: Record<string, unknown> = {}) {
 }
 
 describe("applyContainerOpportunityPolicy", () => {
-  test("upgrades base-heavy dating briefs into richer container families", () => {
+  test("does not rewrite a goal-owned dating contract", () => {
+    const b = brief({
+      questContract: {
+        programId: "dating",
+        capabilityId: "specific_invitation",
+      } as any,
+      suggestedCategories: ["Coffee Shop"],
+      searchQueries: ["date-worthy coffee near Frederick"],
+      repIntent: "Send one specific invite tied to a real place.",
+    });
+    const decision = applyContainerOpportunityPolicy({
+      brief: b,
+      ctx: ctx(),
+    });
+    expect(decision.applied).toBe(false);
+    expect(b.suggestedCategories).toEqual(["Coffee Shop"]);
+    expect(b.repIntent).toContain("specific invite");
+  });
+
+  test("upgrades base-heavy briefs by patching qualities + rationale, not categories", () => {
     const b = brief();
     const decision = applyContainerOpportunityPolicy({
       brief: b,
       ctx: ctx(),
     });
     expect(decision.applied).toBe(true);
-    expect(b.suggestedCategories).toContain("Workshop / Class Venue");
-    expect(b.searchQueries).toContain("salsa class Frederick");
-    expect(b.rationale).toContain("structured");
+    // No category prescription — qualities express the intent and the LLM
+    // picks specific venues that fit.
+    expect(b.suggestedCategories).toEqual(["Coffee Shop", "Trail / Park"]);
+    expect(b.venueQualities?.must.length ?? 0).toBeGreaterThan(0);
+    expect(b.rationale).toContain("real social container");
   });
 
-  test("backs off when the brief is already structured", () => {
+  test("backs off when the brief already calls for a structured room", () => {
     const b = brief({
-      suggestedCategories: ["Workshop / Class Venue", "Community Center"],
+      venueQualities: {
+        must: ["structured-activity", "time-bounded"],
+        prefer: [],
+        avoid: [],
+      },
     });
     const decision = applyContainerOpportunityPolicy({
       brief: b,
@@ -125,7 +150,7 @@ describe("applyContainerOpportunityPolicy", () => {
     });
 
     expect(decision.applied).toBe(true);
-    expect(b.suggestedCategories).not.toContain("Coffee Shop");
+    // Categories are left to the LLM; we assert the qualitative patch instead.
     expect(b.repIntent).toContain("new room");
     expect(b.rationale).toContain("broaden the room mix");
   });
@@ -185,7 +210,6 @@ describe("applyContainerOpportunityPolicy", () => {
     });
 
     expect(decision.applied).toBe(true);
-    expect(b.suggestedCategories).not.toContain("Trail / Park");
     expect(b.rationale).toContain("park_outdoor");
   });
 
@@ -239,8 +263,8 @@ describe("applyContainerOpportunityPolicy", () => {
     });
 
     expect(decision.applied).toBe(true);
-    expect(b.suggestedCategories).not.toContain("Trail / Park");
     expect(b.repIntent).toContain("structured room");
-    expect(b.rationale).toContain("structured floor");
+    expect(b.rationale).toContain("maintenance mode");
+    expect(b.venueQualities?.must).toContain("structured-activity");
   });
 });

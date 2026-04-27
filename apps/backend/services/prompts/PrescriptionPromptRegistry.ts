@@ -18,11 +18,24 @@ import type {
   GoalLens,
 } from "../prescription/OfflineSocialFramework";
 import type {
+  DatingRepShape,
+  DatingStage,
+} from "../prescription/DatingProgressionPolicy";
+import type { QuestContract } from "../prescription/GoalProgram";
+import type {
   FallbackLane,
   JourneyPhase,
 } from "../prescription/JourneyPhasePolicy";
 
 // ── Context passed to every prompt builder ──────────────────
+
+export interface VenueVisitRecord {
+  title: string;
+  rating: number | null;
+  questRole: string | null;
+  capacityTrack: string | null;
+  completedAt: string;
+}
 
 export interface PrescriptionPromptContext {
   // User
@@ -138,6 +151,47 @@ export interface PrescriptionPromptContext {
     postGoalClosureWindow: boolean;
     shouldCooldownMilestone: boolean;
     shouldForceStructuredNext: boolean;
+    recentDirectDatingRepCount?: number;
+    questsSinceDirectDatingRep?: number | null;
+  } | null;
+  /** User-level venue quality overrides (budget, accessibility preferences). */
+  userVenueQualities?: import("../prescription/VenueQualities").VenueQualityProfile;
+  willingnessContext?: string;
+  willingness?: {
+    totalCompletedQuests: number;
+    maxObservedTravelMiles: number;
+    recentMaxTravelMiles: number;
+    completedLocalCount: number;
+    completedNearbyCount: number;
+    completedRegionalCount: number;
+    recentStretchRepCount: number;
+    questsSinceStretchRep: number | null;
+    willingnessSignal:
+      | "untested"
+      | "local_only"
+      | "nearby_capable"
+      | "regional_capable";
+    hasEverTraveledNearby: boolean;
+    hasEverTraveledRegional: boolean;
+  } | null;
+  datingProgressionContext?: string;
+  datingProgression?: {
+    isRelevant: boolean;
+    stage: DatingStage;
+    capabilityId?: string;
+    capabilityLabel?: string;
+    enactmentMode?: "bfs" | "dfs";
+    currentPatternId?: string | null;
+    currentPatternLabel?: string | null;
+    questContract?: QuestContract | null;
+    allowDirectDatingRep: boolean;
+    cooldownActive: boolean;
+    preferredRepShapes: DatingRepShape[];
+    preferredPatternIds?: string[];
+    recentRepShapes: DatingRepShape[];
+    recentDirectDatingRepCount: number;
+    recentDraftDatingRepCount?: number;
+    questsSinceDirectDatingRep: number | null;
   } | null;
   goalMilestoneContext: string;
   activeGoalMilestone?: {
@@ -174,6 +228,10 @@ export interface PrescriptionPromptContext {
     count: number;
     categories: string[];
   } | null;
+
+  // Per-venue prior visits — lets the Writer name the arc when re-prescribing
+  // a venue the user has been to. Keyed by exact venue_name.
+  venueVisitHistory?: Record<string, VenueVisitRecord[]>;
 
   // Challenge quests
   challengeCategory?: string;

@@ -19,6 +19,9 @@ import {
   CoverageCluster,
   CoverageSnapshot,
   Pathway,
+  CapabilityProgress,
+  PrescriptionTrace,
+  TraceEvent,
 } from "./entities";
 
 // Create the DataSource instance
@@ -37,6 +40,9 @@ const AppDataSource = new DataSource({
     CoverageCluster,
     CoverageSnapshot,
     Pathway,
+    CapabilityProgress,
+    PrescriptionTrace,
+    TraceEvent,
   ],
   synchronize: false,
   migrationsRun: true,

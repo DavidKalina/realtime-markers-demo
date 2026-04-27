@@ -8,6 +8,8 @@ import type { VerifiedVenue } from "../shared/GooglePlacesService";
 import type { Trail } from "../shared/OverpassService";
 import type { CapacityTrack } from "../../entities/Sidequest";
 import type { OpportunityScope } from "./DistancePolicy";
+import type { DatingRepShape, DatingStage } from "./DatingProgressionPolicy";
+import type { QuestContract } from "./GoalProgram";
 import type { SearchEnvelope } from "./SearchEnvelope";
 
 // ── LLM Response types (shared output contract) ─────────────
@@ -40,6 +42,7 @@ export interface LLMResponseRaw {
   t: string; // title
   s: string; // summary
   sn?: string; // strategy note — why this quest was chosen for this user
+  mr?: string | null; // market reflection — what the system sees about market viability for this goal
   items: LLMItemRaw[];
 }
 
@@ -55,6 +58,8 @@ export interface PrescriptionStrategyInput {
   prescriptionModel?: string;
   inputModelOverride?: string;
   onProgress?: SidequestProgressCallback;
+  /** Dev tracer context. NOOP_TRACE when tracing is disabled. */
+  trace?: import("../TraceCollector").TraceContext;
 }
 
 export interface PrescriptionStrategyResult {
@@ -93,6 +98,27 @@ export interface StrategyBrief {
   travelRationale?: string;
   /** Search envelope: home-centered search radius + query families + soft zone hints. */
   searchEnvelope?: SearchEnvelope;
+  /**
+   * Quality profile for the desired venue, in qualitative language
+   * (people-rich, drop-in-friendly, low-social-pressure, etc.) instead of
+   * fixed categories. The Strategist composes this from policy priors and
+   * the LLM may refine it; the Validator checks candidate venues against it.
+   */
+  venueQualities?: import("./VenueQualities").VenueQualityProfile;
+  /**
+   * Web-research verification of the chosen winner. Stashed here so the
+   * Writer can quote real hours / pricing / events instead of generic
+   * placeholders. Set after the Validator picks but before the Writer runs.
+   */
+  venueVerification?: import("./WinnerVerificationAgent").VenueVerification;
+  /** Dating ladder metadata — internal planning only. */
+  datingStage?: DatingStage;
+  datingRepShape?: DatingRepShape;
+  allowDirectDatingRep?: boolean;
+  preferredDatingRepShapes?: DatingRepShape[];
+  questContract?: QuestContract;
+  /** Compact debug trace for why a venue was selected. */
+  venueSelectionTrace?: VenueSelectionTrace;
 }
 
 /**
@@ -172,4 +198,50 @@ export interface ScoutResult {
   candidates: ScoutCandidate[];
   allVenues: VerifiedVenue[];
   allTrails: Trail[];
+  trace?: ScoutTrace;
+}
+
+export interface ScoutTrace {
+  searches: ScoutSearchTrace[];
+  submittedCandidates: ScoutCandidateTrace[];
+  fallbackReason?: string;
+}
+
+export interface ScoutSearchTrace {
+  tool: "search_places" | "search_trails" | "submit_candidates";
+  query: string;
+  radiusMiles?: number;
+  returned: number;
+  acceptedNew?: number;
+  terminal?: boolean;
+  note?: string;
+  results?: ScoutCandidateTrace[];
+}
+
+export interface ScoutCandidateTrace {
+  name: string;
+  category: string;
+  distanceMiles?: number;
+  rating?: number;
+  source?: string;
+  primaryType?: string;
+  notes?: string;
+}
+
+export interface VenueSelectionTrace {
+  attempts: VenueSelectionAttemptTrace[];
+  finalWinner?: ScoutCandidateTrace;
+}
+
+export interface VenueSelectionAttemptTrace {
+  attempt: number;
+  searches: ScoutSearchTrace[];
+  submittedCandidates: ScoutCandidateTrace[];
+  accepted: boolean;
+  winner?: ScoutCandidateTrace;
+  rejectionCodes: string[];
+  rejectionReasons: string[];
+  fallbackWinner?: ScoutCandidateTrace;
+  fallbackReason?: string;
+  forcedFallback?: boolean;
 }

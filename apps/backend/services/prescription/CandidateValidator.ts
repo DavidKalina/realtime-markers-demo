@@ -1,7 +1,9 @@
+import { CapacityTrack } from "../../entities/Sidequest";
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
 import {
   classifyJourneyCategoryFamily,
   isSafeRepeatableFamily,
+  type JourneyCategoryFamily,
 } from "./JourneyDiversityContext";
 import {
   VENUE_CATEGORIES,
@@ -9,15 +11,39 @@ import {
   type StrategyBrief,
 } from "./PrescriptionStrategy";
 import {
-  DENSE_PUBLIC_CATEGORIES,
-  FIXED_TIMING_CATEGORIES,
-} from "./RecalibrationPolicy";
-import {
-  categoryMatches,
+  disallowedSocialVenueReason,
   haversineMiles,
   normalizeVenueCategory,
   rankScoutCandidates,
 } from "./ScoutCandidateGrounding";
+
+const RETURNABILITY_TRACKS = new Set<CapacityTrack>([
+  CapacityTrack.RETURNABILITY,
+  CapacityTrack.RECOVERY,
+]);
+
+function buildRecentVenueCounts(
+  ctx: PrescriptionPromptContext,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  const names = ctx.journeyDiversity?.recentVenueNames ?? [];
+  for (const name of names) {
+    const key = name.trim().toLowerCase();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function venueAllowsRepeat(
+  brief: StrategyBrief,
+  candidateNameLower: string,
+): boolean {
+  if (brief.preferredVenue && brief.preferredVenue.toLowerCase() === candidateNameLower) {
+    return true;
+  }
+  return RETURNABILITY_TRACKS.has(brief.capacityTrack);
+}
 
 export type CandidateRejectionCode =
   | "too_far"
@@ -34,47 +60,37 @@ export interface CandidateValidationResult {
   rejectionCodes: CandidateRejectionCode[];
   humanReasons: string[];
   retryConstraints?: string;
+  fallbackWinner?: ScoutCandidate;
+  fallbackReason?: string;
+  fallbackRejectionCodes?: CandidateRejectionCode[];
 }
 
-const COFFEE_FAMILY_CATEGORIES = new Set([
-  "Coffee Shop",
-  "Bookstore",
-  "Brunch Spot",
-  "Bakery / Dessert Shop",
-]);
-
-const LATE_SAFE_ROOM_FAMILIES = new Set(["library_quiet", "community_room"]);
-
-const STRUCTURED_FLOOR_ELIGIBLE_CATEGORIES = new Set([
-  "Art Studio / Workshop",
-  "Board Game Venue",
-  "Climbing Gym",
-  "College / Adult Education",
-  "Community Center",
-  "Coworking Space",
-  "Gym / Fitness Studio",
-  "Karaoke Venue",
-  "Library",
-  "Maker Space",
-  "Music Venue / Concert Hall",
-  "Recreation Center",
-  "Sports Club",
-  "Theatre / Performing Arts",
-  "Workshop / Class Venue",
-  "Yoga / Pilates Studio",
-]);
-
-function isCoffeeFamilyCategory(category: string | undefined | null): boolean {
-  if (!category) return false;
-  return COFFEE_FAMILY_CATEGORIES.has(normalizeVenueCategory(category));
+interface WeakFallbackCandidate {
+  candidate: ScoutCandidate;
+  rejectionCodes: CandidateRejectionCode[];
+  humanReasons: string[];
+  penalty: number;
 }
+
+// Families that count as "structured floor" eligible — derived from the
+// shared family classifier rather than a separate hardcoded list.
+const STRUCTURED_FLOOR_ELIGIBLE_FAMILIES = new Set<JourneyCategoryFamily>([
+  "structured_social",
+  "library_quiet",
+  "community_room",
+]);
+
+const LATE_SAFE_ROOM_FAMILIES = new Set<JourneyCategoryFamily>([
+  "library_quiet",
+  "community_room",
+]);
 
 export function isStructuredFloorEligibleCategory(
   category: string | undefined | null,
 ): boolean {
   if (!category) return false;
-  return STRUCTURED_FLOOR_ELIGIBLE_CATEGORIES.has(
-    normalizeVenueCategory(category),
+  return STRUCTURED_FLOOR_ELIGIBLE_FAMILIES.has(
+    classifyJourneyCategoryFamily(category),
   );
 }
 
@@ -87,10 +103,6 @@ function recentFamilyCount(
       ?.slice(0, 5)
       .filter((value) => value === family).length ?? 0
   );
-}
-
-function escapedRegex(value: string): RegExp {
-  return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
 }
 
 function allowsGentleSafeRoomFallback(ctx: PrescriptionPromptContext): boolean {
@@ -108,12 +120,69 @@ export function validateCandidates(input: {
   const humanReasons: string[] = [];
   const rejectionCodes: CandidateRejectionCode[] = [];
   const validCandidates: ScoutCandidate[] = [];
+  const weakFallbackCandidates: WeakFallbackCandidate[] = [];
   const historyLower = ctx.historyContext.toLowerCase();
   const justRejectedVenue = ctx.lastRejection?.venueName?.toLowerCase() ?? null;
+  const recentVenueCounts = buildRecentVenueCounts(ctx);
 
   const reject = (code: CandidateRejectionCode, reason: string) => {
     rejectionCodes.push(code);
     humanReasons.push(reason);
+  };
+
+  const addWeakFallback = (
+    candidate: ScoutCandidate,
+    code: CandidateRejectionCode,
+    reason: string,
+    penalty: number,
+  ) => {
+    const candidateNameLower = candidate.venueName.toLowerCase();
+    if (
+      !candidate.venueName ||
+      candidateNameLower.includes("unknown") ||
+      candidateNameLower.includes("tbd") ||
+      candidateNameLower.includes("no verified") ||
+      (justRejectedVenue && candidateNameLower === justRejectedVenue)
+    ) {
+      return;
+    }
+
+    if (typeof candidate.distanceFromHome !== "number") {
+      candidate.distanceFromHome = haversineMiles(
+        ctx.homeLat,
+        ctx.homeLng,
+        candidate.latitude,
+        candidate.longitude,
+      );
+    }
+
+    const looseDistanceLimit = Math.max(
+      brief.maxDistanceMiles + 1.5,
+      brief.maxDistanceMiles * 1.35,
+    );
+    const distancePenalty =
+      candidate.distanceFromHome > brief.maxDistanceMiles + 0.25 ? 8 : 0;
+    if (candidate.distanceFromHome > looseDistanceLimit) return;
+
+    if (
+      historyLower.includes(`- "${candidateNameLower}"`) &&
+      historyLower.includes("would not return")
+    ) {
+      return;
+    }
+
+    const recentVisitCount = recentVenueCounts.get(candidateNameLower) ?? 0;
+    if (recentVisitCount > 0 && !venueAllowsRepeat(brief, candidateNameLower)) {
+      return;
+    }
+    if (recentVisitCount > 3) return;
+
+    weakFallbackCandidates.push({
+      candidate,
+      rejectionCodes: [code],
+      humanReasons: [reason],
+      penalty: penalty + distancePenalty,
+    });
   };
 
   if (candidates.length === 0) {
@@ -152,6 +221,15 @@ export function validateCandidates(input: {
       c.venueCategory = normalizeVenueCategory(c.venueCategory);
     }
 
+    const disallowedReason = disallowedSocialVenueReason(c);
+    if (disallowedReason) {
+      reject(
+        "bad_category",
+        `"${c.venueName}" was rejected: ${disallowedReason}`,
+      );
+      continue;
+    }
+
     if (
       ctx.rejectionPattern?.reason === "NOT_MY_VIBE" &&
       ctx.rejectionPattern.categories.length > 0 &&
@@ -167,46 +245,25 @@ export function validateCandidates(input: {
       continue;
     }
 
-    if (
-      ctx.rejectionPattern?.reason === "TOO_PUBLIC" &&
-      categoryMatches(c.venueCategory, DENSE_PUBLIC_CATEGORIES)
-    ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" is in category "${c.venueCategory}" — user has a TOO_PUBLIC pattern and needs a lower-visibility setting`,
-      );
-      continue;
-    }
+    const candidateFamily = classifyJourneyCategoryFamily(c.venueCategory);
 
-    if (
-      ctx.rejectionPattern?.reason === "BAD_TIMING" &&
-      categoryMatches(c.venueCategory, FIXED_TIMING_CATEGORIES)
-    ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" is in category "${c.venueCategory}" — user has a BAD_TIMING pattern, so avoid fixed-time events for now`,
-      );
-      continue;
-    }
+    // TOO_PUBLIC / BAD_TIMING / coffee-family overuse are now expressed
+    // via brief.venueQualities (RecalibrationPolicy). The classifyCandidateQualities
+    // step in MultiAgentStrategy filters candidates whose qualities violate
+    // those preferences before they reach this validator.
 
     if (
       ctx.questRole !== "enjoy" &&
-      (ctx.completedQuestCount ?? 0) >= 5 &&
       ctx.journeyDiversity &&
-      isCoffeeFamilyCategory(c.venueCategory) &&
-      (ctx.journeyDiversity.dominantRecentCategory === "Coffee Shop" ||
-        ctx.journeyDiversity.recentCategories
-          .slice(0, 5)
-          .filter((category) => isCoffeeFamilyCategory(category)).length >= 2)
+      candidateFamily === "coffee_family" &&
+      (ctx.journeyDiversity.dominantRecentFamily === "coffee_family" ||
+        recentFamilyCount(ctx, "coffee_family") >= 2)
     ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" is in the coffee-family fallback cluster, which is already overrepresented in the recent journey mix`,
-      );
+      const reason = `"${c.venueName}" is in the coffee-family fallback cluster, which is already overrepresented in the recent journey mix`;
+      reject("bad_category", reason);
+      addWeakFallback(c, "bad_category", reason, 4);
       continue;
     }
-
-    const candidateFamily = classifyJourneyCategoryFamily(c.venueCategory);
     const latePhaseRequiresStructured =
       ctx.questRole !== "enjoy" &&
       ctx.journeyPhase?.requireStructuredNonEnjoy === true;
@@ -233,10 +290,9 @@ export function validateCandidates(input: {
       recentFamilyCount(ctx, candidateFamily) >= 2 &&
       !allowsGentleSafeRoomFallback(ctx)
     ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" stays in the ${candidateFamily} safe-room lane, which is already dominating the late journey`,
-      );
+      const reason = `"${c.venueName}" stays in the ${candidateFamily} safe-room lane, which is already dominating the late journey`;
+      reject("bad_category", reason);
+      addWeakFallback(c, "bad_category", reason, 5);
       continue;
     }
 
@@ -246,10 +302,9 @@ export function validateCandidates(input: {
       ctx.questRole !== "enjoy" &&
       !isStructuredFloorEligibleCategory(c.venueCategory)
     ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" is not a structured-enough room for the current late-journey floor`,
-      );
+      const reason = `"${c.venueName}" is not a structured-enough room for the current late-journey floor`;
+      reject("bad_category", reason);
+      addWeakFallback(c, "bad_category", reason, 6);
       continue;
     }
 
@@ -278,10 +333,9 @@ export function validateCandidates(input: {
       recentFamilyCount(ctx, candidateFamily) >= 3 &&
       ctx.activeGoalMilestone?.goalClosureDue !== true
     ) {
-      reject(
-        "bad_category",
-        `"${c.venueName}" is in the ${candidateFamily} family, which is currently monopolizing the recent journey mix`,
-      );
+      const reason = `"${c.venueName}" is in the ${candidateFamily} family, which is currently monopolizing the recent journey mix`;
+      reject("bad_category", reason);
+      addWeakFallback(c, "bad_category", reason, 7);
       continue;
     }
 
@@ -293,11 +347,25 @@ export function validateCandidates(input: {
         c.longitude,
       );
       c.distanceFromHome = distMiles;
-      if (distMiles > brief.maxDistanceMiles + 0.25) {
-        reject(
-          "too_far",
-          `"${c.venueName}" is ${distMiles.toFixed(1)}mi away — outside the current ${brief.maxDistanceMiles.toFixed(1)}mi strategy limit`,
-        );
+      // When the search anchor is redirected (weak home base), allow
+      // candidates that are within range of the anchor even if they're
+      // farther from the user's actual home. Without this, Longmont venues
+      // get hard-rejected for being "too far from Frederick" right after
+      // we explicitly moved the search to Longmont — pure self-defeat.
+      const envelopeOrigin = brief.searchEnvelope?.originLatLng;
+      const distFromAnchor = envelopeOrigin
+        ? haversineMiles(
+            envelopeOrigin.lat,
+            envelopeOrigin.lng,
+            c.latitude,
+            c.longitude,
+          )
+        : distMiles;
+      const effectiveDistance = Math.min(distMiles, distFromAnchor);
+      if (effectiveDistance > brief.maxDistanceMiles + 0.25) {
+        const reason = `"${c.venueName}" is ${effectiveDistance.toFixed(1)}mi from the active search anchor — outside the current ${brief.maxDistanceMiles.toFixed(1)}mi limit`;
+        reject("too_far", reason);
+        addWeakFallback(c, "too_far", reason, 9);
         continue;
       }
     }
@@ -319,22 +387,24 @@ export function validateCandidates(input: {
       }
     }
 
-    const venueCount = (historyLower.match(escapedRegex(nameLower)) || [])
-      .length;
-    const isDfsAnchor = historyLower.includes(`✅ "${nameLower}"`);
-    const repeatCap = isDfsAnchor ? 8 : 5;
-    if (venueCount >= repeatCap) {
-      reject(
-        "repeated_venue",
-        `"${c.venueName}" appears ${venueCount} times in history — too many repeats${isDfsAnchor ? " (even for a DFS anchor)" : ""}`,
-      );
-      continue;
+    const recentVisitCount = recentVenueCounts.get(nameLower) ?? 0;
+    if (recentVisitCount > 0) {
+      const allowsRepeat = venueAllowsRepeat(brief, nameLower);
+      const repeatCap = allowsRepeat ? 3 : 0;
+      if (recentVisitCount > repeatCap) {
+        reject(
+          "repeated_venue",
+          `"${c.venueName}" appears ${recentVisitCount} time(s) in the last ${ctx.journeyDiversity?.recentVenueNames.length ?? 0} quests${allowsRepeat ? ` (returnability cap=${repeatCap + 1})` : " — pick a different venue"}`,
+        );
+        continue;
+      }
     }
 
     validCandidates.push(c);
   }
 
   if (validCandidates.length === 0) {
+    const fallback = selectWeakFallback(weakFallbackCandidates, brief);
     return {
       accepted: false,
       rejectionCodes: [...new Set(rejectionCodes)],
@@ -344,6 +414,21 @@ export function validateCandidates(input: {
         humanReasons,
         rejectionCodes: [...new Set(rejectionCodes)],
       }),
+      fallbackWinner: fallback
+        ? {
+            ...fallback.candidate,
+            notes: [
+              fallback.candidate.notes,
+              `Weak fit fallback: strict validation failed (${fallback.humanReasons.join("; ")}), so keep the same capability as a gentler version.`,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }
+        : undefined,
+      fallbackReason: fallback?.humanReasons.join("; "),
+      fallbackRejectionCodes: fallback
+        ? [...new Set(fallback.rejectionCodes)]
+        : undefined,
     };
   }
 
@@ -361,6 +446,31 @@ export function validateCandidates(input: {
     rejectionCodes: [],
     humanReasons: [],
   };
+}
+
+function selectWeakFallback(
+  candidates: WeakFallbackCandidate[],
+  brief: StrategyBrief,
+): WeakFallbackCandidate | undefined {
+  if (candidates.length === 0) return undefined;
+  const ranked = rankScoutCandidates(
+    candidates.map((entry) => entry.candidate),
+    brief,
+  );
+  const rankIndex = new Map(
+    ranked.map((candidate, index) => [
+      candidate.venueName.toLowerCase(),
+      index,
+    ]),
+  );
+  return [...candidates].sort((a, b) => {
+    const penaltyDelta = a.penalty - b.penalty;
+    if (penaltyDelta !== 0) return penaltyDelta;
+    return (
+      (rankIndex.get(a.candidate.venueName.toLowerCase()) ?? 999) -
+      (rankIndex.get(b.candidate.venueName.toLowerCase()) ?? 999)
+    );
+  })[0];
 }
 
 function retryConstraintsFor(input: {

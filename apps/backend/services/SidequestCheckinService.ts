@@ -19,6 +19,12 @@ import type { ResonanceService } from "./ResonanceService";
 import type { PathwayService } from "./PathwayService";
 import type { JobQueue } from "./JobQueue";
 import {
+  BehavioralProfileService,
+  renderLegacyProfile,
+} from "./prescription/BehavioralProfileService";
+import { CapabilityProgressService } from "./prescription/CapabilityProgressService";
+import { DATING_GOAL_PROGRAM } from "./prescription/programs/DatingGoalProgram";
+import {
   CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS,
   COMPLETION_MILESTONES,
   STREAK_MILESTONES,
@@ -83,6 +89,8 @@ export class SidequestCheckinService {
   private resonanceService?: ResonanceService;
   private pathwayService?: PathwayService;
   private jobQueue?: JobQueue;
+  private behavioralProfileService: BehavioralProfileService;
+  private capabilityProgressService: CapabilityProgressService;
   constructor(deps: SidequestCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
@@ -92,6 +100,13 @@ export class SidequestCheckinService {
     this.resonanceService = deps.resonanceService;
     this.pathwayService = deps.pathwayService;
     this.jobQueue = deps.jobQueue;
+    this.behavioralProfileService = new BehavioralProfileService(
+      deps.dataSource,
+      deps.openAIService,
+    );
+    this.capabilityProgressService = new CapabilityProgressService(
+      deps.dataSource,
+    );
   }
 
   async checkAndNotify(
@@ -376,7 +391,7 @@ export class SidequestCheckinService {
       console.error("[SidequestCheckin] Milestone check failed:", err);
     });
 
-    this.generateBehavioralProfile(userId).then(() => {
+    this.behavioralProfileService.refresh(userId).then(() => {
       this.generateAIFocus(userId).catch((err) => {
         console.error("[SidequestCheckin] AI focus generation failed:", err);
       });
@@ -441,6 +456,32 @@ export class SidequestCheckinService {
         `(version=${obj?.completedVersion ?? "?"}, track=${sidequest.capacityTrack ?? "?"}), ` +
         `pathway "${result.pathway.themeLabel}" (${result.pathway.phase}, ${result.isNew ? "new" : "updated"})`,
       );
+    }
+
+    if (sidequest.capabilityId && sidequest.enactmentPatternId) {
+      try {
+        const progress =
+          await this.capabilityProgressService.updateOnQuestComplete({
+            userId,
+            program: DATING_GOAL_PROGRAM,
+            capabilityId: sidequest.capabilityId,
+            patternId: sidequest.enactmentPatternId,
+            resonance: resonance.score,
+            sidequestId,
+          });
+        console.log(
+          `[SidequestCheckin] Capability "${progress.capabilityId}" progress: phase=${progress.phase}` +
+            (progress.activePatternId
+              ? `, locked=${progress.activePatternId} (${progress.repsAtCurrentPattern} reps)`
+              : "") +
+            `, avgRes=${Number(progress.avgResonance).toFixed(2)}`,
+        );
+      } catch (err) {
+        console.error(
+          "[SidequestCheckin] Capability progress update failed:",
+          err,
+        );
+      }
     }
   }
 
@@ -619,169 +660,6 @@ export class SidequestCheckinService {
     return (result.affected ?? 0) > 0;
   }
 
-  private async generateBehavioralProfile(userId: string): Promise<void> {
-    // 1. Gather quest history
-    const quests: {
-      title: string;
-      venue_category: string;
-      distance_from_home: number;
-      rating: number | null;
-      rating_comment: string | null;
-      completed_at: string;
-    }[] = await this.dataSource.query(
-      `
-      SELECT
-        s.title,
-        o.venue_category,
-        s.distance_from_home,
-        s.rating,
-        s.rating_comment,
-        s.completed_at
-      FROM sidequests s
-      LEFT JOIN objectives o ON o.sidequest_id = s.id
-      WHERE s.user_id = $1
-        AND s.completed_at IS NOT NULL
-        AND s.deleted_at IS NULL
-      ORDER BY s.completed_at DESC
-      LIMIT 30
-      `,
-      [userId],
-    );
-
-    if (quests.length < 2) return; // Not enough data to summarize
-
-    // 2. Gather journal + activity data from objectives
-    const journals: {
-      journal_entry: string | null;
-      completed_activity: string | null;
-      venue_category: string | null;
-      difficulty: number | null;
-      checked_in_at: string;
-    }[] = await this.dataSource.query(
-      `
-      SELECT
-        o.journal_entry,
-        o.completed_activity,
-        o.venue_category,
-        o.difficulty,
-        o.checked_in_at
-      FROM objectives o
-      JOIN sidequests s ON s.id = o.sidequest_id
-      WHERE s.user_id = $1
-        AND o.checked_in_at IS NOT NULL
-      ORDER BY o.checked_in_at DESC
-      LIMIT 50
-      `,
-      [userId],
-    );
-
-    // 3. Get user context
-    const user = await this.dataSource.getRepository(User).findOne({
-      where: { id: userId },
-      select: [
-        "id",
-        "pacePreference",
-        "comfortProfile",
-        "onboardingProfile",
-        "comfortRadiusMiles",
-      ],
-    });
-
-    // 4. Build the raw data for summarization
-    const questSummaries = quests
-      .map(
-        (q) =>
-          `- "${q.title}" (${q.venue_category ?? "unknown"}, ${q.distance_from_home ? Number(q.distance_from_home).toFixed(1) + "mi" : "?mi"}${q.rating ? `, ${q.rating}★` : ""}${q.rating_comment ? `: "${q.rating_comment}"` : ""})`,
-      )
-      .join("\n");
-
-    const journalEntries = journals
-      .filter((j) => j.journal_entry || j.completed_activity)
-      .map(
-        (j) =>
-          `- [${j.venue_category ?? "unknown"}${j.difficulty ? ` d${j.difficulty}` : ""}] ${j.completed_activity ? `Did: "${j.completed_activity}"` : ""}${j.journal_entry ? ` Wrote: "${j.journal_entry}"` : ""}`,
-      )
-      .join("\n");
-
-    const dayOfWeekCounts: Record<string, number> = {};
-    const hourCounts: Record<string, number> = {};
-    for (const j of journals) {
-      if (!j.checked_in_at) continue;
-      const d = new Date(j.checked_in_at);
-      const day = d.toLocaleDateString("en-US", { weekday: "long" });
-      const hour = d.getHours();
-      dayOfWeekCounts[day] = (dayOfWeekCounts[day] ?? 0) + 1;
-      const timeSlot =
-        hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
-      hourCounts[timeSlot] = (hourCounts[timeSlot] ?? 0) + 1;
-    }
-    const temporalPattern = [
-      ...Object.entries(dayOfWeekCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([day, count]) => `${day}: ${count}`),
-      ...Object.entries(hourCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([slot, count]) => `${slot}: ${count}`),
-    ].join(", ");
-
-    // 5. Call GPT-4o-mini for summarization
-    const prompt = `You are analyzing a user's quest completion history for a comfort zone expansion app. Produce a concise behavioral profile (150-200 words max) that a quest-prescribing AI can use to calibrate the next quest.
-
-USER CONTEXT:
-- Pace preference: ${user?.pacePreference ?? "unknown"}
-- Current comfort radius: ${user?.comfortRadiusMiles ?? "unknown"} miles
-- Onboarding activities: ${user?.onboardingProfile?.activities?.join(", ") ?? "unknown"}
-- Self-described barriers: ${user?.comfortProfile?.barriers ?? "unknown"}
-- Self-described goals: ${user?.comfortProfile?.goals ?? "unknown"}
-
-COMPLETED QUESTS (${quests.length} total, most recent first):
-${questSummaries}
-
-JOURNAL ENTRIES & ACTIVITIES:
-${journalEntries || "(none yet)"}
-
-TEMPORAL PATTERNS: ${temporalPattern || "not enough data"}
-
-Write a profile covering:
-1. What types of places they gravitate toward vs avoid (based on ratings, frequency, journal sentiment)
-2. What activities they actually do vs what onboarding says they like
-3. Their comfort trajectory — is their distance from home growing? Are they branching into new categories?
-4. Journal sentiment themes — are they mentioning enjoyment, anxiety, surprise, social connection?
-5. When they tend to go out (days/times)
-6. One specific recommendation for what to prescribe next and one thing to avoid
-
-Be direct and specific. No filler. Write as notes for another AI, not for the user.`;
-
-    const completion = await this.openAIService.executeChatCompletion(
-      {
-        model: OpenAIModel.GPT4OMini,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 400,
-        temperature: 0.3,
-      },
-      "behavioral-profile-summarizer",
-    );
-
-    const summary = completion.choices[0]?.message?.content;
-    if (!summary) return;
-
-    // 6. Cache on user record
-    await this.dataSource.getRepository(User).update(
-      { id: userId },
-      {
-        behavioralProfile: {
-          summary,
-          generatedAt: new Date().toISOString(),
-          questCount: quests.length,
-        },
-      },
-    );
-
-    console.log(
-      `[SidequestCheckin] Behavioral profile generated for user ${userId} (${quests.length} quests)`,
-    );
-  }
 
   private async generateQuestReflection(
     sidequestId: string,
@@ -892,7 +770,9 @@ GUIDELINES:
       ],
     });
 
-    if (!user?.behavioralProfile?.summary) return;
+    if (!user) return;
+    const legacyProfile = renderLegacyProfile(user.behavioralProfile);
+    if (!legacyProfile?.summary) return;
 
     // Get social context counts
     const socialCounts: { context: string; count: number }[] =
@@ -932,7 +812,7 @@ USER CONTEXT:
 - Fear ladder social score: ${user.fearLadder?.dimensionScores?.social ?? "unknown"}
 
 BEHAVIORAL PROFILE (internal notes):
-${user.behavioralProfile.summary}
+${legacyProfile.summary}
 
 GUIDELINES:
 - Write as "I" — "Right now I'm focused on..."

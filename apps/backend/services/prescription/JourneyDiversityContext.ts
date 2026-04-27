@@ -33,9 +33,11 @@ export interface JourneyDiversityContext {
   recentRoles: string[];
   recentMilestoneCount: number;
   recentDirectGoalTouchCount: number;
+  recentDirectDatingRepCount: number;
   recentStructuredCount: number;
   recentBaseRecoveryCount: number;
   questsSinceDirectGoalTouch: number | null;
+  questsSinceDirectDatingRep: number | null;
   questsSinceMilestone: number | null;
   consecutiveSameCategoryCount: number;
   consecutiveSameFamilyCount: number;
@@ -229,6 +231,7 @@ export async function buildJourneyDiversityContext(input: {
     .filter((row) =>
       isConcreteGoalActionType(normalizeGoalActionType(row.goal_action_type)),
     ).length;
+  const recentDirectDatingRepCount = recentDirectGoalTouchCount;
   const recentStructuredCount = rows
     .slice(0, 5)
     .filter((row) => isStructuredContextRow(row)).length;
@@ -246,6 +249,7 @@ export async function buildJourneyDiversityContext(input: {
       break;
     }
   }
+  const questsSinceDirectDatingRep = questsSinceDirectGoalTouch;
 
   let questsSinceMilestone: number | null = null;
   for (let index = 0; index < rows.length; index += 1) {
@@ -280,6 +284,7 @@ export async function buildJourneyDiversityContext(input: {
     `- Recent families: ${recentFamilies.slice(0, 5).join(", ") || "none"}`,
     `- Recent roles: ${recentRoles.slice(0, 5).join(", ") || "none"}`,
     `- Recent direct-goal touches: ${recentDirectGoalTouchCount}/5; recent milestones: ${recentMilestoneCount}/5.`,
+    `- Recent direct dating reps: ${recentDirectDatingRepCount}/5; quests since direct dating rep: ${questsSinceDirectDatingRep ?? "none"}.`,
     `- Recent structured rooms: ${recentStructuredCount}/5; recent base/recovery rooms: ${recentBaseRecoveryCount}/5.`,
   ];
 
@@ -311,9 +316,11 @@ export async function buildJourneyDiversityContext(input: {
     recentRoles,
     recentMilestoneCount,
     recentDirectGoalTouchCount,
+    recentDirectDatingRepCount,
     recentStructuredCount,
     recentBaseRecoveryCount,
     questsSinceDirectGoalTouch,
+    questsSinceDirectDatingRep,
     questsSinceMilestone,
     consecutiveSameCategoryCount,
     consecutiveSameFamilyCount,

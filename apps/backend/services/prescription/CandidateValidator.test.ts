@@ -79,16 +79,34 @@ describe("validateCandidates", () => {
     expect(result.rejectionCodes).toContain("recently_rejected");
   });
 
-  test("rejects bad recurring category without parsing human text", () => {
+  test("respects NOT_MY_VIBE pattern categories — user's own signal still gates", () => {
     const result = validateCandidates({
       candidates: [candidate({ venueName: "Busy Bar", venueCategory: "Bar" })],
       ctx: ctx({
-        rejectionPattern: { reason: "TOO_PUBLIC", count: 3, categories: [] },
+        rejectionPattern: { reason: "NOT_MY_VIBE", count: 2, categories: ["Bar"] },
       }),
       brief: brief(),
     });
     expect(result.accepted).toBe(false);
     expect(result.rejectionCodes).toContain("bad_category");
+  });
+
+  test("rejects personal-service venues even when the category looks social", () => {
+    const result = validateCandidates({
+      candidates: [
+        candidate({
+          venueName: "Creative Minds Barbershop",
+          venueCategory: "Bar",
+          googlePrimaryType: "barber_shop",
+          googleTypes: ["hair_care", "establishment"],
+        }),
+      ],
+      ctx: ctx(),
+      brief: brief({ suggestedCategories: ["Bar"], experienceType: "bar" }),
+    });
+    expect(result.accepted).toBe(false);
+    expect(result.rejectionCodes).toContain("bad_category");
+    expect(result.humanReasons[0]).toContain("personal-service");
   });
 
   test("rejects another coffee-family venue when recent mix is already coffee-heavy", () => {
@@ -139,6 +157,40 @@ describe("validateCandidates", () => {
     });
     expect(result.accepted).toBe(false);
     expect(result.rejectionCodes).toContain("bad_category");
+  });
+
+  test("rejects coffee-family repeats before the late journey once the pattern is visible", () => {
+    const result = validateCandidates({
+      candidates: [candidate()],
+      ctx: ctx({
+        completedQuestCount: 3,
+        questRole: "explore",
+        journeyDiversity: {
+          recentCategories: ["Coffee Shop", "Brunch Spot", "Art Gallery"],
+          recentFamilies: ["coffee_family", "coffee_family", "art_culture"],
+          recentVenueNames: ["A", "B", "C"],
+          recentRoles: ["explore", "explore", "explore"],
+          recentMilestoneCount: 0,
+          recentDirectGoalTouchCount: 0,
+          recentStructuredCount: 0,
+          recentBaseRecoveryCount: 2,
+          questsSinceDirectGoalTouch: null,
+          questsSinceMilestone: null,
+          consecutiveSameCategoryCount: 1,
+          consecutiveSameFamilyCount: 2,
+          consecutiveSameVenueCount: 1,
+          dominantRecentCategory: null,
+          dominantRecentFamily: "coffee_family",
+          postGoalClosureWindow: false,
+          shouldCooldownMilestone: false,
+          shouldForceStructuredNext: false,
+        },
+      }),
+      brief: brief(),
+    });
+    expect(result.accepted).toBe(false);
+    expect(result.rejectionCodes).toContain("bad_category");
+    expect(result.humanReasons.join(" ")).toContain("coffee-family");
   });
 
   test("rejects another park-family venue when the recent journey is park-dominated", () => {
@@ -205,8 +257,8 @@ describe("validateCandidates", () => {
     const result = validateCandidates({
       candidates: [
         candidate({
-          venueName: "Firefighters' Park",
-          venueCategory: "Trail / Park",
+          venueName: "Corner Grill",
+          venueCategory: "Restaurant",
         }),
       ],
       ctx: ctx({
@@ -252,14 +304,80 @@ describe("validateCandidates", () => {
         },
       }),
       brief: brief({
-        suggestedCategories: ["Trail / Park"],
-        searchQueries: ["park Frederick"],
-        experienceType: "park reset",
+        suggestedCategories: ["Restaurant"],
+        searchQueries: ["restaurant Frederick"],
+        experienceType: "low pressure social room",
       }),
     });
     expect(result.accepted).toBe(false);
     expect(result.rejectionCodes).toContain("bad_category");
     expect(result.humanReasons.join(" ")).toContain("structured-enough");
+  });
+
+  test("keeps a weak fallback when only the structured floor fails", () => {
+    const result = validateCandidates({
+      candidates: [
+        candidate({
+          venueName: "Main Street Tap",
+          venueCategory: "Restaurant",
+        }),
+      ],
+      ctx: ctx({
+        completedQuestCount: 20,
+        questRole: "deepen",
+        journeyPhase: {
+          phase: "late_world_building",
+          requireMilestoneQuest: false,
+          requireStructuredNonEnjoy: true,
+          forbidParkForNonEnjoy: true,
+          fallbackLane: "gentler_same_intent",
+        },
+        journeyDiversity: {
+          recentCategories: ["Library", "Coffee Shop", "Trail / Park"],
+          recentFamilies: ["library_quiet", "coffee_family", "park_outdoor"],
+          shouldForceStructuredNext: true,
+        },
+      }),
+      brief: brief({
+        suggestedCategories: ["Restaurant"],
+        searchQueries: ["restaurant Frederick"],
+        experienceType: "low pressure social room",
+      }),
+    });
+
+    expect(result.accepted).toBe(false);
+    expect(result.rejectionCodes).toContain("bad_category");
+    expect(result.fallbackWinner?.venueName).toBe("Main Street Tap");
+    expect(result.fallbackReason).toContain("structured-enough");
+  });
+
+  test("does not weak-fallback to a just-rejected venue", () => {
+    const result = validateCandidates({
+      candidates: [
+        candidate({
+          venueName: "Main Street Tap",
+          venueCategory: "Restaurant",
+        }),
+      ],
+      ctx: ctx({
+        lastRejection: { venueName: "Main Street Tap" },
+        completedQuestCount: 20,
+        questRole: "deepen",
+        journeyPhase: {
+          phase: "late_world_building",
+          requireStructuredNonEnjoy: true,
+          forbidParkForNonEnjoy: true,
+        },
+      }),
+      brief: brief({
+        suggestedCategories: ["Restaurant"],
+        searchQueries: ["restaurant Frederick"],
+      }),
+    });
+
+    expect(result.accepted).toBe(false);
+    expect(result.rejectionCodes).toContain("recently_rejected");
+    expect(result.fallbackWinner).toBeUndefined();
   });
 
   test("rejects park-family candidates outright in late world building", () => {

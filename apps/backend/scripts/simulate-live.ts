@@ -32,7 +32,6 @@ import {
 import { DEFAULT_QUEST_CONFIG } from "../services/shared/QuestConfig";
 import { buildOfflineSocialFrameworkPlan } from "../services/prescription/OfflineSocialFramework";
 import {
-  detectGoalActionType,
   isConcreteGoalActionType,
   normalizeGoalActionType,
 } from "../services/prescription/GoalMilestoneContext";
@@ -57,6 +56,7 @@ interface JourneyEntry {
   hook: string;
   description: string;
   strategyNote: string | null;
+  marketReflection: string | null;
   suggestedActivities: string[];
   actionItems: string[];
   rarity: string;
@@ -84,48 +84,11 @@ interface JourneyEntry {
   rejections: RejectionReason[];
 }
 
-const DIRECT_DATING_PATTERNS = [
-  /\bask(?:ed|ing)?\b.{0,50}\b(out|for (?:their )?(?:number|phone|contact)|to (?:coffee|drinks?|dinner|brunch|meet|go out))\b/i,
-  /\binvit(?:e|ed|ing)\b.{0,60}\b(?:coffee|drinks?|dinner|brunch|walk|date|meet|go out|sometime|again)\b/i,
-  /\bsuggest(?:ed|ing)?\b.{0,60}\b(?:coffee|drinks?|dinner|brunch|a date|meet(?:ing)? up|a specific plan)\b/i,
-  /\b(?:hinge|bumble|tinder|dating app|match)\b.{0,80}\b(?:message|invite|ask|suggest|send|reply|plan)\b/i,
-  /\b(?:flirt|flirting|romantic interest|phone number|contact info|see you again|go out sometime|low-pressure date|dating move)\b/i,
-];
-
-const DATING_PREP_ONLY_PATTERNS = [
-  /\bdate-friendly\b/gi,
-  /\bdate-plausible\b/gi,
-  /\bdate-able\b/gi,
-  /\bdateable\b/gi,
-  /\binvite-?able life\b/gi,
-  /\bfuture (?:casual )?date\b/gi,
-  /\bsomeone could join\b/gi,
-  /\bwould invite someone\b/gi,
-  /\basking someone out\b.{0,80}\b(?:feel|feels|less theoretical|later|someday|eventually|future)\b/gi,
-  /\bmake(?:s)? asking someone out\b.{0,80}\b(?:less theoretical|easier later)\b/gi,
-];
-
 function includesDirectDatingRep(j: JourneyEntry): boolean {
-  if (j.directGoalTouch) return true;
   if (isConcreteGoalActionType(normalizeGoalActionType(j.goalActionType))) {
     return true;
   }
-  let text = [
-    j.title,
-    j.description,
-    j.repIntent,
-    ...j.suggestedActivities,
-    ...j.actionItems,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  for (const pattern of DATING_PREP_ONLY_PATTERNS) {
-    text = text.replace(pattern, " ");
-  }
-  return (
-    isConcreteGoalActionType(detectGoalActionType(text)) ||
-    DIRECT_DATING_PATTERNS.some((pattern) => pattern.test(text))
-  );
+  return j.directGoalTouch === true && j.goalActionType !== "none";
 }
 
 function isRegionalOpportunity(j: JourneyEntry): boolean {
@@ -1285,6 +1248,15 @@ function generateJournal(
   return NEUTRAL_JOURNALS[Math.floor(rand() * NEUTRAL_JOURNALS.length)];
 }
 
+/**
+ * Frederick, CO is the canonical sim location — all hardcoded persona coords
+ * resolve to it. Surfacing population context lets the journal LLM voice the
+ * realistic small-town friction users will actually encounter, instead of
+ * uniformly upbeat 4-star journals.
+ */
+const SIM_HOME_CITY_LABEL =
+  "Frederick, Colorado — small town (~14k people) outside Denver";
+
 async function generateLLMJournal(
   persona: LivePersona,
   venueName: string,
@@ -1294,7 +1266,17 @@ async function generateLLMJournal(
   socialContext: string,
   questIndex: number,
   overallScore: number,
+  options: {
+    priorJourney?: JourneyEntry[];
+    marketReflection?: string | null;
+    homeCityLabel?: string | null;
+  } = {},
 ): Promise<string | null> {
+  const {
+    priorJourney = [],
+    marketReflection = null,
+    homeCityLabel = SIM_HOME_CITY_LABEL,
+  } = options;
   const sentiment =
     rating >= 4
       ? "positive and a bit surprised — this actually felt good"
@@ -1312,10 +1294,60 @@ async function generateLLMJournal(
           ? "met someone new there"
           : "was in a group setting";
 
+  const completedSoFar = priorJourney.length;
+  const uniqueVenues = new Set(
+    priorJourney.map((j) => j.venueName).filter(Boolean),
+  );
+  const sameVenueCount = priorJourney.filter(
+    (j) => j.venueName === venueName,
+  ).length;
+  const sameCategoryCount = priorJourney.filter(
+    (j) => j.venueCategory === venueCategory,
+  ).length;
+  const directGoalCount = priorJourney.filter(
+    (j) => j.directGoalTouch,
+  ).length;
+  const recentVenueList = priorJourney
+    .slice(-5)
+    .map((j) => j.venueName)
+    .filter(Boolean)
+    .join(", ");
+  const goalIsRomantic =
+    /\b(date|dating|relationship|romantic|partner)\b/i.test(persona.primaryGoal);
+
+  const cumulativeBlock =
+    completedSoFar >= 2
+      ? `\nYour run so far: ${completedSoFar} completed quests, ${uniqueVenues.size} unique venues. ${
+          sameVenueCount > 0
+            ? `This is your visit #${sameVenueCount + 1} to ${venueName}. `
+            : ""
+        }${
+          sameCategoryCount >= 2
+            ? `You've now done ${sameCategoryCount + 1} ${venueCategory.toLowerCase()} reps. `
+            : ""
+        }${recentVenueList ? `Recent venues: ${recentVenueList}.` : ""}`
+      : "";
+
+  const goalProgressBlock =
+    goalIsRomantic && completedSoFar >= 3
+      ? `\nGoal-rep tally: ${directGoalCount} of your ${completedSoFar} reps so far have actually been direct dating reps. The rest were warm-ups.`
+      : "";
+
+  const townBlock = homeCityLabel ? `\nWhere you live: ${homeCityLabel}.` : "";
+
+  const algorithmBlock = marketReflection
+    ? `\nWhat the app told you for this quest: "${marketReflection}". You can react to it however feels real.`
+    : "";
+
+  const realismGuidance =
+    completedSoFar >= 3 || marketReflection
+      ? `\n\nBE REAL with yourself in this entry. If you've been to the same kind of place over and over without progress, name it. If your town feels too small for what you're trying to do, say it. If a solo coffee scout doesn't feel like it's getting you closer to a real relationship, that's a fair thing to write. Don't manufacture frustration — but don't manufacture optimism either. The rating is ${rating}/5, but the rating is about the venue; the journal is about the trajectory.`
+      : "";
+
   return llmComplete(
-    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after quest #${questIndex + 1}. You rated it ${rating}/5 stars.`,
-    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be HONEST — if it sucked, say so. If you felt lonely or like it was pointless, say that. Don't sugarcoat. Match the ${rating}-star rating.`,
-    150,
+    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after quest #${questIndex + 1}. You rated it ${rating}/5 stars.${townBlock}${cumulativeBlock}${goalProgressBlock}${algorithmBlock}`,
+    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be HONEST — if it sucked, say so. If you felt lonely or like it was pointless, say that. Don't sugarcoat. Match the ${rating}-star rating.${realismGuidance}`,
+    180,
   );
 }
 
@@ -2060,6 +2092,7 @@ async function main() {
       hook: obj.hook ?? "",
       description: obj.description ?? "",
       strategyNote: quest.strategyNote ?? null,
+      marketReflection: quest.marketReflection ?? null,
       suggestedActivities: obj.suggestedActivities ?? [],
       actionItems: obj.actionItems ?? [],
       rarity: quest.rarity ?? "?",
@@ -2073,50 +2106,10 @@ async function main() {
       travelRationale: quest.travelRationale ?? null,
       goalMilestoneKey: quest.goalMilestoneKey ?? null,
       goalMilestoneTitle: quest.goalMilestoneTitle ?? null,
-      directGoalTouch:
-        isConcreteGoalActionType(
-          normalizeGoalActionType(
-            quest.goalActionType ??
-              detectGoalActionType(
-                [
-                  quest.title,
-                  obj.description,
-                  quest.repIntent,
-                  ...(obj.suggestedActivities ?? []),
-                  ...(obj.actionItems ?? []),
-                ]
-                  .filter(Boolean)
-                  .join(" "),
-              ),
-          ),
-        ) ||
-        isConcreteGoalActionType(
-          detectGoalActionType(
-            [
-              quest.title,
-              obj.description,
-              quest.repIntent,
-              ...(obj.suggestedActivities ?? []),
-              ...(obj.actionItems ?? []),
-            ]
-              .filter(Boolean)
-              .join(" "),
-          ),
-        ),
-      goalActionType: normalizeGoalActionType(
-        quest.goalActionType ??
-          detectGoalActionType(
-            [
-              quest.title,
-              obj.description,
-              quest.repIntent,
-              ...(obj.suggestedActivities ?? []),
-              ...(obj.actionItems ?? []),
-            ]
-              .filter(Boolean)
-              .join(" "),
-          ),
+      directGoalTouch: isConcreteGoalActionType(
+        normalizeGoalActionType(quest.goalActionType),
       ),
+      goalActionType: normalizeGoalActionType(quest.goalActionType),
       predictedAnxiety,
       predictedDifficulty,
       actualAnxiety,
@@ -2395,6 +2388,12 @@ async function main() {
       console.log(`│     ${obj.venueName} — ${obj.venueCategory}`);
       console.log(`│     ${obj.venueAddress ?? "no address"}`);
       console.log(`│     Hook: ${obj.hook ?? "none"}`);
+      if (quest.strategyNote) {
+        console.log(`│     Why: ${quest.strategyNote}`);
+      }
+      if (quest.marketReflection) {
+        console.log(`│     Market: ${quest.marketReflection}`);
+      }
       console.log(
         `│     Capacity: ${quest.capacityTrack ?? "?"} — ${quest.repIntent ?? "?"}`,
       );
@@ -2403,6 +2402,9 @@ async function main() {
       );
       console.log(
         `│     Type: ${quest.questType ?? "venue"} | Role: ${quest.questRole ?? "none"}${quest.questRole === "enjoy" ? " ★ ENJOY QUEST" : ""}`,
+      );
+      console.log(
+        `│     Goal: direct=${quest.directGoalTouch === true ? "yes" : "no"} | action=${quest.goalActionType ?? "none"} | milestone=${quest.goalMilestoneTitle ?? "none"}`,
       );
       console.log(
         `│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`,
@@ -2734,6 +2736,10 @@ async function main() {
           socialContext,
           i,
           simFearScore,
+          {
+            priorJourney: journey,
+            marketReflection: quest.marketReflection ?? null,
+          },
         );
       } else {
         journalEntry = generateJournal(simJournalProb, rating, rand);

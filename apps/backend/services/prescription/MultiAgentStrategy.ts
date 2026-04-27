@@ -13,7 +13,9 @@ import type {
   PrescriptionStrategyResult,
   StrategyBrief,
   ScoutCandidate,
+  ScoutCandidateTrace,
   ScoutResult,
+  VenueSelectionAttemptTrace,
 } from "./PrescriptionStrategy";
 import {
   classifyScope,
@@ -37,6 +39,7 @@ import { applyOpportunityZonePolicy } from "./OpportunityZonePolicy";
 import { buildSearchEnvelope } from "./SearchEnvelope";
 import { VenueScoutAgent } from "./VenueScoutAgent";
 import { QuestWriterAgent } from "./QuestWriterAgent";
+import { WinnerVerificationAgent } from "./WinnerVerificationAgent";
 import { CapacityTrack } from "../../entities/Sidequest";
 import type { OpenAIResponsesAgent } from "../shared/OpenAIResponsesAgent";
 import type { OpenAIService } from "../shared/OpenAIService";
@@ -46,6 +49,12 @@ import type { GooglePlacesService } from "../shared/GooglePlacesService";
 import type { OverpassService } from "../shared/OverpassService";
 import type { PrescriptionPromptRegistry } from "../prompts/PrescriptionPromptRegistry";
 import { OFFLINE_SOCIAL_DOMAIN_DOCTRINE } from "../shared/QuestConfig";
+import {
+  renderQualityVocabularyBlock,
+  sanitizeQualities,
+  mergeQualityProfiles,
+  type VenueQualityProfile,
+} from "./VenueQualities";
 
 const REGIONAL_INFRASTRUCTURE_PATTERN =
   /dating|people-rich|structured|class|club|meetup|workshop|fitness|dance|game night|social container/i;
@@ -64,6 +73,39 @@ function isRegionalInfrastructureEligible(
   return REGIONAL_INFRASTRUCTURE_PATTERN.test(text);
 }
 
+/**
+ * Reach-mode prompt line when the user hasn't explicitly chosen one.
+ *
+ * Old default: "stay conservative". That kept everyone anchored to home base
+ * regardless of what the opportunity-zone analysis found. The new default
+ * reads the same signals the SearchEnvelope reads — homeBaseViability and
+ * observed willingness — and tells the strategist what mode the system is
+ * effectively operating in, so the LLM's proposal lines up with the envelope.
+ */
+function buildAutoReachModeLine(
+  ctx: PrescriptionStrategyInput["promptContext"],
+): string {
+  const homeBaseViability = ctx.opportunityZones?.homeBaseViability ?? null;
+  const recommendedCity = ctx.opportunityZones?.recommendedCity ?? null;
+  const willingnessSignal = ctx.willingness?.willingnessSignal ?? "untested";
+  const completedQuestCount = ctx.completedQuestCount ?? 0;
+
+  if (
+    homeBaseViability === "weak" &&
+    recommendedCity &&
+    completedQuestCount >= 5
+  ) {
+    return `- Reach mode: not chosen yet, but home base is too sparse for this goal — system is auto-promoting to nearby_mix. Propose ${recommendedCity} or another stronger zone explicitly; name the travel as part of the rep.`;
+  }
+  if (willingnessSignal === "regional_capable") {
+    return "- Reach mode: not chosen yet, but the user has voluntarily completed regional reps — treat their willingness as nearby_mix and stretch geography when the goal warrants it.";
+  }
+  if (willingnessSignal === "nearby_capable") {
+    return "- Reach mode: not chosen yet, but the user has completed nearby reps voluntarily — treat as nearby_mix; small stretches outside home base are fair game.";
+  }
+  return "- Reach mode: not chosen yet; default to local. Stretch only if a clearly better nearby opportunity emerges and saturation signals support it.";
+}
+
 // ── Dependencies ────────────────────────────────────────────
 
 export interface MultiAgentStrategyDeps {
@@ -73,6 +115,7 @@ export interface MultiAgentStrategyDeps {
   placesService: GooglePlacesService;
   overpassService: OverpassService;
   promptRegistry: PrescriptionPromptRegistry;
+  redisService?: import("../shared/RedisService").RedisService;
 }
 
 // ── Model configuration per agent ───────────────────────────
@@ -96,6 +139,7 @@ export class MultiAgentStrategy {
   private models: AgentModelConfig;
   private scoutAgent: VenueScoutAgent;
   private writerAgent: QuestWriterAgent;
+  private verificationAgent: WinnerVerificationAgent;
 
   constructor(
     deps: MultiAgentStrategyDeps,
@@ -114,19 +158,58 @@ export class MultiAgentStrategy {
       openAIService: deps.openAIService,
       model: mergedModels.writer,
     });
+    this.verificationAgent = new WinnerVerificationAgent({
+      agent: deps.agent,
+      redisService: deps.redisService,
+      model: mergedModels.scout,
+    });
   }
 
   async execute(
     input: PrescriptionStrategyInput,
   ): Promise<PrescriptionStrategyResult> {
     const { promptContext, onProgress } = input;
+    const trace = input.trace;
 
     // ── 1. Strategist ──────────────────────────────────────
     if (onProgress) await onProgress(10, "Planning your quest strategy...");
+    const strategistStartedAt = Date.now();
     const brief: StrategyBrief = await this.runStrategist(input);
     console.log(
       `[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`,
     );
+    if (trace) {
+      await trace.emit("strategist", {
+        durationMs: Date.now() - strategistStartedAt,
+        input: {
+          completedQuestCount: promptContext.completedQuestCount,
+          radius: input.radius,
+          city: input.city,
+          isEarlyCalibration: promptContext.isEarlyCalibration,
+          reachMode: promptContext.user.reachMode,
+          opportunityZones: promptContext.opportunityZones,
+          willingnessSignal: promptContext.willingness?.willingnessSignal,
+          journeyDiversitySummary: {
+            dominantRecentCategory:
+              promptContext.journeyDiversity?.dominantRecentCategory ?? null,
+            consecutiveSameVenueCount:
+              promptContext.journeyDiversity?.consecutiveSameVenueCount ?? 0,
+          },
+        },
+        output: {
+          capacityTrack: brief.capacityTrack,
+          repIntent: brief.repIntent,
+          experienceType: brief.experienceType,
+          suggestedCategories: brief.suggestedCategories,
+          venueQualities: brief.venueQualities,
+          targetCity: brief.targetCity,
+          maxDistanceMiles: brief.maxDistanceMiles,
+          difficultyRange: brief.difficultyRange,
+          socialChallengeLevel: brief.socialChallengeLevel,
+          rationale: brief.rationale,
+        },
+      });
+    }
 
     // ── DistancePolicy ──────────────────────────────────────
     // One source of truth for maxDistance + scope + travel framing. The
@@ -160,6 +243,32 @@ export class MultiAgentStrategy {
       console.log(
         `[multi-agent] DistancePolicy: distance ${strategistMaxDistance}→${brief.maxDistanceMiles}, scope=${policy.scope}, clampedByRejection=${policy.wasClampedByRejection}`,
       );
+    }
+    if (trace) {
+      await trace.emit("distance_policy", {
+        input: {
+          radius: input.radius,
+          isEarlyCalibration: promptContext.isEarlyCalibration ?? false,
+          completedQuestCount: promptContext.completedQuestCount ?? 0,
+          lastRejectionReason: promptContext.lastRejection?.reason ?? null,
+          rejectionPatternReason:
+            promptContext.rejectionPattern?.reason ?? null,
+          goalClosureDue:
+            promptContext.activeGoalMilestone?.goalClosureDue ?? false,
+          regionalInfrastructureEligible: isRegionalInfrastructureEligible(
+            promptContext,
+            brief,
+          ),
+          strategistMaxDistance,
+        },
+        output: {
+          scope: policy.scope,
+          maxDistanceMiles: policy.maxDistanceMiles,
+          travelRationale: policy.travelRationale,
+          wasClampedByRejection: policy.wasClampedByRejection,
+          shouldFrameTravel: policy.shouldFrameTravel,
+        },
+      });
     }
 
     const recalibration = resolveRecalibrationPolicy({
@@ -212,12 +321,38 @@ export class MultiAgentStrategy {
           ? undefined
           : brief.travelRationale;
     }
+    if (trace) {
+      await trace.emit("search_envelope", {
+        output: {
+          maxRadiusMiles: brief.searchEnvelope.maxRadiusMiles,
+          reachMode: brief.searchEnvelope.reachMode,
+          homeBaseViability: brief.searchEnvelope.homeBaseViability,
+          homeCity: brief.searchEnvelope.homeCity,
+          searchLabel: brief.searchEnvelope.searchLabel,
+          queryFamilies: brief.searchEnvelope.queryFamilies,
+          preferredZoneHints: brief.searchEnvelope.preferredZoneHints,
+          phase: brief.searchEnvelope.phase,
+        },
+      });
+    }
+
+    // Merge user-level qualities into the brief's profile so the validator
+    // sees both stage-required and user-required qualities. User `avoid`
+    // wins over policy `must`/`prefer` when they conflict.
+    if (promptContext.userVenueQualities) {
+      brief.venueQualities = mergeQualityProfiles(
+        brief.venueQualities,
+        promptContext.userVenueQualities,
+      );
+    }
 
     // ── 2. Scout + Validator loop ──────────────────────────
     let scoutResult: ScoutResult | null = null;
     let winner: ScoutCandidate | null = null;
     let extraConstraints = "";
+    let qualityRetryHint: string | null = null;
     const maxRetries = 2;
+    const selectionAttempts: VenueSelectionAttemptTrace[] = [];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (onProgress)
@@ -226,29 +361,273 @@ export class MultiAgentStrategy {
           "Searching for the perfect spot...",
         );
 
+      const scoutStartedAt = Date.now();
       scoutResult = await this.scoutAgent.run(input, brief, extraConstraints);
       console.log(
         `[multi-agent] Scout: found ${scoutResult.candidates.length} candidates`,
       );
+      if (trace) {
+        await trace.emit("scout.run", {
+          durationMs: Date.now() - scoutStartedAt,
+          input: {
+            attempt,
+            extraConstraints,
+            briefSuggestedCategories: brief.suggestedCategories,
+            maxDistanceMiles: brief.maxDistanceMiles,
+            preferredZoneHints: brief.searchEnvelope?.preferredZoneHints ?? [],
+          },
+          output: {
+            candidates: scoutResult.candidates.map((c) => ({
+              venueName: c.venueName,
+              venueCategory: c.venueCategory,
+              distanceFromHome: c.distanceFromHome,
+              venueAddress: c.venueAddress,
+            })),
+            searches: scoutResult.trace?.searches ?? [],
+            submittedCandidates: scoutResult.trace?.submittedCandidates ?? [],
+          },
+        });
+      }
+
+      // Quality match — LLM classifies each candidate against the brief's
+      // venueQualities profile and drops hard-avoid hits before the validator
+      // runs. Skipped when no quality profile is set.
+      if (
+        scoutResult &&
+        brief.venueQualities &&
+        scoutResult.candidates.length > 0 &&
+        (brief.venueQualities.must.length > 0 ||
+          brief.venueQualities.avoid.length > 0)
+      ) {
+        const candidatesAtMatch = scoutResult.candidates;
+        const qualityStart = Date.now();
+        const matches = await this.classifyCandidateQualities(
+          candidatesAtMatch,
+          brief.venueQualities,
+        );
+        const droppedNames: string[] = [];
+        const filtered: ScoutCandidate[] = [];
+        for (let i = 0; i < candidatesAtMatch.length; i++) {
+          const c = candidatesAtMatch[i];
+          const m = matches[i];
+          if (m && m.avoidHits.length > 0) {
+            droppedNames.push(c.venueName);
+            brief.avoidVenues = [
+              ...new Set([...brief.avoidVenues, c.venueName]),
+            ];
+          } else {
+            filtered.push(c);
+          }
+        }
+        if (filtered.length > 0) {
+          scoutResult.candidates = filtered;
+          qualityRetryHint = null;
+        } else if (droppedNames.length > 0 && attempt < maxRetries) {
+          // All candidates violated avoid qualities. Force a retry — surfacing
+          // the dominant avoid term as a strong constraint to the next scout
+          // round. Without this, fallback would prescribe e.g. CrossFit even
+          // though `requires-membership` was the explicit deal-breaker.
+          scoutResult.candidates = [];
+          const tally = new Map<string, number>();
+          for (const m of matches) {
+            for (const term of m.avoidHits) {
+              tally.set(term, (tally.get(term) ?? 0) + 1);
+            }
+          }
+          const dominant = [...tally.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([term]) => term);
+          qualityRetryHint = `Quality reject: ALL ${droppedNames.length} previous candidates violated venue qualities — most common: ${dominant.join(", ")}. DO NOT return more venues with those qualities. ${dominant.includes("requires-membership") ? "For requires-membership specifically: avoid private gyms, CrossFit boxes, country clubs, paid-only studios. Try free public spaces, parks, libraries, drop-in community programs at recreation centers, or low-cost classes." : "Try meaningfully different categories."}`;
+          console.warn(
+            `[multi-agent] QualityMatch: forcing retry — all ${droppedNames.length} candidates had ${dominant.join(", ")}`,
+          );
+        } else if (droppedNames.length > 0) {
+          // Out of retries — pick least-bad (fewest avoid hits) so the user
+          // gets *something*. Better B-tier match than no quest.
+          const ranked = candidatesAtMatch
+            .map((c, i) => ({
+              c,
+              score: matches[i]?.avoidHits.length ?? 99,
+            }))
+            .sort((a, b) => a.score - b.score);
+          scoutResult.candidates = [ranked[0].c];
+          qualityRetryHint = null;
+          console.warn(
+            `[multi-agent] QualityMatch: out of retries — using least-bad: ${ranked[0].c.venueName} (${ranked[0].score} avoid hits)`,
+          );
+        }
+        if (trace) {
+          await trace.emit("quality_match", {
+            durationMs: Date.now() - qualityStart,
+            input: {
+              profile: brief.venueQualities,
+              candidateCount: matches.length,
+            },
+            output: {
+              matches: matches.map((m, i) => ({
+                venueName: candidatesAtMatch[i]?.venueName ?? "?",
+                qualities: m.qualities,
+                mustHits: m.mustHits,
+                preferHits: m.preferHits,
+                avoidHits: m.avoidHits,
+                reasoning: m.reasoning,
+              })),
+              droppedForAvoid: droppedNames,
+              fellBackToFullPool: filtered.length === 0,
+            },
+          });
+        }
+        if (droppedNames.length > 0) {
+          console.log(
+            `[multi-agent] QualityMatch: dropped ${droppedNames.length} candidate(s) for hard-avoid hits: ${droppedNames.join(", ")}`,
+          );
+        }
+      }
 
       const validation = validateCandidates({
         candidates: scoutResult.candidates,
         ctx: promptContext,
         brief,
       });
+      if (trace) {
+        await trace.emit("validator.attempt", {
+          input: {
+            attempt,
+            candidateCount: scoutResult.candidates.length,
+            briefMaxDistance: brief.maxDistanceMiles,
+            avoidVenues: brief.avoidVenues,
+            avoidCategories: brief.avoidCategories,
+          },
+          output: {
+            accepted: validation.accepted,
+            winner: validation.winner
+              ? {
+                  venueName: validation.winner.venueName,
+                  venueCategory: validation.winner.venueCategory,
+                  distanceFromHome: validation.winner.distanceFromHome,
+                }
+              : null,
+            rejectionCodes: validation.rejectionCodes,
+            humanReasons: validation.humanReasons,
+            retryConstraints: validation.retryConstraints,
+          },
+        });
+      }
+      const attemptTrace: VenueSelectionAttemptTrace = {
+        attempt,
+        searches: scoutResult.trace?.searches ?? [],
+        submittedCandidates: scoutResult.trace?.submittedCandidates ?? [],
+        accepted: false,
+        rejectionCodes: validation.rejectionCodes,
+        rejectionReasons: validation.humanReasons,
+      };
 
       if (validation.accepted && validation.winner) {
-        winner = validation.winner;
+        const candidateWinner = validation.winner;
+        attemptTrace.accepted = true;
+        attemptTrace.winner = traceScoutCandidate(candidateWinner);
         console.log(
-          `[multi-agent] Validator: accepted "${winner.venueName}" (${winner.venueCategory})`,
+          `[multi-agent] Validator: accepted "${candidateWinner.venueName}" (${candidateWinner.venueCategory})`,
         );
+
+        // ── Venue verification (live web research) ───────
+        const verifyStart = Date.now();
+        const verification = await this.verificationAgent.verify({
+          candidate: candidateWinner,
+          profile: brief.venueQualities ?? { must: [], prefer: [], avoid: [] },
+          city: input.city,
+        });
+        if (trace) {
+          await trace.emit("venue_verification", {
+            durationMs: Date.now() - verifyStart,
+            input: {
+              venueName: candidateWinner.venueName,
+              venueAddress: candidateWinner.venueAddress,
+              profile: brief.venueQualities,
+            },
+            output: verification,
+            meta: { cached: verification.cached },
+          });
+        }
+        console.log(
+          `[multi-agent] Verification: "${candidateWinner.venueName}" → ${verification.verdict}${verification.qualityViolations.length ? ` (violations: ${verification.qualityViolations.join(", ")})` : ""}${verification.cached ? " [cached]" : ""}`,
+        );
+
+        // Reject path. The verification's verdict label is one signal, but
+        // the harder rule is: if any qualityViolation directly overlaps the
+        // brief's avoid set, treat as reject regardless of the LLM's verdict
+        // (which often hedges to "uncertain" even with clear violations).
+        const avoidSet = new Set(brief.venueQualities?.avoid ?? []);
+        const confirmedAvoidHits = verification.qualityViolations.filter(
+          (q) => avoidSet.has(q),
+        );
+        const shouldReject =
+          verification.verdict === "reject" ||
+          confirmedAvoidHits.length > 0 ||
+          verification.currentlyOperating === false;
+
+        if (shouldReject && attempt < maxRetries) {
+          brief.avoidVenues = [
+            ...new Set([...brief.avoidVenues, candidateWinner.venueName]),
+          ];
+          const reason = !verification.currentlyOperating
+            ? "venue may not be currently operating"
+            : confirmedAvoidHits.length > 0
+              ? `confirmed violations of brief avoid set: ${confirmedAvoidHits.join(", ")}`
+              : "research returned a reject verdict";
+
+          // Empirical market signal: if verification rejected a venue inside
+          // the local pool AND home-base viability is "weak", that's stronger
+          // evidence than the static population proxy. Live web research is
+          // saying "the local pool isn't producing what this rep needs" —
+          // expand the envelope for the retry instead of looking for more
+          // Frederick venues that will fail the same way.
+          const envelope = brief.searchEnvelope;
+          const homeBaseWeak = envelope?.homeBaseViability === "weak";
+          const localCeiling = Math.max(input.radius + 0.25, 4);
+          const wasLocal =
+            (candidateWinner.distanceFromHome ?? Infinity) <= localCeiling;
+          const recommendedAway = envelope?.preferredZoneHints?.[0];
+
+          let geoExpansionNote = "";
+          if (homeBaseWeak && wasLocal) {
+            const newMax = Math.max(brief.maxDistanceMiles, 12);
+            console.log(
+              `[multi-agent] Verification + weak home base → expanding retry envelope from ${brief.maxDistanceMiles.toFixed(1)}mi to ${newMax.toFixed(1)}mi${recommendedAway ? ` (target: ${recommendedAway.city})` : ""}`,
+            );
+            brief.maxDistanceMiles = newMax;
+            brief.opportunityScope = "nearby_social_zone";
+            if (envelope) envelope.maxRadiusMiles = newMax;
+            geoExpansionNote = `\n\nGEOGRAPHIC EXPANSION: Verification keeps rejecting Frederick venues — the home-base pool is too sparse for this quality profile. On this retry, search nearby zones (8-12mi from home)${recommendedAway ? ` like ${recommendedAway.city}` : ""} instead of looking for more local venues that will fail the same way. The trip is part of the rep this week.`;
+          }
+
+          extraConstraints = [
+            extraConstraints,
+            `Verification rejected "${candidateWinner.venueName}" — ${reason}. ${verification.reasoning} Pick a different venue.${geoExpansionNote}`,
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+          console.log(
+            `[multi-agent] Verification: rejecting "${candidateWinner.venueName}" — ${reason}, retrying`,
+          );
+          selectionAttempts.push(attemptTrace);
+          continue;
+        }
+
+        winner = candidateWinner;
+        brief.venueVerification = verification;
+        selectionAttempts.push(attemptTrace);
         break;
       }
 
       console.log(
         `[multi-agent] Validator: rejected (${validation.humanReasons.join(", ")})`,
       );
-      extraConstraints = validation.retryConstraints ?? "";
+      extraConstraints = [validation.retryConstraints, qualityRetryHint]
+        .filter((s): s is string => Boolean(s))
+        .join("\n\n");
+      qualityRetryHint = null;
       if (validation.rejectionCodes.includes("too_far")) {
         for (const c of scoutResult.candidates) {
           if (
@@ -258,6 +637,20 @@ export class MultiAgentStrategy {
             brief.avoidVenues.push(c.venueName);
           }
         }
+      }
+
+      if (attempt === maxRetries && validation.fallbackWinner) {
+        winner = validation.fallbackWinner;
+        attemptTrace.accepted = true;
+        attemptTrace.fallbackWinner = traceScoutCandidate(winner);
+        attemptTrace.fallbackReason = validation.fallbackReason;
+        attemptTrace.forcedFallback = true;
+        selectionAttempts.push(attemptTrace);
+        softenBriefForWeakFallback(brief, validation.fallbackReason);
+        console.log(
+          `[multi-agent] Validator: weak-fit fallback accepted "${winner.venueName}" (${winner.venueCategory}) — ${validation.fallbackReason}`,
+        );
+        break;
       }
 
       // On last attempt, just pick the best available
@@ -284,6 +677,9 @@ export class MultiAgentStrategy {
         );
         if (fallbackCandidates[0]) {
           winner = fallbackCandidates[0];
+          attemptTrace.accepted = true;
+          attemptTrace.winner = traceScoutCandidate(winner);
+          attemptTrace.forcedFallback = true;
           console.log(
             `[multi-agent] Validator: forced acceptance of "${winner.venueName}" after retries`,
           );
@@ -293,6 +689,7 @@ export class MultiAgentStrategy {
           );
         }
       }
+      selectionAttempts.push(attemptTrace);
     }
 
     if (!winner || !scoutResult) {
@@ -322,14 +719,49 @@ export class MultiAgentStrategy {
         `[multi-agent] Opportunity scope: ${brief.opportunityScope} (${winnerDistance.toFixed(1)}mi) — ${brief.travelRationale ?? "pulled back to home base"}`,
       );
     }
+    brief.venueSelectionTrace = {
+      attempts: selectionAttempts,
+      finalWinner: traceScoutCandidate(winner),
+    };
 
     // ── 3. Writer ──────────────────────────────────────────
     if (onProgress) await onProgress(65, "Crafting your quest...");
 
+    const writerStartedAt = Date.now();
     const raw = await this.writerAgent.run(input, brief, winner);
     console.log(
       `[multi-agent] Writer: "${raw.t}" — difficulty ${raw.items[0]?.df}`,
     );
+    if (trace) {
+      await trace.emit("writer", {
+        durationMs: Date.now() - writerStartedAt,
+        input: {
+          venueName: winner.venueName,
+          venueCategory: winner.venueCategory,
+          capacityTrack: brief.capacityTrack,
+          repIntent: brief.repIntent,
+          travelRationale: brief.travelRationale,
+          opportunityScope: brief.opportunityScope,
+        },
+        output: {
+          title: raw.t,
+          summary: raw.s,
+          strategyNote: raw.sn,
+          marketReflection: raw.mr,
+          item: raw.items[0]
+            ? {
+                title: raw.items[0].t,
+                description: raw.items[0].d,
+                hook: raw.items[0].hook,
+                difficulty: raw.items[0].df,
+                actionability: raw.items[0].act,
+                directGoalTouch: raw.items[0].dgt,
+                goalActionType: raw.items[0].gat,
+              }
+            : null,
+        },
+      });
+    }
 
     if (onProgress) await onProgress(80, "Building your quest...");
 
@@ -339,6 +771,107 @@ export class MultiAgentStrategy {
       allTrails: scoutResult.allTrails,
       brief,
     };
+  }
+
+  // ── Quality Match (LLM classifier over scout candidates) ──────────
+
+  private async classifyCandidateQualities(
+    candidates: ScoutCandidate[],
+    profile: VenueQualityProfile,
+  ): Promise<
+    {
+      qualities: string[];
+      mustHits: string[];
+      preferHits: string[];
+      avoidHits: string[];
+      reasoning: string;
+    }[]
+  > {
+    const empty = candidates.map(() => ({
+      qualities: [] as string[],
+      mustHits: [] as string[],
+      preferHits: [] as string[],
+      avoidHits: [] as string[],
+      reasoning: "",
+    }));
+    if (candidates.length === 0) return empty;
+
+    const candidateList = candidates
+      .map(
+        (c, i) =>
+          `${i + 1}. ${c.venueName} — ${c.venueCategory} — ${c.venueAddress}${c.notes ? ` — ${c.notes}` : ""}${c.googlePrimaryTypeDisplayName ? ` — google type: ${c.googlePrimaryTypeDisplayName}` : ""}`,
+      )
+      .join("\n");
+
+    const prompt = `You are a venue quality classifier. For each candidate venue below, decide which qualities from the vocabulary best describe the *room as it actually exists* — based on the venue name, category, address, and any notes. Your judgment is what determines whether a venue is right for the user this week.
+
+${renderQualityVocabularyBlock()}
+
+REQUIRED PROFILE FOR THIS QUEST:
+- MUST match (deal-breakers if missing): ${profile.must.join(", ") || "(none)"}
+- PREFER (nice to have): ${profile.prefer.join(", ") || "(none)"}
+- AVOID (rejection signals): ${profile.avoid.join(", ") || "(none)"}
+
+CANDIDATES:
+${candidateList}
+
+For each candidate, return an entry with:
+- "qualities": the full list of vocabulary terms that apply to this venue (be generous; pick 4-8 typical descriptors)
+- "mustHits": which MUST terms it satisfies
+- "preferHits": which PREFER terms it satisfies
+- "avoidHits": which AVOID terms it triggers (be strict — these are deal-breakers)
+- "reasoning": one short sentence justifying your read
+
+CLASSIFICATION RULES — follow these strictly, do NOT soft-pedal:
+
+PRIVATE FITNESS RULE: Any standalone gym, CrossFit box, fitness studio, climbing gym, yoga / pilates studio, barre studio, dance studio, or martial-arts dojo IS "requires-membership" + "paid-only" — UNLESS the venue is explicitly part of a Recreation Center, Community Center, YMCA, municipal facility, or public park. A name like "[Brand] Fitness" / "[Brand] Strength Gym" / "[Brand] CrossFit" / "Pure Barre" / "Club Pilates" / "Orangetheory" / "Anytime Fitness" / "F45" / "SoulCycle" / "Equinox" is essentially never drop-in-friendly. Do not be charitable to commercial fitness brands.
+
+ROMANTIC-VENUE RULE: A candle-lit bistro, fine-dining restaurant, wine bar, or anywhere advertised as "date night" / "romantic" IS "couples-coded" + "intimate-hushed". Mark it.
+
+NIGHTLIFE RULE: A nightclub, lounge with bottle service, or venue with a posted dress code IS "scene-y-exclusive". Mark it.
+
+MUNICIPAL / PUBLIC RULE: A library, public park, trail, museum, farmers market, recreation center, or community center IS "free" + "drop-in-friendly" + "indoor-public" or "outdoor-public" as appropriate. These are NOT "requires-membership".
+
+Respond with JSON: {"results": [{"index": 1, "qualities": [...], "mustHits": [...], "preferHits": [...], "avoidHits": [...], "reasoning": "..."}]}`;
+
+    try {
+      const response = await this.openAIService.executeChatCompletion(
+        {
+          model: this.models.scout as OpenAIModel,
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+          temperature: 0.1,
+          max_completion_tokens: 1500,
+        },
+        "quality_match",
+      );
+
+      const text = response.choices[0]?.message?.content?.trim() ?? "{}";
+      const parsed = JSON.parse(text);
+      const results = Array.isArray(parsed.results) ? parsed.results : [];
+
+      // Map results back to candidate order. LLM returns 1-based index.
+      const byIndex = new Map<number, (typeof results)[number]>();
+      for (const r of results) {
+        const idx = typeof r?.index === "number" ? r.index - 1 : -1;
+        if (idx >= 0 && idx < candidates.length) byIndex.set(idx, r);
+      }
+      return candidates.map((_, i) => {
+        const r = byIndex.get(i);
+        if (!r) return empty[i];
+        return {
+          qualities: sanitizeQualities(r.qualities),
+          mustHits: sanitizeQualities(r.mustHits),
+          preferHits: sanitizeQualities(r.preferHits),
+          avoidHits: sanitizeQualities(r.avoidHits),
+          reasoning:
+            typeof r.reasoning === "string" ? r.reasoning.slice(0, 280) : "",
+        };
+      });
+    } catch (err) {
+      console.error("[multi-agent] Quality match failed:", err);
+      return empty;
+    }
   }
 
   // ── Strategist Agent ────────────────────────────────────────
@@ -422,6 +955,7 @@ SOCIAL STRATEGY PRINCIPLES:
 - Co-ed group activities (classes, rec leagues, meetups) are the highest-leverage move for someone starting from zero — both for friends and dating.
 - Venue timing matters: suggest evenings and weekends for social density, weekday mornings for low-pressure solo practice.
 - Dating is a byproduct of having a social life, not a standalone goal. Build the social ecosystem first.
+- For dating goals, use a staged ladder: room exposure -> warm signal -> conversation continuation -> message-first closure. Do NOT skip straight to "send the invite" unless the current dating stage explicitly allows it.
 - Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
 - If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
 - Small towns require expanding the search radius. Think in terms of the best opportunities NEAR the user's home, not loyalty to a single town name.
@@ -457,13 +991,24 @@ Think holistically about this person:
 - Otherwise, what specific type of social challenge would grow them right now?
 - Are they stuck in a geographic or activity pattern that needs breaking?
 - POTENTIAL REGULARS: If the history shows anchor venues (marked with ★), they're places the user enjoyed. You MAY suggest a return visit — but frame it as an invitation, not a pattern. The user hasn't said they want to be a regular anywhere yet. Use anchor venues when the strategy genuinely calls for deepening or when a return visit with a new angle (different time, social challenge, event) would be more valuable than a novel venue. Don't force it — mix return visits with exploration naturally.
+- User-stated activities are weak priors, not requirements. Use them as inspiration for adjacent experiences, but do not keep fulfilling the same stated preference if it creates repetition or fails the current capacity rep.
+
+VENUE QUALITIES — describe the room, not the category:
+A category like "Brunch Spot" can be a great date-plausible room or a terrible one — what matters is the *qualities* of the room. Use the vocabulary below to express what kind of room this rep needs. Downstream policies and the validator share this same vocabulary, so terms must come from this list.
+
+${renderQualityVocabularyBlock()}
 
 Respond with JSON:
 {
   "capacityTrack": "ACTIVATION" | "PUBLIC_PRESENCE" | "NOVELTY_TOLERANCE" | "STAYING_POWER" | "RETURNABILITY" | "MICRO_INTERACTION" | "SOCIAL_EXTENSION" | "RECOVERY" | "IDENTITY_EVIDENCE",
   "repIntent": "<one-line rep description in capacity terms, under 20 words>",
   "experienceType": "<what kind of experience, e.g. 'hands-on creative workshop with strangers', 'casual trivia night at a brewery in a bigger city'>",
-  "suggestedCategories": ["<2-3 specific venue categories to search for>"],
+  "suggestedCategories": ["<2-3 specific venue categories to search for — pick from the canonical category list, no more than 3>"],
+  "venueQualities": {
+    "must": ["<hard requirements; venue must match all of these>"],
+    "prefer": ["<soft preferences; tilt toward venues that have these>"],
+    "avoid": ["<hard violations; venue is rejected if it matches any>"]
+  },
   "targetCity": "<optional soft area hint, e.g. 'Longmont, CO' or 'Boulder Pearl Street area' — compatibility metadata only>",
   "maxDistanceMiles": <number — be willing to push this for growth>,
   "difficultyRange": [<min>, <max>],
@@ -476,7 +1021,14 @@ Respond with JSON:
   "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this capacity track + location>",
   "opportunityScope": "local_home_base" | "nearby_social_zone" | "regional_opportunity",
   "travelRationale": "<required if opportunityScope is not local_home_base — why the travel is worth it for this goal>"
-}`;
+}
+
+QUALITIES GUIDANCE:
+- "must" should have 2-4 terms — the non-negotiables for this rep type.
+- "avoid" should have 2-5 terms — qualities that would make this rep harmful (e.g. for a single user doing dating reps, "couples-coded" + "intimate-hushed" are reliable avoids).
+- "prefer" can have 3-6 terms — softer tilts.
+- Do NOT just default to all "people-rich" + "conversation-friendly" reps. Match the qualities to what the user actually needs at this stage. A recovery rep needs "low-social-pressure" + "ambient-presence", not maximum density.
+- Outdoor venues (parks, trails) and active-rec venues (climbing gyms, bowling, disc golf) are first-class third places. Don't confine yourself to indoor seated rooms.`;
 
     // All per-user context lives here so the system prompt above can be
     // cached by OpenAI's automatic prefix cache. Dynamic blocks (rejection
@@ -519,24 +1071,30 @@ The blocker context above TAKES PRIORITY over normal progression. Do NOT prescri
     const journeyMixBlock = ctx.journeyDiversityContext
       ? `${ctx.journeyDiversityContext}\n\n`
       : "";
+    const willingnessBlock = ctx.willingnessContext
+      ? `${ctx.willingnessContext}\n\n`
+      : "";
     const milestoneBlock = ctx.goalMilestoneContext
       ? `${ctx.goalMilestoneContext}\n\n`
+      : "";
+    const datingProgressionBlock = ctx.datingProgressionContext
+      ? `${ctx.datingProgressionContext}\n\n`
       : "";
 
     const userMessage = `${rejectionPatternBlock}${earlyCalibrationBlock}${recalibrationBlock}USER PROFILE:
 - Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
 - Comfort radius: ${ctx.radius.toFixed(1)} miles
 - Pace: ${ctx.pace}
-${ctx.user.reachMode ? `- Reach mode: ${ctx.user.reachMode}` : "- Reach mode: not chosen yet; stay conservative unless a clearly better nearby opportunity emerges."}
+${ctx.user.reachMode ? `- Reach mode: ${ctx.user.reachMode}` : buildAutoReachModeLine(ctx)}
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
-${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
+${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy (weak priors, not requirements): ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${socialSituationBlock}${ctx.fearLadderContext}
 ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
-${frameworkBlock}${opportunityZoneBlock}${journeyMixBlock}${milestoneBlock}${ctx.historyContext}
+${frameworkBlock}${opportunityZoneBlock}${willingnessBlock}${journeyMixBlock}${datingProgressionBlock}${milestoneBlock}${ctx.historyContext}
 ${coverageBlock}${expansionBlock}${phaseBlock}${timelineBlock}${socialMicroBlock}${blockerOverride}CURRENT TIME: ${ctx.hour}:00 on ${ctx.dayOfWeek}.
 
 ${siblingBlock}What experience should this user have next? Think about what would genuinely move them toward their goal.`;
@@ -575,11 +1133,21 @@ ${siblingBlock}What experience should this user have next? Think about what woul
         ? parsed.repIntent.trim()
         : "Show up and see what happens.";
 
+    const venueQualities: VenueQualityProfile | undefined =
+      parsed.venueQualities && typeof parsed.venueQualities === "object"
+        ? {
+            must: sanitizeQualities(parsed.venueQualities.must),
+            prefer: sanitizeQualities(parsed.venueQualities.prefer),
+            avoid: sanitizeQualities(parsed.venueQualities.avoid),
+          }
+        : undefined;
+
     return {
       capacityTrack,
       repIntent,
       experienceType: parsed.experienceType ?? "general exploration",
       suggestedCategories: parsed.suggestedCategories ?? [],
+      venueQualities,
       targetCity: parsed.targetCity ?? input.city,
       maxDistanceMiles: parsed.maxDistanceMiles ?? input.radius * 1.5,
       difficultyRange: parsed.difficultyRange ?? [2, 5],
@@ -601,6 +1169,56 @@ ${siblingBlock}What experience should this user have next? Think about what woul
         typeof parsed.travelRationale === "string"
           ? parsed.travelRationale
           : undefined,
+    };
+  }
+}
+
+function traceScoutCandidate(candidate: ScoutCandidate): ScoutCandidateTrace {
+  return {
+    name: candidate.venueName,
+    category: candidate.venueCategory,
+    distanceMiles:
+      typeof candidate.distanceFromHome === "number"
+        ? Number(candidate.distanceFromHome.toFixed(2))
+        : undefined,
+    rating: candidate.rating,
+    source: candidate.source,
+    primaryType:
+      candidate.googlePrimaryTypeDisplayName ??
+      candidate.googlePrimaryType ??
+      candidate.googleTypes?.[0],
+    notes: candidate.notes,
+  };
+}
+
+function softenBriefForWeakFallback(
+  brief: StrategyBrief,
+  fallbackReason?: string,
+): void {
+  const upper = Math.min(brief.difficultyRange[1] ?? 3, 3);
+  brief.difficultyRange = [
+    Math.min(brief.difficultyRange[0] ?? 1, upper),
+    upper,
+  ];
+  if (
+    brief.socialChallengeLevel === "medium" ||
+    brief.socialChallengeLevel === "high"
+  ) {
+    brief.socialChallengeLevel = "low";
+  }
+
+  const fallbackNote = fallbackReason
+    ? ` Venue fit is imperfect (${fallbackReason}); preserve the same capability as the gentlest viable rep.`
+    : " Venue fit is imperfect; preserve the same capability as the gentlest viable rep.";
+  brief.rationale = `${brief.rationale}${fallbackNote}`;
+
+  if (brief.questContract) {
+    brief.questContract = {
+      ...brief.questContract,
+      difficultyRange: brief.difficultyRange,
+      socialChallengeLevel: brief.socialChallengeLevel,
+      fallback: `${brief.questContract.fallback} If the venue is only an approximate fit, complete the same capability as an observation, setup, or low-pressure presence rep.`,
+      rationale: `${brief.questContract.rationale}${fallbackNote}`,
     };
   }
 }
