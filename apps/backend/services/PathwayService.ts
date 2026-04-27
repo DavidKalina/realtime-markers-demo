@@ -203,8 +203,9 @@ function updatePathwayState(
     phase = "dfs";
   }
 
-  // Recompute growth label based on accumulated reflection data
-  const growthLabel = computeGrowthLabel(pathway.themeLabel, scores);
+  // Recompute growth label from the stable category label, not the previous
+  // growth label, otherwise repeated updates nest labels indefinitely.
+  const growthLabel = computeGrowthLabel(themeLabel(pathway.theme), scores);
 
   const updated: PathwayState = {
     ...pathway,

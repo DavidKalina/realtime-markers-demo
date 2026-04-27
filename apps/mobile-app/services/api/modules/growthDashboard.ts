@@ -1,5 +1,7 @@
 import type { BaseApiClient } from "../base/ApiClient";
 
+type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
+
 // ── Response types ─────────────────────────────────────────────
 
 export interface GrowthHistoryPoint {
@@ -94,6 +96,13 @@ export interface GrowthDashboardResponse {
   pathwayMomentum: PathwayMomentumData[];
   blindSpots: BlindSpotData[];
   explorationCompass: ExplorationCompassData | null;
+  reachRecommendation: {
+    shouldAsk: boolean;
+    recommendedMode: ReachMode;
+    reason: string;
+    localSaturationSignals: string[];
+    betterNearbyExists: boolean;
+  } | null;
 }
 
 // ── Module ─────────────────────────────────────────────────────

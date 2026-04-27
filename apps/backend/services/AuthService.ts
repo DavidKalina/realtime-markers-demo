@@ -4,11 +4,7 @@ import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
 import { User } from "../entities";
-import type {
-  UserInput,
-  UserUpdate,
-  UserProfile,
-} from "../types/derived";
+import type { UserInput, UserUpdate, UserProfile } from "../types/derived";
 import { addDays, format } from "date-fns";
 import type { EmailService } from "./shared/EmailService";
 
@@ -134,6 +130,7 @@ export class AuthService {
         "comfortProfile",
         "fearLadder",
         "pacePreference",
+        "reachMode",
         "onboardingPhase",
         "comfortRadiusMiles",
         "homeLatitude",
@@ -348,6 +345,7 @@ export class AuthService {
         "comfortProfile",
         "fearLadder",
         "pacePreference",
+        "reachMode",
         "onboardingPhase",
         "comfortRadiusMiles",
         "homeLatitude",
@@ -384,7 +382,10 @@ export class AuthService {
       }
     }
 
-    await this.userRepository.update(userId, userData as Record<string, unknown>);
+    await this.userRepository.update(
+      userId,
+      userData as Record<string, unknown>,
+    );
     return this.getUserProfile(userId);
   }
 
@@ -560,6 +561,7 @@ export class AuthService {
       comfortProfile: user.comfortProfile,
       fearLadder: user.fearLadder,
       pacePreference: user.pacePreference,
+      reachMode: user.reachMode ?? null,
       comfortRadiusMiles: user.comfortRadiusMiles,
       homeLatitude: user.homeLatitude,
       homeLongitude: user.homeLongitude,
@@ -567,6 +569,4 @@ export class AuthService {
       socialSituation: user.socialSituation,
     };
   }
-
 }
-

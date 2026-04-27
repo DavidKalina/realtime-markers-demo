@@ -1,9 +1,17 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronDown, ChevronUp, LogOut, MapPin, RotateCcw } from "lucide-react-native";
+import {
+  ChevronDown,
+  ChevronUp,
+  LogOut,
+  MapPin,
+  RotateCcw,
+} from "lucide-react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { router } from "expo-router";
 import DeleteAccountModal from "./DeleteAccountModal";
+
+type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
 import {
   fontFamily,
   fontSize,
@@ -19,17 +27,27 @@ interface SettingsSectionProps {
   bio?: string | null;
   homeSet: boolean;
   comfortRadius: number | null;
+  reachMode?: ReachMode | null;
   onUpdateHome: () => void;
+  onSetReachMode: (mode: ReachMode) => Promise<void>;
   onLogout: () => void;
   onDeleteAccount: (password: string) => Promise<void>;
 }
+
+const REACH_MODE_OPTIONS: { mode: ReachMode; label: string }[] = [
+  { mode: "local_only", label: "Keep it close" },
+  { mode: "nearby_mix", label: "Mix nearby" },
+  { mode: "best_opportunities", label: "Best options" },
+];
 
 export function SettingsSection({
   email,
   bio,
   homeSet,
   comfortRadius,
+  reachMode,
   onUpdateHome,
+  onSetReachMode,
   onLogout,
   onDeleteAccount,
 }: SettingsSectionProps) {
@@ -55,10 +73,7 @@ export function SettingsSection({
 
   return (
     <View style={s.container}>
-      <Pressable
-        style={s.header}
-        onPress={() => setExpanded(!expanded)}
-      >
+      <Pressable style={s.header} onPress={() => setExpanded(!expanded)}>
         <Text style={s.sectionLabel}>Settings</Text>
         {expanded ? (
           <ChevronUp size={16} color={colors.text.secondary} />
@@ -84,13 +99,41 @@ export function SettingsSection({
           <View style={s.section}>
             <Text style={s.label}>HOME BASE</Text>
             <Pressable style={s.homeRow} onPress={onUpdateHome}>
-              <MapPin size={14} color={homeSet ? colors.accent.primary : colors.text.secondary} />
+              <MapPin
+                size={14}
+                color={homeSet ? colors.accent.primary : colors.text.secondary}
+              />
               <Text style={[s.homeText, homeSet && s.homeTextSet]}>
                 {homeSet
                   ? `Set (${comfortRadius != null ? Number(comfortRadius).toFixed(1) : "?"} mi radius)`
                   : "Tap to set your home location"}
               </Text>
             </Pressable>
+          </View>
+
+          <View style={s.section}>
+            <Text style={s.label}>REACH MODE</Text>
+            <Text style={s.helperText}>
+              Choose how far we should stretch for better options.
+            </Text>
+            <View style={s.segmentRow}>
+              {REACH_MODE_OPTIONS.map((option) => {
+                const active = reachMode === option.mode;
+                return (
+                  <Pressable
+                    key={option.mode}
+                    style={[s.segmentButton, active && s.segmentButtonActive]}
+                    onPress={() => void onSetReachMode(option.mode)}
+                  >
+                    <Text
+                      style={[s.segmentText, active && s.segmentTextActive]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* Dev tools */}
@@ -196,6 +239,37 @@ const styles = (colors: Colors) =>
     },
     homeTextSet: {
       color: colors.accent.primary,
+    },
+    helperText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    segmentRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    segmentButton: {
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    segmentButtonActive: {
+      borderColor: colors.accent.primary,
+      backgroundColor: colors.bg.elevated,
+    },
+    segmentText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+    },
+    segmentTextActive: {
+      color: colors.accent.primary,
+      fontWeight: fontWeight.semibold,
     },
     actionsSection: {
       borderTopWidth: 1,

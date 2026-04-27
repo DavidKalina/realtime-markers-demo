@@ -1,5 +1,7 @@
 import { BaseApiClient } from "../base/ApiClient";
 
+type ReachMode = "local_only" | "nearby_mix" | "best_opportunities";
+
 export type CompletedVersion = "full" | "smaller" | "tiny";
 
 export type CapacityTrack =
@@ -278,9 +280,10 @@ export class SidequestsModule {
           : {}),
       },
     );
-    return this.client.handleResponse<{ success: boolean; checkedInAt?: string }>(
-      response,
-    );
+    return this.client.handleResponse<{
+      success: boolean;
+      checkedInAt?: string;
+    }>(response);
   }
 
   async completeChallenge(
@@ -301,9 +304,10 @@ export class SidequestsModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.client.handleResponse<{ success: boolean; checkedInAt?: string }>(
-      response,
-    );
+    return this.client.handleResponse<{
+      success: boolean;
+      checkedInAt?: string;
+    }>(response);
   }
 
   async rate(
@@ -319,7 +323,9 @@ export class SidequestsModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.client.handleResponse<{ success: boolean; rating: number }>(response);
+    return this.client.handleResponse<{ success: boolean; rating: number }>(
+      response,
+    );
   }
 
   async search(
@@ -380,7 +386,9 @@ export class SidequestsModule {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/browse?${params}`,
     );
-    return this.client.handleResponse<{ data: BrowseSidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: BrowseSidequestResponse[] }>(
+      response,
+    );
   }
 
   async promote(id: string): Promise<SidequestResponse> {
@@ -406,7 +414,9 @@ export class SidequestsModule {
     const response = await fetch(
       `${this.client.baseUrl}/api/public/sidequests/popular-stops?${params}`,
     );
-    const json = await this.client.handleResponse<{ data: PopularStop[] }>(response);
+    const json = await this.client.handleResponse<{ data: PopularStop[] }>(
+      response,
+    );
     return json.data;
   }
 
@@ -425,7 +435,9 @@ export class SidequestsModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
+    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(
+      response,
+    );
   }
 
   async rejectQuest(
@@ -446,7 +458,11 @@ export class SidequestsModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.client.handleResponse<{ jobId: string; streamUrl: string; rejectionId: string }>(response);
+    return this.client.handleResponse<{
+      jobId: string;
+      streamUrl: string;
+      rejectionId: string;
+    }>(response);
   }
 
   async getComfortZone(): Promise<ComfortZoneResponse> {
@@ -497,7 +513,10 @@ export class SidequestsModule {
     goals: string[];
     barriers: string[];
     activities: string[];
-  }): Promise<{ scenarios: { id: string; text: string; dimension: string }[]; dimensions: string[] }> {
+  }): Promise<{
+    scenarios: { id: string; text: string; dimension: string }[];
+    dimensions: string[];
+  }> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/generate-fear-ladder`,
       {
@@ -511,10 +530,35 @@ export class SidequestsModule {
 
   async updateComfortProfile(params: {
     pacePreference?: string;
-    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalKey?: string; goalTags?: string[]; primaryGoal?: string };
-    fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
-    onboardingProfile?: { activities: string[] };
-    socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
+    reachMode?: ReachMode | null;
+    comfortProfile?: {
+      comfortZone: string;
+      barriers: string;
+      goals: string;
+      goalKey?: string;
+      goalTags?: string[];
+      primaryGoal?: string;
+    };
+    fearLadder?: {
+      overallScore: number;
+      dimensionScores: Record<string, number>;
+      responses: Record<string, number>;
+      scenarios?: { id: string; text: string; dimension: string }[];
+      dimensions?: string[];
+    };
+    onboardingProfile?: { activities: string[]; pace?: string };
+    socialSituation?: {
+      ageRange: string;
+      gender: string;
+      timeInArea: string;
+      currentSocialLife: string;
+      lookingFor: string[];
+      workSituation: string;
+      livingSituation: string;
+      dailyRoutine?: string;
+      transportation?: string;
+      budget?: string;
+    };
     onboardingPhase?: number;
   }): Promise<ComfortZoneResponse> {
     const response = await this.client.fetchWithAuth(
@@ -568,7 +612,6 @@ export class SidequestsModule {
     );
     return this.client.handleResponse<{ success: boolean }>(response);
   }
-
 }
 
 export interface PopularStop {

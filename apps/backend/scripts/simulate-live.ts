@@ -21,10 +21,20 @@
  */
 
 import dotenv from "dotenv";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeResonance, type ResonanceInput, type ResonanceResult } from "../services/ResonanceService";
+import {
+  computeResonance,
+  type ResonanceInput,
+  type ResonanceResult,
+} from "../services/ResonanceService";
 import { DEFAULT_QUEST_CONFIG } from "../services/shared/QuestConfig";
+import { buildOfflineSocialFrameworkPlan } from "../services/prescription/OfflineSocialFramework";
+import {
+  isConcreteGoalActionType,
+  normalizeGoalActionType,
+} from "../services/prescription/GoalMilestoneContext";
 
 const scriptDirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(scriptDirname, "../../../.env") });
@@ -44,11 +54,22 @@ interface JourneyEntry {
   socialContext: string;
   journalSnippet: string | null;
   hook: string;
+  description: string;
+  strategyNote: string | null;
+  marketReflection: string | null;
+  suggestedActivities: string[];
+  actionItems: string[];
   rarity: string;
   distanceFromHome: number;
   comfortRadius: number;
   capacityTrack: string | null;
   repIntent: string | null;
+  opportunityScope: string | null;
+  travelRationale: string | null;
+  goalMilestoneKey: string | null;
+  goalMilestoneTitle: string | null;
+  directGoalTouch: boolean;
+  goalActionType: string | null;
   predictedAnxiety: number | null;
   predictedDifficulty: number | null;
   actualAnxiety: number | null;
@@ -63,6 +84,38 @@ interface JourneyEntry {
   rejections: RejectionReason[];
 }
 
+function includesDirectDatingRep(j: JourneyEntry): boolean {
+  if (isConcreteGoalActionType(normalizeGoalActionType(j.goalActionType))) {
+    return true;
+  }
+  return j.directGoalTouch === true && j.goalActionType !== "none";
+}
+
+function isRegionalOpportunity(j: JourneyEntry): boolean {
+  if (
+    j.opportunityScope === "regional_opportunity" ||
+    j.opportunityScope === "nearby_social_zone"
+  ) {
+    return true;
+  }
+  return j.distanceFromHome > Math.max(j.comfortRadius + 0.25, 4);
+}
+
+function hasTravelFraming(j: JourneyEntry): boolean {
+  if (j.travelRationale && j.travelRationale.trim()) return true;
+  return /\b(regional|nearby city|nearby social|opportunity zone|travel|drive|bigger city|more social infrastructure|local options|home base)\b/i.test(
+    [j.title, j.description, j.hook, j.strategyNote, j.repIntent]
+      .filter(Boolean)
+      .join(" "),
+  );
+}
+
+function claimsStructuredContainer(j: JourneyEntry): boolean {
+  return /structured|class|club|meetup|workshop|trivia|dance|volunteer|league|open play|open gym|board game|game night|run club|pickleball|full round|group activity|group fitness|library program|maker night|open mic|social mixer|language exchange/i.test(
+    [j.description, j.hook, j.repIntent, ...j.suggestedActivities].join(" "),
+  );
+}
+
 type RejectionReason =
   | "TOO_SOCIAL"
   | "TOO_FAR"
@@ -71,6 +124,65 @@ type RejectionReason =
   | "NOT_MY_VIBE"
   | "BAD_TIMING"
   | "NEED_GENTLER";
+
+const STRUCTURED_SOCIAL_CATEGORIES = new Set([
+  "Art Studio / Workshop",
+  "Board Game Venue",
+  "Climbing Gym",
+  "College / Adult Education",
+  "Community Center",
+  "Coworking Space",
+  "Gym / Fitness Studio",
+  "Karaoke Venue",
+  "Maker Space",
+  "Recreation Center",
+  "Sports Club",
+  "Theatre / Performing Arts",
+  "Workshop / Class Venue",
+  "Yoga / Pilates Studio",
+]);
+
+const BASE_OR_RECOVERY_CATEGORIES = new Set([
+  "Bakery / Dessert Shop",
+  "Bookstore",
+  "Brunch Spot",
+  "Coffee Shop",
+  "Library",
+  "Restaurant",
+  "Specialty Shop",
+  "Trail / Park",
+]);
+
+const INITIATIVE_CAPACITY_TRACKS = new Set([
+  "MICRO_INTERACTION",
+  "SOCIAL_EXTENSION",
+  "SOCIAL_REACH",
+  "RETURNABILITY",
+]);
+
+function isStructuredOfflineContainer(j: JourneyEntry): boolean {
+  return (
+    STRUCTURED_SOCIAL_CATEGORIES.has(j.venueCategory) ||
+    /class|club|meetup|workshop|trivia|dance|volunteer|league|open mic|run club|board game|social|group fitness|maker night|library program|pickleball|language exchange/i.test(
+      `${j.hook} ${j.repIntent ?? ""}`,
+    )
+  );
+}
+
+function isBaseOrRecoveryQuest(j: JourneyEntry): boolean {
+  return (
+    BASE_OR_RECOVERY_CATEGORIES.has(j.venueCategory) &&
+    !isStructuredOfflineContainer(j)
+  );
+}
+
+function isInitiativeRep(j: JourneyEntry): boolean {
+  return (
+    INITIATIVE_CAPACITY_TRACKS.has(j.capacityTrack ?? "") ||
+    j.socialContext === "met_someone_new" ||
+    j.socialContext === "group_activity"
+  );
+}
 
 const REJECTION_REASONS: readonly RejectionReason[] = [
   "TOO_SOCIAL",
@@ -85,7 +197,13 @@ const REJECTION_REASONS: readonly RejectionReason[] = [
 interface PathwaySnapshot {
   questIndex: number;
   globalPhase: string;
-  pathways: { theme: string; themeLabel: string; phase: string; avgResonance: number; questCount: number }[];
+  pathways: {
+    theme: string;
+    themeLabel: string;
+    phase: string;
+    avgResonance: number;
+    questCount: number;
+  }[];
 }
 
 interface MilestoneEvent {
@@ -137,7 +255,8 @@ const PERSONAS: Record<string, LivePersona> = {
     goals: ["I want to meet people and feel less isolated"],
     goalTags: ["socialize", "unwind"],
     barriers: "Social anxiety, get overwhelmed in crowds, prefer quiet spaces",
-    comfortZone: "Usually just go to work and come home. Sometimes walk around the block.",
+    comfortZone:
+      "Usually just go to work and come home. Sometimes walk around the block.",
     activities: ["Coffee", "Reading", "Nature", "Wellness"],
     vibes: ["Meet people", "Decompress"],
     homeLatitude: 40.0986,
@@ -154,7 +273,8 @@ const PERSONAS: Record<string, LivePersona> = {
     goals: ["I want to find my community and try everything this city has"],
     goalTags: ["explore", "fitness", "new_skill"],
     barriers: "Get bored easily, need novelty to stay engaged",
-    comfortZone: "I go to the gym and a couple bars but stick to the same neighborhood.",
+    comfortZone:
+      "I go to the gym and a couple bars but stick to the same neighborhood.",
     activities: ["Hiking", "Fitness", "Music", "Food", "Art", "Drinks"],
     vibes: ["Explore my area", "Get active", "Pick up a new skill"],
     homeLatitude: 40.0986,
@@ -170,7 +290,8 @@ const PERSONAS: Record<string, LivePersona> = {
     pace: "steady",
     goals: ["I want to break out of my routine and build new habits"],
     goalTags: ["routine", "fitness", "socialize"],
-    barriers: "Creature of habit, hard to break patterns, winter makes it worse",
+    barriers:
+      "Creature of habit, hard to break patterns, winter makes it worse",
     comfortZone: "Work, home, same grocery store, same takeout places.",
     activities: ["Coffee", "Food", "Nature", "Fitness", "Photography"],
     vibes: ["Build a routine", "Get active", "Meet people"],
@@ -182,13 +303,16 @@ const PERSONAS: Record<string, LivePersona> = {
   },
   "comedian-carl": {
     name: "Comedian Carl",
-    primaryGoal: "Become a stand-up comedian and perform at open mics regularly",
+    primaryGoal:
+      "Become a stand-up comedian and perform at open mics regularly",
     goalKey: "find_people",
     pace: "steady",
     goals: ["I want to build the confidence to perform comedy on stage"],
     goalTags: ["new_skill", "socialize"],
-    barriers: "Fear of public speaking, don't know the comedy scene, afraid of bombing",
-    comfortZone: "Watch comedy specials at home. Went to one show once but didn't talk to anyone.",
+    barriers:
+      "Fear of public speaking, don't know the comedy scene, afraid of bombing",
+    comfortZone:
+      "Watch comedy specials at home. Went to one show once but didn't talk to anyone.",
     activities: ["Theatre", "Karaoke", "Drinks", "Music", "Board games"],
     vibes: ["Pick up a new skill", "Meet people"],
     homeLatitude: 40.0986,
@@ -199,13 +323,18 @@ const PERSONAS: Record<string, LivePersona> = {
   },
   "fitness-fiona": {
     name: "Fitness Fiona",
-    primaryGoal: "Train for and complete a half marathon",
+    primaryGoal:
+      "Join a running community and feel confident being active around other people",
     goalKey: "find_people",
     pace: "push_me",
-    goals: ["I want to get in shape and find a running community"],
+    goals: [
+      "I want movement to become a social part of my life instead of something I avoid or do alone",
+    ],
     goalTags: ["fitness", "routine", "socialize"],
-    barriers: "Never ran more than a mile, intimidated by running groups, hard to stay motivated alone",
-    comfortZone: "I do yoga at home and walk my dog. That's about it for exercise.",
+    barriers:
+      "Never ran more than a mile, intimidated by running groups, hard to stay motivated alone",
+    comfortZone:
+      "I do yoga at home and walk my dog. That's about it for exercise.",
     activities: ["Hiking", "Fitness", "Nature", "Cycling", "Wellness"],
     vibes: ["Get active", "Build a routine", "Meet people"],
     homeLatitude: 40.0986,
@@ -216,13 +345,17 @@ const PERSONAS: Record<string, LivePersona> = {
   },
   "mover-mike": {
     name: "Mover Mike",
-    primaryGoal: "Move out of my parents' house and into my own place in Denver",
+    primaryGoal: "Build an independent social life before moving into Denver",
     goalKey: "from_scratch",
     pace: "steady",
-    goals: ["I want to become financially and socially ready to live on my own"],
+    goals: [
+      "I want to feel socially ready to live on my own instead of isolated",
+    ],
     goalTags: ["independence", "socialize", "routine"],
-    barriers: "Never lived alone, don't know how to budget, nervous about being isolated in a new city",
-    comfortZone: "I live with my parents in the suburbs. I drive to work and come home. I go out with high school friends on weekends sometimes.",
+    barriers:
+      "Never lived alone, nervous about being isolated in a new city, unsure how to build a routine outside the house",
+    comfortZone:
+      "I live with my parents in the suburbs. I drive to work and come home. I go out with high school friends on weekends sometimes.",
     activities: ["Coffee", "Food", "Nature", "Fitness", "Board games"],
     vibes: ["Meet people", "Build a routine", "Explore my area"],
     homeLatitude: 40.0986,
@@ -233,13 +366,16 @@ const PERSONAS: Record<string, LivePersona> = {
   },
   "wallflower-wendy": {
     name: "Wallflower Wendy",
-    primaryGoal: "Build a real social circle and feel comfortable at meetups and group events",
+    primaryGoal:
+      "Build a real social circle and feel comfortable at meetups and group events",
     goalKey: "build_friends",
     pace: "steady",
     goals: ["I want to make friends and stop being so isolated"],
     goalTags: ["socialize", "explore"],
-    barriers: "Extreme shyness around strangers, freeze up in social situations, can go places but can't talk to anyone",
-    comfortZone: "I go to coffee shops and parks alone. I've tried meetups but I always stand in the corner and leave early without talking to anyone.",
+    barriers:
+      "Extreme shyness around strangers, freeze up in social situations, can go places but can't talk to anyone",
+    comfortZone:
+      "I go to coffee shops and parks alone. I've tried meetups but I always stand in the corner and leave early without talking to anyone.",
     activities: ["Coffee", "Reading", "Nature", "Art", "Board games", "Food"],
     vibes: ["Meet people", "Explore my area"],
     homeLatitude: 40.0986,
@@ -248,8 +384,10 @@ const PERSONAS: Record<string, LivePersona> = {
     journalProbability: 0.8, // High — she's introspective, writes about struggles
     socialEscalationRate: 0.08,
     blocker: {
-      description: "initiating conversation with strangers or engaging socially at venues",
-      avoidanceActivity: "Went there but stayed in the corner. Didn't talk to anyone.",
+      description:
+        "initiating conversation with strangers or engaging socially at venues",
+      avoidanceActivity:
+        "Went there but stayed in the corner. Didn't talk to anyone.",
       activateAfterQuest: 2, // First 2 quests are normal baseline
     },
   },
@@ -258,11 +396,23 @@ const PERSONAS: Record<string, LivePersona> = {
     primaryGoal: "Start dating again and feel comfortable asking someone out",
     goalKey: "start_dating",
     pace: "steady",
-    goals: ["I want to feel confident meeting people and going on low-pressure dates"],
-    goalTags: ["socialize"],
-    barriers: "Overthinks attraction, afraid of rejection, feels like he has no interesting life to invite someone into",
-    comfortZone: "Swipes on dating apps at home but rarely sends messages. Goes to the gym and coffee shops alone, but avoids showing romantic interest.",
-    activities: ["Coffee", "Food", "Art", "Music", "Board games", "Fitness", "Brunch"],
+    goals: [
+      "I want to feel confident meeting people and going on low-pressure dates",
+    ],
+    goalTags: ["socialize", "dating"],
+    barriers:
+      "Overthinks attraction, afraid of rejection, feels like he has no interesting life to invite someone into",
+    comfortZone:
+      "Swipes on dating apps at home but rarely sends messages. Goes to the gym and coffee shops alone, but avoids showing romantic interest.",
+    activities: [
+      "Coffee",
+      "Food",
+      "Art",
+      "Music",
+      "Board games",
+      "Fitness",
+      "Brunch",
+    ],
     vibes: ["Meet people", "Explore my area", "Pick up a new skill"],
     homeLatitude: 40.0986,
     homeLongitude: -104.9719,
@@ -271,7 +421,8 @@ const PERSONAS: Record<string, LivePersona> = {
     socialEscalationRate: 0.12,
     blocker: {
       description: "expressing romantic interest or asking someone on a date",
-      avoidanceActivity: "Kept it friendly and left without expressing interest or making a plan.",
+      avoidanceActivity:
+        "Kept it friendly and left without expressing interest or making a plan.",
       activateAfterQuest: 5,
       resolveAfterSuccesses: 4,
     },
@@ -280,7 +431,12 @@ const PERSONAS: Record<string, LivePersona> = {
 
 // ── Social ladder + journal templates ────────────────────────
 
-const SOCIAL_LADDER = ["solo", "with_someone", "met_someone_new", "group_activity"];
+const SOCIAL_LADDER = [
+  "solo",
+  "with_someone",
+  "met_someone_new",
+  "group_activity",
+];
 
 const POSITIVE_JOURNALS = [
   "I felt really comfortable here. The vibe was exactly what I needed today. I noticed I wasn't anxious at all.",
@@ -325,7 +481,8 @@ function mulberry32(seed: number): () => number {
 // ── HTTP helpers ─────────────────────────────────────────────
 
 const BASE_URL = process.env.API_URL || "http://localhost:3000";
-const ENABLE_GOAL_TIMELINE_PROBE = process.env.ENABLE_SIM_GOAL_TIMELINE_PROBE === "true";
+const ENABLE_GOAL_TIMELINE_PROBE =
+  process.env.ENABLE_SIM_GOAL_TIMELINE_PROBE === "true";
 
 async function api(
   method: string,
@@ -360,7 +517,7 @@ async function login(email: string, password: string): Promise<string> {
     throw new Error(`Login failed (${res.status}): ${err}`);
   }
 
-  const data = await res.json() as any;
+  const data = (await res.json()) as any;
   return data.token || data.accessToken;
 }
 
@@ -371,9 +528,15 @@ async function pollJobCompletion(
 ): Promise<any> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const { data } = await api("GET", `/api/jobs/${jobId}/progress`, token);
+    const { status, data } = await api(
+      "GET",
+      `/api/jobs/${jobId}/progress`,
+      token,
+    );
+    if (status === 401) throw new Error("Unauthorized while polling job");
     if (data?.status === "completed") return data;
-    if (data?.status === "failed") throw new Error(`Job failed: ${data.error || "unknown"}`);
+    if (data?.status === "failed")
+      throw new Error(`Job failed: ${data.error || "unknown"}`);
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(0);
     const progress = data?.progress ?? 0;
@@ -383,6 +546,12 @@ async function pollJobCompletion(
     await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error("Job timed out");
+}
+
+function isFatalProviderError(message: string): boolean {
+  return /\b429\b|exceeded your current quota|insufficient_quota|rate_limit_exceeded/i.test(
+    message,
+  );
 }
 
 // ── CLI arg parsing ──────────────────────────────────────────
@@ -406,25 +575,63 @@ function parseArgs() {
   let skipProgressive = false;
   let abandonmentProb = 0.18;
   let promoteProb = 0.3;
+  let assertMode = false;
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--email": email = args[++i]; break;
-      case "--password": password = args[++i]; break;
-      case "--persona": personaKey = args[++i]; break;
-      case "--goal": goal = args[++i]; break;
-      case "--quests": questCount = parseInt(args[++i], 10); break;
-      case "--seed": seed = parseInt(args[++i], 10); break;
-      case "--dry-run": dryRun = true; break;
-      case "--skip-profile": skipProfile = true; break;
-      case "--skip-fear-ladder": skipFearLadder = true; break;
-      case "--model": model = args[++i]; break;
-      case "--strategy": strategy = args[++i]; break;
-      case "--rating-bias": ratingBiasOverride = parseFloat(args[++i]); break;
-      case "--blocker": blockerOverride = args[++i]; break;
-      case "--challenge-mix": challengeMix = parseInt(args[++i], 10); break;
-      case "--skip-progressive": skipProgressive = true; break;
-      case "--abandon": abandonmentProb = Math.max(0, Math.min(1, parseFloat(args[++i]))); break;
-      case "--promote-prob": promoteProb = Math.max(0, Math.min(1, parseFloat(args[++i]))); break;
+      case "--email":
+        email = args[++i];
+        break;
+      case "--password":
+        password = args[++i];
+        break;
+      case "--persona":
+        personaKey = args[++i];
+        break;
+      case "--goal":
+        goal = args[++i];
+        break;
+      case "--quests":
+        questCount = parseInt(args[++i], 10);
+        break;
+      case "--seed":
+        seed = parseInt(args[++i], 10);
+        break;
+      case "--dry-run":
+        dryRun = true;
+        break;
+      case "--skip-profile":
+        skipProfile = true;
+        break;
+      case "--skip-fear-ladder":
+        skipFearLadder = true;
+        break;
+      case "--model":
+        model = args[++i];
+        break;
+      case "--strategy":
+        strategy = args[++i];
+        break;
+      case "--rating-bias":
+        ratingBiasOverride = parseFloat(args[++i]);
+        break;
+      case "--blocker":
+        blockerOverride = args[++i];
+        break;
+      case "--challenge-mix":
+        challengeMix = parseInt(args[++i], 10);
+        break;
+      case "--skip-progressive":
+        skipProgressive = true;
+        break;
+      case "--abandon":
+        abandonmentProb = Math.max(0, Math.min(1, parseFloat(args[++i])));
+        break;
+      case "--promote-prob":
+        promoteProb = Math.max(0, Math.min(1, parseFloat(args[++i])));
+        break;
+      case "--assert":
+        assertMode = true;
+        break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -449,6 +656,7 @@ Options:
   --skip-progressive     Front-load all onboarding (disables phased onboarding across quests)
   --abandon <0-1>        Abandonment probability after /activate (default: 0.18). 0 disables.
   --promote-prob <0-1>   Probability of "Seal Memory" promote on ratings >= 4 (default: 0.3)
+  --assert               Exit nonzero if acceptance metrics fail
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -464,7 +672,26 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride, challengeMix, skipProgressive, abandonmentProb, promoteProb };
+  return {
+    email,
+    password,
+    personaKey,
+    goal,
+    questCount,
+    seed,
+    dryRun,
+    skipProfile,
+    skipFearLadder,
+    model,
+    strategy,
+    ratingBiasOverride,
+    blockerOverride,
+    challengeMix,
+    skipProgressive,
+    abandonmentProb,
+    promoteProb,
+    assertMode,
+  };
 }
 
 /**
@@ -474,7 +701,13 @@ async function generatePersonaFromGoal(goal: string): Promise<LivePersona> {
   console.log(`Generating persona from goal: "${goal}"...`);
 
   const result = await llmJson(
-    `You are creating a realistic persona for a goal-achievement app simulation. Given a goal, generate a complete user profile. The person should feel real — with specific barriers, a specific comfort zone, and a name that fits.
+    `You are creating a realistic persona for an offline social expansion app simulation. Given a goal, generate a complete user profile. The person should feel real — with specific barriers, a specific comfort zone, and a name that fits.
+
+Product boundary:
+- This app helps homebodies, socially anxious people, lonely people, dating-stuck people, and anti-doomscroll users build a real offline life through exposure reps.
+- It is not a specialist fitness, finance, productivity, education, or habit-tracking app.
+- If the raw goal is broad, translate it into the offline-social version of the goal.
+- Fitness, dance, hobbies, food, music, games, volunteering, and classes are activity containers for public comfort/community/dating readiness, not standalone product verticals.
 
 Respond with JSON matching this exact shape:
 {
@@ -482,7 +715,7 @@ Respond with JSON matching this exact shape:
   "primaryGoal": "<the goal, slightly expanded if needed>",
   "pace": "gentle" | "steady" | "push_me",
   "goals": ["<1 sentence describing what they want>"],
-  "goalTags": ["<2-3 tags from: explore, socialize, discover_hobby, routine, fitness, new_skill, unwind>"],
+  "goalTags": ["<2-4 tags from: socialize, dating, explore, routine, unwind, friendship, community, homebody_recovery, public_comfort, third_place, discover_hobby, fitness, new_skill>"],
   "barriers": "<comma-separated barriers they face>",
   "comfortZone": "<1-2 sentences describing their current routine/habits>",
   "activities": ["<5-8 activity names from: Coffee, Hiking, Art, Reading, Food, Music, Fitness, Nature, Skating, Photography, Wellness, Drinks, Theatre, Swimming, Dog walks, Gaming, Camping, Cycling, Karaoke, Climbing, Skiing, Spa, Brunch, Board games>"],
@@ -503,38 +736,65 @@ Guidelines:
 - ratingBias should correlate with confidence (anxious = lower ~0.5, confident = higher ~0.7)
 - journalProbability should correlate with introspection
 - socialEscalationRate should correlate with social comfort
-- blocker: identify ONE recurring avoidance behavior that would realistically hold this person back. Set to null only if the goal has no obvious psychological barrier. Most goals have one.`,
+- blocker: identify ONE recurring avoidance behavior that would realistically hold this person back. Set to null only if the offline-social version of the goal has no obvious psychological barrier. Most goals have one.
+- Do not generate personas whose success requires bank integrations, nutrition tracking, workout programming, school curriculum, or productivity analytics.`,
     `Goal: "${goal}"`,
     600,
   );
 
   if (!result) {
-    throw new Error("Failed to generate persona from goal — is OPENAI_API_KEY set?");
+    throw new Error(
+      "Failed to generate persona from goal — is OPENAI_API_KEY set?",
+    );
   }
 
   // Validate and fill defaults
   const persona: LivePersona = {
     name: result.name ?? "Generated User",
     primaryGoal: result.primaryGoal ?? goal,
-    pace: ["gentle", "steady", "push_me"].includes(result.pace) ? result.pace : "steady",
+    pace: ["gentle", "steady", "push_me"].includes(result.pace)
+      ? result.pace
+      : "steady",
     goals: Array.isArray(result.goals) ? result.goals : [goal],
     goalTags: Array.isArray(result.goalTags) ? result.goalTags : ["new_skill"],
-    barriers: typeof result.barriers === "string" ? result.barriers : "Uncertainty, not knowing where to start",
-    comfortZone: typeof result.comfortZone === "string" ? result.comfortZone : "Sticks to familiar routines.",
-    activities: Array.isArray(result.activities) ? result.activities : ["Coffee", "Food", "Nature"],
+    barriers:
+      typeof result.barriers === "string"
+        ? result.barriers
+        : "Uncertainty, not knowing where to start",
+    comfortZone:
+      typeof result.comfortZone === "string"
+        ? result.comfortZone
+        : "Sticks to familiar routines.",
+    activities: Array.isArray(result.activities)
+      ? result.activities
+      : ["Coffee", "Food", "Nature"],
     vibes: Array.isArray(result.vibes) ? result.vibes : [],
     homeLatitude: 40.0986,
     homeLongitude: -104.9719,
-    ratingBias: typeof result.ratingBias === "number" ? Math.max(0.4, Math.min(0.8, result.ratingBias)) : 0.6,
-    journalProbability: typeof result.journalProbability === "number" ? Math.max(0.3, Math.min(0.8, result.journalProbability)) : 0.5,
-    socialEscalationRate: typeof result.socialEscalationRate === "number" ? Math.max(0.05, Math.min(0.4, result.socialEscalationRate)) : 0.2,
-    ...(result.blocker && typeof result.blocker === "object" && result.blocker.description && result.blocker.description !== "null" && {
-      blocker: {
-        description: result.blocker.description,
-        avoidanceActivity: result.blocker.avoidanceActivity ?? `Avoided ${result.blocker.description}. Did the easy parts and left.`,
-        activateAfterQuest: 2,
-      },
-    }),
+    ratingBias:
+      typeof result.ratingBias === "number"
+        ? Math.max(0.4, Math.min(0.8, result.ratingBias))
+        : 0.6,
+    journalProbability:
+      typeof result.journalProbability === "number"
+        ? Math.max(0.3, Math.min(0.8, result.journalProbability))
+        : 0.5,
+    socialEscalationRate:
+      typeof result.socialEscalationRate === "number"
+        ? Math.max(0.05, Math.min(0.4, result.socialEscalationRate))
+        : 0.2,
+    ...(result.blocker &&
+      typeof result.blocker === "object" &&
+      result.blocker.description &&
+      result.blocker.description !== "null" && {
+        blocker: {
+          description: result.blocker.description,
+          avoidanceActivity:
+            result.blocker.avoidanceActivity ??
+            `Avoided ${result.blocker.description}. Did the easy parts and left.`,
+          activateAfterQuest: 2,
+        },
+      }),
   };
 
   console.log(`  Name: ${persona.name}`);
@@ -543,15 +803,24 @@ Guidelines:
   console.log(`  Barriers: ${persona.barriers}`);
   console.log(`  Comfort Zone: ${persona.comfortZone}`);
   console.log(`  Activities: ${persona.activities.join(", ")}`);
-  if (persona.blocker) console.log(`  Blocker: "${persona.blocker.description}" → "${persona.blocker.avoidanceActivity}"`);
-  console.log(`  Rating bias: ${persona.ratingBias.toFixed(2)}, Journal prob: ${persona.journalProbability.toFixed(2)}, Social rate: ${persona.socialEscalationRate.toFixed(2)}`);
+  if (persona.blocker)
+    console.log(
+      `  Blocker: "${persona.blocker.description}" → "${persona.blocker.avoidanceActivity}"`,
+    );
+  console.log(
+    `  Rating bias: ${persona.ratingBias.toFixed(2)}, Journal prob: ${persona.journalProbability.toFixed(2)}, Social rate: ${persona.socialEscalationRate.toFixed(2)}`,
+  );
 
   return persona;
 }
 
 // ── LLM helpers ─────────────────────────────────────────────
 
-async function llmComplete(systemPrompt: string, userPrompt: string, maxTokens = 200): Promise<string | null> {
+async function llmComplete(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 200,
+): Promise<string | null> {
   if (!process.env.OPENAI_API_KEY) return null;
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -570,9 +839,11 @@ async function llmComplete(systemPrompt: string, userPrompt: string, maxTokens =
         ],
       }),
     });
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     if (data.error) {
-      console.error(`  [LLM Error] ${data.error.message ?? JSON.stringify(data.error)}`);
+      console.error(
+        `  [LLM Error] ${data.error.message ?? JSON.stringify(data.error)}`,
+      );
       return null;
     }
     return data.choices?.[0]?.message?.content?.trim() ?? null;
@@ -582,7 +853,11 @@ async function llmComplete(systemPrompt: string, userPrompt: string, maxTokens =
   }
 }
 
-async function llmJson(systemPrompt: string, userPrompt: string, maxTokens = 500): Promise<any | null> {
+async function llmJson(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 500,
+): Promise<any | null> {
   if (!process.env.OPENAI_API_KEY) return null;
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -602,9 +877,11 @@ async function llmJson(systemPrompt: string, userPrompt: string, maxTokens = 500
         ],
       }),
     });
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
     if (data.error) {
-      console.error(`  [LLM Error] ${data.error.message ?? JSON.stringify(data.error)}`);
+      console.error(
+        `  [LLM Error] ${data.error.message ?? JSON.stringify(data.error)}`,
+      );
       return null;
     }
     const text = data.choices?.[0]?.message?.content?.trim();
@@ -624,7 +901,11 @@ async function rateFearLadderAsPersona(
   scenarios: { id: string; text: string; dimension: string }[],
   rand: () => number,
 ): Promise<Record<string, number>> {
-  const scenarioList = scenarios.map((s, i) => `${i + 1}. [${s.id}] "${s.text}" (dimension: ${s.dimension})`).join("\n");
+  const scenarioList = scenarios
+    .map(
+      (s, i) => `${i + 1}. [${s.id}] "${s.text}" (dimension: ${s.dimension})`,
+    )
+    .join("\n");
 
   const result = await llmJson(
     `You are roleplaying as a person with this profile:
@@ -649,9 +930,13 @@ Be consistent with the persona — a gentle/anxious person should rate things hi
   if (!result || typeof result !== "object") {
     // Fallback: generate ratings based on persona pace
     const fallback: Record<string, number> = {};
-    const baseRating = persona.pace === "gentle" ? 7 : persona.pace === "push_me" ? 3 : 5;
+    const baseRating =
+      persona.pace === "gentle" ? 7 : persona.pace === "push_me" ? 3 : 5;
     for (const s of scenarios) {
-      fallback[s.id] = Math.max(1, Math.min(10, Math.round(baseRating + (rand() - 0.5) * 4)));
+      fallback[s.id] = Math.max(
+        1,
+        Math.min(10, Math.round(baseRating + (rand() - 0.5) * 4)),
+      );
     }
     return fallback;
   }
@@ -660,7 +945,8 @@ Be consistent with the persona — a gentle/anxious person should rate things hi
   const ratings: Record<string, number> = {};
   for (const s of scenarios) {
     const raw = result[s.id];
-    ratings[s.id] = typeof raw === "number" ? Math.max(1, Math.min(10, Math.round(raw))) : 5;
+    ratings[s.id] =
+      typeof raw === "number" ? Math.max(1, Math.min(10, Math.round(raw))) : 5;
   }
   return ratings;
 }
@@ -682,11 +968,16 @@ async function generatePredictions(
   // Build calibration feedback from past predictions
   let calibrationBlock = "";
   if (pastPredictions && pastPredictions.length >= 2) {
-    const avgDelta = pastPredictions.reduce((sum, p) => sum + (p.predicted - p.actual), 0) / pastPredictions.length;
+    const avgDelta =
+      pastPredictions.reduce((sum, p) => sum + (p.predicted - p.actual), 0) /
+      pastPredictions.length;
     const recent3 = pastPredictions.slice(-3);
-    const examples = recent3.map(p =>
-      `  - "${p.title}": predicted ${p.predicted}/5 anxiety, actual anxiety felt like ${p.actual.toFixed(1)}/5 (off by ${p.predicted - p.actual > 0 ? "+" : ""}${(p.predicted - p.actual).toFixed(1)})`
-    ).join("\n");
+    const examples = recent3
+      .map(
+        (p) =>
+          `  - "${p.title}": predicted ${p.predicted}/5 anxiety, actual anxiety felt like ${p.actual.toFixed(1)}/5 (off by ${p.predicted - p.actual > 0 ? "+" : ""}${(p.predicted - p.actual).toFixed(1)})`,
+      )
+      .join("\n");
 
     if (avgDelta > 1.0) {
       calibrationBlock = `\nIMPORTANT — Your past predictions have been TOO HIGH:
@@ -727,9 +1018,18 @@ Respond with JSON:
   if (!result) return null;
 
   return {
-    anxiety: typeof result.anxiety === "number" ? Math.max(1, Math.min(5, Math.round(result.anxiety))) : 3,
-    difficulty: typeof result.difficulty === "number" ? Math.max(1, Math.min(5, Math.round(result.difficulty))) : 3,
-    outcome: typeof result.outcome === "string" ? result.outcome.slice(0, 500) : "Not sure what to expect.",
+    anxiety:
+      typeof result.anxiety === "number"
+        ? Math.max(1, Math.min(5, Math.round(result.anxiety)))
+        : 3,
+    difficulty:
+      typeof result.difficulty === "number"
+        ? Math.max(1, Math.min(5, Math.round(result.difficulty)))
+        : 3,
+    outcome:
+      typeof result.outcome === "string"
+        ? result.outcome.slice(0, 500)
+        : "Not sure what to expect.",
   };
 }
 
@@ -751,7 +1051,13 @@ async function decideRejection(
     distanceFromHome?: number | string;
     capacityTrack?: string;
     repIntent?: string;
-    objectives?: { venueName?: string; venueCategory?: string; difficulty?: number; hook?: string; description?: string }[];
+    objectives?: {
+      venueName?: string;
+      venueCategory?: string;
+      difficulty?: number;
+      hook?: string;
+      description?: string;
+    }[];
   },
   fearScore: number,
   questIndex: number,
@@ -808,7 +1114,10 @@ Respond with JSON:
     180,
   );
 
-  const decision = typeof result?.decision === "string" ? result.decision.toUpperCase() : "ACCEPT";
+  const decision =
+    typeof result?.decision === "string"
+      ? result.decision.toUpperCase()
+      : "ACCEPT";
   if (decision === "ACCEPT") return null;
   if ((REJECTION_REASONS as readonly string[]).includes(decision)) {
     if (typeof result?.reason === "string") {
@@ -821,7 +1130,14 @@ Respond with JSON:
 
 function ruleBasedRejection(
   persona: LivePersona,
-  quest: { distanceFromHome?: number | string; objectives?: { difficulty?: number; venueCategory?: string; hook?: string }[] },
+  quest: {
+    distanceFromHome?: number | string;
+    objectives?: {
+      difficulty?: number;
+      venueCategory?: string;
+      hook?: string;
+    }[];
+  },
   fearScore: number,
   attemptNumber: number,
   rand: () => number,
@@ -835,9 +1151,12 @@ function ruleBasedRejection(
 
   const obj = quest.objectives?.[0] ?? {};
   const difficulty = obj.difficulty ?? 3;
-  const distance = quest.distanceFromHome != null ? Number(quest.distanceFromHome) : 0;
+  const distance =
+    quest.distanceFromHome != null ? Number(quest.distanceFromHome) : 0;
   const hook = (obj.hook ?? "").toLowerCase();
-  const socialHeavy = /social|group|meetup|class|strangers|crowd|people/.test(hook);
+  const socialHeavy = /social|group|meetup|class|strangers|crowd|people/.test(
+    hook,
+  );
 
   if (fearScore > 0.6 && socialHeavy) return "TOO_SOCIAL";
   if (distance > 6) return "TOO_FAR";
@@ -852,7 +1171,9 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function difficultyToPredictionScale(difficulty: number | null | undefined): number {
+function difficultyToPredictionScale(
+  difficulty: number | null | undefined,
+): number {
   const clamped = clampNumber(difficulty ?? 5, 1, 10);
   return 1 + ((clamped - 1) / 9) * 4;
 }
@@ -866,13 +1187,19 @@ function estimateActualAnxiety(
   const difficultySignal = difficultyToPredictionScale(difficulty);
   const ratingSignal = 6 - clampNumber(rating, 1, 5);
   const socialSignal =
-    socialContext === "group_activity" ? 4 :
-    socialContext === "met_someone_new" ? 3 :
-    socialContext === "with_someone" ? 2 :
-    1;
+    socialContext === "group_activity"
+      ? 4
+      : socialContext === "met_someone_new"
+        ? 3
+        : socialContext === "with_someone"
+          ? 2
+          : 1;
   const blockerBump = blockerTriggered ? 1.1 : 0;
   return clampNumber(
-    difficultySignal * 0.35 + ratingSignal * 0.45 + socialSignal * 0.12 + blockerBump,
+    difficultySignal * 0.35 +
+      ratingSignal * 0.45 +
+      socialSignal * 0.12 +
+      blockerBump,
     1,
     5,
   );
@@ -884,7 +1211,11 @@ function generateRating(bias: number, rand: () => number): number {
   return Math.max(1, Math.min(5, Math.round(normalized * 4 + 1)));
 }
 
-function generateSocialContext(currentLevel: number, escalationRate: number, rand: () => number): string {
+function generateSocialContext(
+  currentLevel: number,
+  escalationRate: number,
+  rand: () => number,
+): string {
   if (rand() < escalationRate && currentLevel < SOCIAL_LADDER.length - 1) {
     return SOCIAL_LADDER[currentLevel + 1];
   }
@@ -894,9 +1225,18 @@ function generateSocialContext(currentLevel: number, escalationRate: number, ran
   return SOCIAL_LADDER[currentLevel];
 }
 
-function generateJournal(probability: number, rating: number, rand: () => number): string | null {
+function generateJournal(
+  probability: number,
+  rating: number,
+  rand: () => number,
+): string | null {
   // Low ratings → less likely to journal at all
-  const adjustedProb = rating <= 2 ? probability * 0.4 : rating <= 3 ? probability * 0.7 : probability;
+  const adjustedProb =
+    rating <= 2
+      ? probability * 0.4
+      : rating <= 3
+        ? probability * 0.7
+        : probability;
   if (rand() > adjustedProb) return null;
 
   if (rating <= 2) {
@@ -908,6 +1248,15 @@ function generateJournal(probability: number, rating: number, rand: () => number
   return NEUTRAL_JOURNALS[Math.floor(rand() * NEUTRAL_JOURNALS.length)];
 }
 
+/**
+ * Frederick, CO is the canonical sim location — all hardcoded persona coords
+ * resolve to it. Surfacing population context lets the journal LLM voice the
+ * realistic small-town friction users will actually encounter, instead of
+ * uniformly upbeat 4-star journals.
+ */
+const SIM_HOME_CITY_LABEL =
+  "Frederick, Colorado — small town (~14k people) outside Denver";
+
 async function generateLLMJournal(
   persona: LivePersona,
   venueName: string,
@@ -917,20 +1266,88 @@ async function generateLLMJournal(
   socialContext: string,
   questIndex: number,
   overallScore: number,
+  options: {
+    priorJourney?: JourneyEntry[];
+    marketReflection?: string | null;
+    homeCityLabel?: string | null;
+  } = {},
 ): Promise<string | null> {
-  const sentiment = rating >= 4
-    ? "positive and a bit surprised — this actually felt good"
-    : rating >= 3
-    ? "neutral, meh — it was fine but nothing special"
-    : rating === 2
-    ? "disappointed — it didn't click, felt out of place or bored"
-    : "bad — anxious, lonely, or frustrated. Questioning whether this is worth it";
-  const socialDesc = socialContext === "solo" ? "went alone" : socialContext === "with_someone" ? "went with someone" : socialContext === "met_someone_new" ? "met someone new there" : "was in a group setting";
+  const {
+    priorJourney = [],
+    marketReflection = null,
+    homeCityLabel = SIM_HOME_CITY_LABEL,
+  } = options;
+  const sentiment =
+    rating >= 4
+      ? "positive and a bit surprised — this actually felt good"
+      : rating >= 3
+        ? "neutral, meh — it was fine but nothing special"
+        : rating === 2
+          ? "disappointed — it didn't click, felt out of place or bored"
+          : "bad — anxious, lonely, or frustrated. Questioning whether this is worth it";
+  const socialDesc =
+    socialContext === "solo"
+      ? "went alone"
+      : socialContext === "with_someone"
+        ? "went with someone"
+        : socialContext === "met_someone_new"
+          ? "met someone new there"
+          : "was in a group setting";
+
+  const completedSoFar = priorJourney.length;
+  const uniqueVenues = new Set(
+    priorJourney.map((j) => j.venueName).filter(Boolean),
+  );
+  const sameVenueCount = priorJourney.filter(
+    (j) => j.venueName === venueName,
+  ).length;
+  const sameCategoryCount = priorJourney.filter(
+    (j) => j.venueCategory === venueCategory,
+  ).length;
+  const directGoalCount = priorJourney.filter(
+    (j) => j.directGoalTouch,
+  ).length;
+  const recentVenueList = priorJourney
+    .slice(-5)
+    .map((j) => j.venueName)
+    .filter(Boolean)
+    .join(", ");
+  const goalIsRomantic =
+    /\b(date|dating|relationship|romantic|partner)\b/i.test(persona.primaryGoal);
+
+  const cumulativeBlock =
+    completedSoFar >= 2
+      ? `\nYour run so far: ${completedSoFar} completed quests, ${uniqueVenues.size} unique venues. ${
+          sameVenueCount > 0
+            ? `This is your visit #${sameVenueCount + 1} to ${venueName}. `
+            : ""
+        }${
+          sameCategoryCount >= 2
+            ? `You've now done ${sameCategoryCount + 1} ${venueCategory.toLowerCase()} reps. `
+            : ""
+        }${recentVenueList ? `Recent venues: ${recentVenueList}.` : ""}`
+      : "";
+
+  const goalProgressBlock =
+    goalIsRomantic && completedSoFar >= 3
+      ? `\nGoal-rep tally: ${directGoalCount} of your ${completedSoFar} reps so far have actually been direct dating reps. The rest were warm-ups.`
+      : "";
+
+  const townBlock = homeCityLabel ? `\nWhere you live: ${homeCityLabel}.` : "";
+
+  const algorithmBlock = marketReflection
+    ? `\nWhat the app told you for this quest: "${marketReflection}". You can react to it however feels real.`
+    : "";
+
+  const realismGuidance =
+    completedSoFar >= 3 || marketReflection
+      ? `\n\nBE REAL with yourself in this entry. If you've been to the same kind of place over and over without progress, name it. If your town feels too small for what you're trying to do, say it. If a solo coffee scout doesn't feel like it's getting you closer to a real relationship, that's a fair thing to write. Don't manufacture frustration — but don't manufacture optimism either. The rating is ${rating}/5, but the rating is about the venue; the journal is about the trajectory.`
+      : "";
 
   return llmComplete(
-    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after quest #${questIndex + 1}. You rated it ${rating}/5 stars.`,
-    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be HONEST — if it sucked, say so. If you felt lonely or like it was pointless, say that. Don't sugarcoat. Match the ${rating}-star rating.`,
-    150,
+    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after quest #${questIndex + 1}. You rated it ${rating}/5 stars.${townBlock}${cumulativeBlock}${goalProgressBlock}${algorithmBlock}`,
+    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be HONEST — if it sucked, say so. If you felt lonely or like it was pointless, say that. Don't sugarcoat. Match the ${rating}-star rating.${realismGuidance}`,
+    180,
   );
 }
 
@@ -951,15 +1368,23 @@ async function questTriggersBlocker(
     `Title: ${questTitle}`,
     description ? `Description: ${description}` : null,
     actionItems.length > 0 ? `Action items: ${actionItems.join("; ")}` : null,
-    suggestedActivities.length > 0 ? `Suggested activities: ${suggestedActivities.join("; ")}` : null,
-  ].filter(Boolean).join("\n");
+    suggestedActivities.length > 0
+      ? `Suggested activities: ${suggestedActivities.join("; ")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const result = await llmJson(
     `You decide whether a quest involves a specific action. Respond with JSON: {"triggers": true} or {"triggers": false}.
 
 The blocked action is: "${blocker.description}"
 
-A quest "triggers" the blocker if completing it fully would require the person to do the blocked action — e.g., if the action items or suggested activities involve that behavior. Be reasonably inclusive — if the quest clearly creates an opportunity or expectation for that action, it triggers.`,
+A quest "triggers" the blocker ONLY if completing it fully requires the blocked action as an objective, checklist item, or suggested activity.
+
+Do NOT trigger on mere framing, motivation, or imagination. For dating blockers, phrases like "date-friendly", "date-plausible", "would mention on a date", "bring someone here someday", or "dating confidence" are NOT enough. Trigger only if the person is actually asked to flirt, express romantic interest, ask for contact info, ask someone out, make a plan with a romantic prospect, or otherwise perform the blocked action.
+
+When in doubt, return {"triggers": false}.`,
     `Does this quest involve "${blocker.description}"? Respond in JSON.\n\n${questContent}`,
     50,
   );
@@ -1036,15 +1461,26 @@ function scoreFearLadder(
   responses: Record<string, number>,
   scenarios: { id: string; dimension: string }[],
   dimensions: string[],
-): { overallScore: number; dimensionScores: Record<string, number>; derivedPace: string } {
+): {
+  overallScore: number;
+  dimensionScores: Record<string, number>;
+  derivedPace: string;
+} {
   const answered = scenarios.filter((s) => responses[s.id] != null);
   if (answered.length === 0) {
     const defaultScores: Record<string, number> = {};
     for (const dim of dimensions) defaultScores[dim] = 0.5;
-    return { overallScore: 0.5, dimensionScores: defaultScores, derivedPace: "steady" };
+    return {
+      overallScore: 0.5,
+      dimensionScores: defaultScores,
+      derivedPace: "steady",
+    };
   }
 
-  const dimMean = (answered.reduce((acc, s) => acc + responses[s.id], 0) / answered.length - 1) / 9;
+  const dimMean =
+    (answered.reduce((acc, s) => acc + responses[s.id], 0) / answered.length -
+      1) /
+    9;
   const dimensionScores: Record<string, number> = {};
   for (const dim of dimensions) {
     const dimScenarios = answered.filter((s) => s.dimension === dim);
@@ -1057,7 +1493,10 @@ function scoreFearLadder(
   }
 
   const sorted = answered.map((s) => responses[s.id]).sort((a, b) => a - b);
-  const p75Index = Math.min(Math.ceil(sorted.length * 0.75) - 1, sorted.length - 1);
+  const p75Index = Math.min(
+    Math.ceil(sorted.length * 0.75) - 1,
+    sorted.length - 1,
+  );
   const p75 = (sorted[p75Index] - 1) / 9;
   const overallScore = dimMean * 0.5 + p75 * 0.5;
 
@@ -1072,7 +1511,26 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride, challengeMix, skipProgressive, abandonmentProb, promoteProb } = parseArgs();
+  const {
+    email,
+    password,
+    personaKey,
+    goal,
+    questCount,
+    seed,
+    dryRun,
+    skipProfile,
+    skipFearLadder,
+    model: simModel,
+    strategy: simStrategy,
+    ratingBiasOverride,
+    blockerOverride,
+    challengeMix,
+    skipProgressive,
+    abandonmentProb,
+    promoteProb,
+    assertMode,
+  } = parseArgs();
   const progressiveOnboarding = !skipProgressive && !skipProfile;
 
   let persona: LivePersona | undefined;
@@ -1110,28 +1568,55 @@ async function main() {
   console.log(`\n╔══════════════════════════════════════════╗`);
   console.log(`║  Live Sidequest Simulator                ║`);
   console.log(`╚══════════════════════════════════════════╝`);
-  console.log(`  Persona:  ${skipProfile ? "(using existing profile)" : persona!.name}`);
-  console.log(`  Goal:     ${skipProfile ? "(existing)" : persona!.primaryGoal}`);
+  console.log(
+    `  Persona:  ${skipProfile ? "(using existing profile)" : persona!.name}`,
+  );
+  console.log(
+    `  Goal:     ${skipProfile ? "(existing)" : persona!.primaryGoal}`,
+  );
   console.log(`  User:     ${email}`);
   console.log(`  Quests:   ${questCount}`);
   console.log(`  Model:    ${simModel || "(default)"}`);
   console.log(`  Strategy: ${simStrategy || "(default)"}`);
   if (activeBlocker) {
-    console.log(`  Blocker:  "${activeBlocker.description}" (activates after quest ${activeBlocker.activateAfterQuest})`);
+    console.log(
+      `  Blocker:  "${activeBlocker.description}" (activates after quest ${activeBlocker.activateAfterQuest})`,
+    );
+  }
+  if (persona) {
+    const framework = buildOfflineSocialFrameworkPlan({
+      comfortProfile: {
+        primaryGoal: persona.primaryGoal,
+        goals: persona.goals.join(" "),
+        barriers: persona.barriers,
+        goalTags: persona.goalTags,
+      },
+      goalTags: persona.goalTags,
+      completedQuestCount: 0,
+    });
+    console.log(`  Framework: ${framework.primaryLens} / ${framework.phase}`);
+    console.log(`  Containers: ${framework.containers.slice(0, 5).join(", ")}`);
+    console.log(
+      `  Search seeds: ${framework.searchSeeds.slice(0, 5).join("; ")}`,
+    );
   }
   if (challengeMix > 0) {
-    console.log(`  Challenge: every ${challengeMix}${challengeMix === 1 ? "st" : challengeMix === 2 ? "nd" : challengeMix === 3 ? "rd" : "th"} quest`);
+    console.log(
+      `  Challenge: every ${challengeMix}${challengeMix === 1 ? "st" : challengeMix === 2 ? "nd" : challengeMix === 3 ? "rd" : "th"} quest`,
+    );
   }
   console.log(`  Est cost: $${(questCount * 0.035).toFixed(2)}`);
   console.log();
 
   // 1. Login
   console.log("Logging in...");
-  const token = await login(email, password);
+  let token = await login(email, password);
   console.log("  Authenticated.");
 
   let simFearScore = 0.5;
-  let generatedScenarios: { id: string; text: string; dimension: string }[] | null = null;
+  let generatedScenarios:
+    | { id: string; text: string; dimension: string }[]
+    | null = null;
   let generatedDimensions: string[] | null = null;
   let pendingFearLadder: {
     overallScore: number;
@@ -1144,18 +1629,31 @@ async function main() {
 
   if (!skipProfile && persona) {
     // 2a. Submit onboarding profile
-    const paceMap = { gentle: "chill" as const, steady: "balanced" as const, push_me: "send_it" as const };
+    const paceMap = {
+      gentle: "chill" as const,
+      steady: "balanced" as const,
+      push_me: "send_it" as const,
+    };
     console.log("Submitting onboarding profile...");
-    const onboardingRes = await api("POST", "/api/users/me/onboarding-profile", token, {
-      activities: persona.activities,
-      vibes: persona.vibes.length > 0 ? persona.vibes : ["Explore my area"],
-      idealDay: persona.comfortZone,
-      pace: paceMap[persona.pace] ?? "balanced",
-    });
+    const onboardingRes = await api(
+      "POST",
+      "/api/users/me/onboarding-profile",
+      token,
+      {
+        activities: persona.activities,
+        vibes: persona.vibes.length > 0 ? persona.vibes : ["Explore my area"],
+        idealDay: persona.comfortZone,
+        pace: paceMap[persona.pace] ?? "balanced",
+      },
+    );
     if (onboardingRes.status === 200 || onboardingRes.status === 201) {
-      console.log(`  Onboarding profile saved (activities: ${persona.activities.length}, vibes: ${persona.vibes.length}, pace: ${paceMap[persona.pace]})`);
+      console.log(
+        `  Onboarding profile saved (activities: ${persona.activities.length}, vibes: ${persona.vibes.length}, pace: ${paceMap[persona.pace]})`,
+      );
     } else {
-      console.log(`  Onboarding profile failed (${onboardingRes.status}): ${JSON.stringify(onboardingRes.data)}`);
+      console.log(
+        `  Onboarding profile failed (${onboardingRes.status}): ${JSON.stringify(onboardingRes.data)}`,
+      );
     }
 
     // 2b. Set home anchor
@@ -1168,41 +1666,73 @@ async function main() {
     // 3. Generate fear ladder (unless skipped)
     if (!skipFearLadder) {
       console.log("Generating personalized fear ladder...");
-      const ladderRes = await api("POST", "/api/sidequests/generate-fear-ladder", token, {
-        primaryGoal: persona.primaryGoal,
-        goals: persona.goalTags,
-        barriers: persona.barriers.split(", "),
-        activities: persona.activities,
-      });
+      const ladderRes = await api(
+        "POST",
+        "/api/sidequests/generate-fear-ladder",
+        token,
+        {
+          primaryGoal: persona.primaryGoal,
+          goals: persona.goalTags,
+          barriers: persona.barriers.split(", "),
+          activities: persona.activities,
+        },
+      );
 
       if (ladderRes.status === 200 && ladderRes.data?.scenarios) {
         generatedScenarios = ladderRes.data.scenarios;
         generatedDimensions = ladderRes.data.dimensions;
 
-        console.log(`  Generated ${generatedScenarios!.length} scenarios across ${generatedDimensions!.length} dimensions:`);
+        console.log(
+          `  Generated ${generatedScenarios!.length} scenarios across ${generatedDimensions!.length} dimensions:`,
+        );
         for (const dim of generatedDimensions!) {
-          const dimScenarios = generatedScenarios!.filter((s) => s.dimension === dim);
-          console.log(`    ${dim}: ${dimScenarios.map((s) => `"${s.text}"`).join(", ")}`);
+          const dimScenarios = generatedScenarios!.filter(
+            (s) => s.dimension === dim,
+          );
+          console.log(
+            `    ${dim}: ${dimScenarios.map((s) => `"${s.text}"`).join(", ")}`,
+          );
         }
 
         // 4. Have the LLM rate scenarios in-character
         console.log("  Rating scenarios in-character...");
-        const ratings = await rateFearLadderAsPersona(persona, generatedScenarios!, rand);
+        const ratings = await rateFearLadderAsPersona(
+          persona,
+          generatedScenarios!,
+          rand,
+        );
 
         console.log("  Ratings:");
         for (const s of generatedScenarios!) {
           const r = ratings[s.id] ?? 3;
-          const label = r <= 2 ? "Not scary" : r <= 4 ? "A little" : r <= 6 ? "Moderate" : r <= 8 ? "Scary" : "Terrifying";
+          const label =
+            r <= 2
+              ? "Not scary"
+              : r <= 4
+                ? "A little"
+                : r <= 6
+                  ? "Moderate"
+                  : r <= 8
+                    ? "Scary"
+                    : "Terrifying";
           console.log(`    ${s.text.padEnd(55)} ${r}/10 (${label})`);
         }
 
         // 5. Score locally (simFearScore drives rating/journal/social biases).
-        const scored = scoreFearLadder(ratings, generatedScenarios!, generatedDimensions!);
+        const scored = scoreFearLadder(
+          ratings,
+          generatedScenarios!,
+          generatedDimensions!,
+        );
         simFearScore = scored.overallScore;
 
         console.log(`  Overall fear score: ${scored.overallScore.toFixed(3)}`);
         console.log(`  Derived pace: ${scored.derivedPace}`);
-        console.log(`  Dimension scores: ${Object.entries(scored.dimensionScores).map(([d, s]) => `${d}=${s.toFixed(2)}`).join(", ")}`);
+        console.log(
+          `  Dimension scores: ${Object.entries(scored.dimensionScores)
+            .map(([d, s]) => `${d}=${s.toFixed(2)}`)
+            .join(", ")}`,
+        );
 
         pendingFearLadder = {
           overallScore: scored.overallScore,
@@ -1237,7 +1767,9 @@ async function main() {
               }),
         });
       } else {
-        console.log(`  Fear ladder generation failed (${ladderRes.status}), using defaults`);
+        console.log(
+          `  Fear ladder generation failed (${ladderRes.status}), using defaults`,
+        );
         // Apply profile without fear ladder
         await api("PUT", "/api/sidequests/comfort-profile", token, {
           pacePreference: persona.pace,
@@ -1254,7 +1786,9 @@ async function main() {
       }
     } else {
       // Apply profile without fear ladder
-      console.log(`Applying "${persona.name}" profile (skipping fear ladder)...`);
+      console.log(
+        `Applying "${persona.name}" profile (skipping fear ladder)...`,
+      );
       await api("PUT", "/api/sidequests/comfort-profile", token, {
         pacePreference: persona.pace,
         comfortProfile: {
@@ -1306,11 +1840,15 @@ async function main() {
     simRatingBias = ratingBiasOverride ?? 0.45 + (1 - simFearScore) * 0.3;
     simJournalProb = 0.4 + simFearScore * 0.4;
     simSocialRate = 0.05 + (1 - simFearScore) * 0.3;
-    console.log(`  Fear score: ${simFearScore.toFixed(3)} → rating bias ${simRatingBias.toFixed(2)}, journal prob ${simJournalProb.toFixed(2)}, social rate ${simSocialRate.toFixed(2)}`);
+    console.log(
+      `  Fear score: ${simFearScore.toFixed(3)} → rating bias ${simRatingBias.toFixed(2)}, journal prob ${simJournalProb.toFixed(2)}, social rate ${simSocialRate.toFixed(2)}`,
+    );
   }
 
   if (ratingBiasOverride != null) {
-    console.log(`  ⚠️  Rating bias overridden to ${simRatingBias.toFixed(2)} (${simRatingBias <= 0.25 ? "mostly 1-2 stars" : simRatingBias <= 0.4 ? "mostly 2-3 stars" : "mixed"})`);
+    console.log(
+      `  ⚠️  Rating bias overridden to ${simRatingBias.toFixed(2)} (${simRatingBias <= 0.25 ? "mostly 1-2 stars" : simRatingBias <= 0.4 ? "mostly 2-3 stars" : "mixed"})`,
+    );
   }
 
   // Run simulation loop
@@ -1364,12 +1902,37 @@ async function main() {
 
   // Processes a deferred rate: hits /rate, fetches pathways/pacing, pushes
   // to journey. Mirrors the post-completion block that used to run inline.
-  const processRate = async (pr: PendingRate, nowTick: number): Promise<void> => {
-    const { sidequestId, quest, obj, rating, journalEntry, socialContext, completedActivity, wouldReturn, predictedAnxiety, predictedDifficulty, blockerTriggered, isBreakthrough, rejections, completionIndex } = pr;
+  const processRate = async (
+    pr: PendingRate,
+    nowTick: number,
+  ): Promise<void> => {
+    const {
+      sidequestId,
+      quest,
+      obj,
+      rating,
+      journalEntry,
+      socialContext,
+      completedActivity,
+      wouldReturn,
+      predictedAnxiety,
+      predictedDifficulty,
+      blockerTriggered,
+      isBreakthrough,
+      rejections,
+      completionIndex,
+    } = pr;
 
-    const rateRes = await api("POST", `/api/sidequests/${sidequestId}/rate`, token, { rating });
+    const rateRes = await api(
+      "POST",
+      `/api/sidequests/${sidequestId}/rate`,
+      token,
+      { rating },
+    );
     if (rateRes.status < 200 || rateRes.status >= 300) {
-      console.log(`│  ⚠ Rating save failed (${rateRes.status}): ${JSON.stringify(rateRes.data)}`);
+      console.log(
+        `│  ⚠ Rating save failed (${rateRes.status}): ${JSON.stringify(rateRes.data)}`,
+      );
     }
 
     const resonanceInput: ResonanceInput = {
@@ -1381,7 +1944,9 @@ async function main() {
       checkedInAt: new Date(),
       questCreatedAt: new Date(quest.createdAt),
       venueCategory: obj.venueCategory ?? null,
-      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : null,
+      distanceFromHome: quest.distanceFromHome
+        ? Number(quest.distanceFromHome)
+        : null,
       userPace: persona?.pace ?? "steady",
       previousSocialContexts: [...previousSocialContexts],
       reflectionDepth: null,
@@ -1395,7 +1960,9 @@ async function main() {
 
     const czRes = await api("GET", "/api/sidequests/comfort-zone", token);
     const comfortRadius = czRes.data?.comfortRadiusMiles ?? 0;
-    const actualDifficulty = difficultyToPredictionScale(obj.difficulty ?? null);
+    const actualDifficulty = difficultyToPredictionScale(
+      obj.difficulty ?? null,
+    );
     const actualAnxiety = estimateActualAnxiety(
       rating,
       obj.difficulty ?? null,
@@ -1403,16 +1970,22 @@ async function main() {
       blockerTriggered,
     );
 
-    console.log(`│  [rate tick ${nowTick}, completed ${completeTickLabel(pr)}] ${blockerTriggered ? ">> BLOCKED " : isBreakthrough ? "★★ BREAKTHROUGH " : ""}Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`);
+    console.log(
+      `│  [rate tick ${nowTick}, completed ${completeTickLabel(pr)}] ${blockerTriggered ? ">> BLOCKED " : isBreakthrough ? "★★ BREAKTHROUGH " : ""}Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`,
+    );
     console.log(`│  Social: ${socialContext}`);
     if (blockerTriggered || isBreakthrough) {
       console.log(`│  Activity: ${completedActivity}`);
     }
-    console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`);
+    console.log(
+      `│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`,
+    );
     if (wouldReturn !== undefined) {
       console.log(`│  Would return: ${wouldReturn ? "✅ yes" : "❌ no"}`);
     }
-    console.log(`│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`);
+    console.log(
+      `│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`,
+    );
     console.log(`│  Comfort radius: ${comfortRadius.toFixed?.(1) ?? "?"} mi`);
 
     const pathwayRes = await api("GET", "/api/users/me/pathways", token);
@@ -1422,7 +1995,9 @@ async function main() {
       console.log(`│  Pathways (phase: ${pw.globalPhase}):`);
       for (const p of pw.pathways.slice(0, 5)) {
         const bar = "▓".repeat(Math.round(p.avgResonance * 10));
-        console.log(`│    ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${bar.padEnd(10)} quests=${p.questCount}`);
+        console.log(
+          `│    ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${bar.padEnd(10)} quests=${p.questCount}`,
+        );
       }
       pathwaySnapshots.push({
         questIndex: completionIndex,
@@ -1441,36 +2016,53 @@ async function main() {
       const pacingRes = await api("GET", "/api/sidequests/goal-pacing", token);
       if (pacingRes.data?.hasTimeline) {
         const p = pacingRes.data;
-        console.log(`│  Timeline: ${p.percentElapsed}% elapsed, ${p.remainingDays}d remaining, milestone: ${p.milestone ?? "none"}`);
+        console.log(
+          `│  Timeline: ${p.percentElapsed}% elapsed, ${p.remainingDays}d remaining, milestone: ${p.milestone ?? "none"}`,
+        );
 
         if (p.milestone && p.milestone !== lastMilestone) {
           console.log(`│  ★ NEW MILESTONE: ${p.milestone}`);
 
-          const checkInRes = await api("GET", "/api/sidequests/goal-check-in", token);
+          const checkInRes = await api(
+            "GET",
+            "/api/sidequests/goal-check-in",
+            token,
+          );
           if (checkInRes.data?.isDue) {
-            console.log(`│  Goal check-in due! Prompt: "${(checkInRes.data.journalPrompt ?? "").slice(0, 60)}..."`);
+            console.log(
+              `│  Goal check-in due! Prompt: "${(checkInRes.data.journalPrompt ?? "").slice(0, 60)}..."`,
+            );
 
             let reflectionJournal = `Reflecting on my progress at the ${p.milestone} milestone. I've completed ${p.completedQuestCount ?? completionIndex + 1} quests so far.`;
             if (persona && process.env.OPENAI_API_KEY) {
               const llmReflection = await llmComplete(
                 `You are "${persona.name}" pursuing: "${persona.primaryGoal}". You've completed ${completionIndex + 1} quests. You're at the "${p.milestone}" milestone (${p.percentElapsed}% of your timeline elapsed, ${p.remainingDays} days left). Write a 2-3 sentence goal reflection.`,
-                checkInRes.data.journalPrompt ?? `Reflect on your progress so far. How are you feeling about your goal?`,
+                checkInRes.data.journalPrompt ??
+                  `Reflect on your progress so far. How are you feeling about your goal?`,
                 150,
               );
               if (llmReflection) reflectionJournal = llmReflection;
             }
 
-            const reflRes = await api("POST", "/api/sidequests/goal-reflection", token, {
-              milestone: p.milestone,
-              journalEntry: reflectionJournal,
-              journalPrompt: checkInRes.data.journalPrompt ?? undefined,
-              percentElapsed: p.percentElapsed,
-              remainingDays: p.remainingDays,
-              completedQuestCount: p.completedQuestCount ?? completionIndex + 1,
-            });
+            const reflRes = await api(
+              "POST",
+              "/api/sidequests/goal-reflection",
+              token,
+              {
+                milestone: p.milestone,
+                journalEntry: reflectionJournal,
+                journalPrompt: checkInRes.data.journalPrompt ?? undefined,
+                percentElapsed: p.percentElapsed,
+                remainingDays: p.remainingDays,
+                completedQuestCount:
+                  p.completedQuestCount ?? completionIndex + 1,
+              },
+            );
 
             const saved = reflRes.status === 200 || reflRes.status === 201;
-            console.log(`│  Goal reflection ${saved ? "saved" : "failed"}: "${reflectionJournal.slice(0, 60)}..."`);
+            console.log(
+              `│  Goal reflection ${saved ? "saved" : "failed"}: "${reflectionJournal.slice(0, 60)}..."`,
+            );
 
             milestoneEvents.push({
               questIndex: completionIndex,
@@ -1498,11 +2090,26 @@ async function main() {
       socialContext,
       journalSnippet: journalEntry ? journalEntry.slice(0, 40) : null,
       hook: obj.hook ?? "",
+      description: obj.description ?? "",
+      strategyNote: quest.strategyNote ?? null,
+      marketReflection: quest.marketReflection ?? null,
+      suggestedActivities: obj.suggestedActivities ?? [],
+      actionItems: obj.actionItems ?? [],
       rarity: quest.rarity ?? "?",
-      distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : 0,
+      distanceFromHome: quest.distanceFromHome
+        ? Number(quest.distanceFromHome)
+        : 0,
       comfortRadius: typeof comfortRadius === "number" ? comfortRadius : 0,
       capacityTrack: quest.capacityTrack ?? null,
       repIntent: quest.repIntent ?? null,
+      opportunityScope: quest.opportunityScope ?? null,
+      travelRationale: quest.travelRationale ?? null,
+      goalMilestoneKey: quest.goalMilestoneKey ?? null,
+      goalMilestoneTitle: quest.goalMilestoneTitle ?? null,
+      directGoalTouch: isConcreteGoalActionType(
+        normalizeGoalActionType(quest.goalActionType),
+      ),
+      goalActionType: normalizeGoalActionType(quest.goalActionType),
       predictedAnxiety,
       predictedDifficulty,
       actualAnxiety,
@@ -1527,7 +2134,11 @@ async function main() {
     // Promote ("Seal Memory") on well-rated quests — mirrors /app/deck.tsx.
     const isVenueQ = (quest.questType ?? "venue") === "venue";
     if (isVenueQ && rating >= 4 && rand() < promoteProb) {
-      const promoRes = await api("POST", `/api/sidequests/${sidequestId}/promote`, token);
+      const promoRes = await api(
+        "POST",
+        `/api/sidequests/${sidequestId}/promote`,
+        token,
+      );
       if (promoRes.status === 200) {
         promoteCount++;
         console.log(`│  ★ Sealed Memory (promoted)`);
@@ -1536,14 +2147,23 @@ async function main() {
 
     // Periodic deck cleanup — mirrors batch-delete from /app/itineraries.
     if (journey.length > 0 && journey.length % 5 === 0) {
-      const completedRes = await api("GET", "/api/sidequests/completed?limit=25", token);
+      const completedRes = await api(
+        "GET",
+        "/api/sidequests/completed?limit=25",
+        token,
+      );
       const completedList: any[] = completedRes.data?.data ?? [];
       const lowRated = completedList
         .filter((s: any) => typeof s.rating === "number" && s.rating <= 2)
         .slice(0, 2)
         .map((s: any) => s.id);
       if (lowRated.length > 0) {
-        const delRes = await api("POST", "/api/sidequests/batch-delete", token, { ids: lowRated });
+        const delRes = await api(
+          "POST",
+          "/api/sidequests/batch-delete",
+          token,
+          { ids: lowRated },
+        );
         if (delRes.status === 200) {
           const n = delRes.data?.deletedCount ?? 0;
           batchDeleteCount += n;
@@ -1580,7 +2200,11 @@ async function main() {
       }
     }
 
-    if (currentOnboardingPhase < 2 && completedCount >= 2 && pendingFearLadder) {
+    if (
+      currentOnboardingPhase < 2 &&
+      completedCount >= 2 &&
+      pendingFearLadder
+    ) {
       console.log(`│  ▷ Progressive onboarding: phase 2 (fear-ladder)`);
       const res = await api("PUT", "/api/sidequests/comfort-profile", token, {
         pacePreference: pendingFearLadder.derivedPace,
@@ -1608,14 +2232,20 @@ async function main() {
     }
   };
 
-  const completeTickLabel = (pr: PendingRate): string => `t${pr.completeTick}→t${pr.scheduledRateTick}`;
+  const completeTickLabel = (pr: PendingRate): string =>
+    `t${pr.completeTick}→t${pr.scheduledRateTick}`;
 
   console.log(`\n${"─".repeat(60)}`);
   console.log(`  Starting ${questCount}-quest simulation...`);
   console.log(`${"─".repeat(60)}\n`);
 
   let challengeCount = 0;
-  const predictionHistory: { predicted: number; actual: number; title: string }[] = [];
+  const predictionHistory: {
+    predicted: number;
+    actual: number;
+    title: string;
+  }[] = [];
+  let abortedReason: string | null = null;
 
   while (completedCount < questCount && attempts < maxAttempts) {
     tick++;
@@ -1623,10 +2253,15 @@ async function main() {
     // Drain any ratings that are due this tick (FIFO by scheduledRateTick).
     const dueRates = pendingRates
       .filter((p) => p.scheduledRateTick <= tick)
-      .sort((a, b) => a.scheduledRateTick - b.scheduledRateTick || a.completionIndex - b.completionIndex);
+      .sort(
+        (a, b) =>
+          a.scheduledRateTick - b.scheduledRateTick ||
+          a.completionIndex - b.completionIndex,
+      );
     if (dueRates.length > 0) {
       for (let k = pendingRates.length - 1; k >= 0; k--) {
-        if (pendingRates[k].scheduledRateTick <= tick) pendingRates.splice(k, 1);
+        if (pendingRates[k].scheduledRateTick <= tick)
+          pendingRates.splice(k, 1);
       }
       for (const pr of dueRates) {
         await processRate(pr, tick);
@@ -1643,12 +2278,21 @@ async function main() {
 
     attempts++;
     const i = attempts - 1;
-    console.log(`\n╭─ Attempt ${attempts} (completed ${completedCount}/${questCount}, tick ${tick}) ${"─".repeat(20)}`);
+    console.log(
+      `\n╭─ Attempt ${attempts} (completed ${completedCount}/${questCount}, tick ${tick}) ${"─".repeat(20)}`,
+    );
 
     // Determine quest type for this iteration
-    const isChallenge = challengeMix > 0 && ((i + 1) % challengeMix === 0);
-    const challengeCategories = ["social_reach", "vulnerability", "hosting", "reconnection"] as const;
-    const challengeCategory = isChallenge ? challengeCategories[challengeCount % challengeCategories.length] : undefined;
+    const isChallenge = challengeMix > 0 && (i + 1) % challengeMix === 0;
+    const challengeCategories = [
+      "social_reach",
+      "vulnerability",
+      "hosting",
+      "reconnection",
+    ] as const;
+    const challengeCategory = isChallenge
+      ? challengeCategories[challengeCount % challengeCategories.length]
+      : undefined;
     if (isChallenge) challengeCount++;
 
     let sidequestId: string | undefined;
@@ -1657,7 +2301,9 @@ async function main() {
     const rejectionsThisSlot: RejectionReason[] = [];
     const MAX_REJECTIONS = 2;
 
-    console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
+    console.log(
+      `│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`,
+    );
     const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
       latitude: simLat,
       longitude: simLng,
@@ -1667,8 +2313,19 @@ async function main() {
     });
 
     if (prescribeRes.status !== 202) {
-      console.error(`│  Prescription failed (${prescribeRes.status}): ${JSON.stringify(prescribeRes.data)}`);
-      if (prescribeRes.status === 429) break;
+      console.error(
+        `│  Prescription failed (${prescribeRes.status}): ${JSON.stringify(prescribeRes.data)}`,
+      );
+      if (prescribeRes.status === 401) {
+        console.log(`│  Re-authenticating and retrying this slot...`);
+        token = await login(email, password);
+        attempts--;
+        continue;
+      }
+      if (prescribeRes.status === 429) {
+        abortedReason = `Prescription failed with 429: ${JSON.stringify(prescribeRes.data)}`;
+        break;
+      }
       continue;
     }
 
@@ -1690,6 +2347,9 @@ async function main() {
         console.log();
       } catch (err: any) {
         console.error(`\n│  ${err.message}`);
+        if (isFatalProviderError(String(err.message ?? ""))) {
+          abortedReason = String(err.message);
+        }
         acceptFailed = true;
         break;
       }
@@ -1701,12 +2361,18 @@ async function main() {
         break;
       }
       if (seenSidequestIds.has(sidequestId)) {
-        console.error(`│  Duplicate sidequest ID returned (${sidequestId}); skipping to avoid counting the same quest twice.`);
+        console.error(
+          `│  Duplicate sidequest ID returned (${sidequestId}); skipping to avoid counting the same quest twice.`,
+        );
         acceptFailed = true;
         break;
       }
 
-      const questRes = await api("GET", `/api/sidequests/${sidequestId}`, token);
+      const questRes = await api(
+        "GET",
+        `/api/sidequests/${sidequestId}`,
+        token,
+      );
       quest = questRes.data;
       obj = quest?.objectives?.[0];
 
@@ -1722,10 +2388,27 @@ async function main() {
       console.log(`│     ${obj.venueName} — ${obj.venueCategory}`);
       console.log(`│     ${obj.venueAddress ?? "no address"}`);
       console.log(`│     Hook: ${obj.hook ?? "none"}`);
-      console.log(`│     Capacity: ${quest.capacityTrack ?? "?"} — ${quest.repIntent ?? "?"}`);
-      console.log(`│     Difficulty: ${obj.difficulty ?? "?"} | Rarity: ${quest.rarity ?? "?"} | Actionability: ${obj.actionability ?? "?"}`);
-      console.log(`│     Type: ${quest.questType ?? "venue"} | Role: ${quest.questRole ?? "none"}${quest.questRole === "enjoy" ? " ★ ENJOY QUEST" : ""}`);
-      console.log(`│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`);
+      if (quest.strategyNote) {
+        console.log(`│     Why: ${quest.strategyNote}`);
+      }
+      if (quest.marketReflection) {
+        console.log(`│     Market: ${quest.marketReflection}`);
+      }
+      console.log(
+        `│     Capacity: ${quest.capacityTrack ?? "?"} — ${quest.repIntent ?? "?"}`,
+      );
+      console.log(
+        `│     Difficulty: ${obj.difficulty ?? "?"} | Rarity: ${quest.rarity ?? "?"} | Actionability: ${obj.actionability ?? "?"}`,
+      );
+      console.log(
+        `│     Type: ${quest.questType ?? "venue"} | Role: ${quest.questRole ?? "none"}${quest.questRole === "enjoy" ? " ★ ENJOY QUEST" : ""}`,
+      );
+      console.log(
+        `│     Goal: direct=${quest.directGoalTouch === true ? "yes" : "no"} | action=${quest.goalActionType ?? "none"} | milestone=${quest.goalMilestoneTitle ?? "none"}`,
+      );
+      console.log(
+        `│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`,
+      );
       if (obj.description) {
         console.log(`│     Description: ${obj.description}`);
       }
@@ -1741,21 +2424,37 @@ async function main() {
       // the "too far / too social" dimensions and are meant as fixed reps.
       if (isChallenge || attempt >= MAX_REJECTIONS) break;
 
-      const rejection = await decideRejection(persona, quest, simFearScore, i, attempt, rand);
+      const rejection = await decideRejection(
+        persona,
+        quest,
+        simFearScore,
+        i,
+        attempt,
+        rand,
+      );
       if (!rejection) break;
 
       rejectionsThisSlot.push(rejection);
       allRejections.push(rejection);
-      console.log(`│  ❌ Rejected: ${rejection} (${rejectionsThisSlot.length}/${MAX_REJECTIONS + 1})`);
+      console.log(
+        `│  ❌ Rejected: ${rejection} (${rejectionsThisSlot.length}/${MAX_REJECTIONS + 1})`,
+      );
 
-      const rejectRes = await api("POST", `/api/sidequests/${sidequestId}/reject`, token, {
-        reason: rejection,
-        latitude: simLat,
-        longitude: simLng,
-      });
+      const rejectRes = await api(
+        "POST",
+        `/api/sidequests/${sidequestId}/reject`,
+        token,
+        {
+          reason: rejection,
+          latitude: simLat,
+          longitude: simLng,
+        },
+      );
 
       if (rejectRes.status !== 202 || !rejectRes.data?.jobId) {
-        console.log(`│  Reject endpoint returned ${rejectRes.status}: ${JSON.stringify(rejectRes.data)} — proceeding with current prescription`);
+        console.log(
+          `│  Reject endpoint returned ${rejectRes.status}: ${JSON.stringify(rejectRes.data)} — proceeding with current prescription`,
+        );
         break;
       }
 
@@ -1763,6 +2462,7 @@ async function main() {
       console.log(`│  Waiting for recalibrated prescription...`);
     }
 
+    if (abortedReason) break;
     if (acceptFailed || !sidequestId || !quest || !obj) continue;
     seenSidequestIds.add(sidequestId);
 
@@ -1789,23 +2489,38 @@ async function main() {
         predictedDifficulty = prediction.difficulty;
         console.log(`│  Predicted anxiety: ${prediction.anxiety}/5`);
         console.log(`│  Predicted difficulty: ${prediction.difficulty}/5`);
-        console.log(`│  Expected outcome: "${prediction.outcome.slice(0, 70)}${prediction.outcome.length > 70 ? "..." : ""}"`);
+        console.log(
+          `│  Expected outcome: "${prediction.outcome.slice(0, 70)}${prediction.outcome.length > 70 ? "..." : ""}"`,
+        );
 
-        const predictionRes = await api("PUT", `/api/sidequests/objectives/${obj.id}/prediction`, token, {
-          predictedAnxiety: prediction.anxiety,
-          predictedDifficulty: prediction.difficulty,
-          predictedOutcome: prediction.outcome,
-        });
+        const predictionRes = await api(
+          "PUT",
+          `/api/sidequests/objectives/${obj.id}/prediction`,
+          token,
+          {
+            predictedAnxiety: prediction.anxiety,
+            predictedDifficulty: prediction.difficulty,
+            predictedOutcome: prediction.outcome,
+          },
+        );
         if (predictionRes.status < 200 || predictionRes.status >= 300) {
-          console.log(`│  ⚠ Prediction save failed (${predictionRes.status}): ${JSON.stringify(predictionRes.data)}`);
+          console.log(
+            `│  ⚠ Prediction save failed (${predictionRes.status}): ${JSON.stringify(predictionRes.data)}`,
+          );
         }
       }
     }
 
     // Activate
-    const activateRes = await api("POST", `/api/sidequests/${sidequestId}/activate`, token);
+    const activateRes = await api(
+      "POST",
+      `/api/sidequests/${sidequestId}/activate`,
+      token,
+    );
     if (activateRes.status < 200 || activateRes.status >= 300) {
-      console.log(`│  Activate failed (${activateRes.status}): ${JSON.stringify(activateRes.data)}`);
+      console.log(
+        `│  Activate failed (${activateRes.status}): ${JSON.stringify(activateRes.data)}`,
+      );
       console.log(`╰${"─".repeat(55)}`);
       continue;
     }
@@ -1816,13 +2531,17 @@ async function main() {
     const isActualChallenge = (quest.questType ?? "venue") === "challenge";
     if (!isActualChallenge && abandonmentProb > 0 && rand() < abandonmentProb) {
       console.log(`│`);
-      console.log(`│  🚪 Abandoning quest ("${quest.title}") mid-flight — calling /deactivate.`);
+      console.log(
+        `│  🚪 Abandoning quest ("${quest.title}") mid-flight — calling /deactivate.`,
+      );
       const deacRes = await api("POST", "/api/sidequests/deactivate", token);
       if (deacRes.status === 200 || deacRes.status === 204) {
         abandonmentCount++;
         if (rejectionsThisSlot.length > 0) abandonedSlotsWithRejections++;
       } else {
-        console.log(`│  Deactivate returned ${deacRes.status}; proceeding as if abandoned.`);
+        console.log(
+          `│  Deactivate returned ${deacRes.status}; proceeding as if abandoned.`,
+        );
       }
       console.log(`╰${"─".repeat(55)}`);
       continue;
@@ -1833,19 +2552,29 @@ async function main() {
     if (isActualChallenge) {
       console.log(`│  Completing challenge...`);
       // Challenge completion requires a journal entry >= 20 chars
-      const challengeJournal = persona && process.env.OPENAI_API_KEY
-        ? await llmComplete(
-            `You are "${persona.name}" completing a challenge quest. Write a 2-3 sentence reflection on doing: "${quest.title}". Be authentic.`,
-            `Challenge: ${obj.description ?? quest.title}. How did it go?`,
-            100,
-          )
-        : `I completed the challenge "${quest.title}". It pushed me outside my comfort zone but I did it.`;
-      const completeRes = await api("POST", `/api/sidequests/${sidequestId}/objectives/${obj.id}/complete-challenge`, token, {
-        journalEntry: challengeJournal ?? `I completed the challenge. It was harder than I expected but I'm glad I pushed through. Growing.`,
-        socialContext: "solo",
-      });
+      const challengeJournal =
+        persona && process.env.OPENAI_API_KEY
+          ? await llmComplete(
+              `You are "${persona.name}" completing a challenge quest. Write a 2-3 sentence reflection on doing: "${quest.title}". Be authentic.`,
+              `Challenge: ${obj.description ?? quest.title}. How did it go?`,
+              100,
+            )
+          : `I completed the challenge "${quest.title}". It pushed me outside my comfort zone but I did it.`;
+      const completeRes = await api(
+        "POST",
+        `/api/sidequests/${sidequestId}/objectives/${obj.id}/complete-challenge`,
+        token,
+        {
+          journalEntry:
+            challengeJournal ??
+            `I completed the challenge. It was harder than I expected but I'm glad I pushed through. Growing.`,
+          socialContext: "solo",
+        },
+      );
       if (completeRes.status < 200 || completeRes.status >= 300) {
-        console.log(`│  Challenge completion failed (${completeRes.status}): ${JSON.stringify(completeRes.data)}`);
+        console.log(
+          `│  Challenge completion failed (${completeRes.status}): ${JSON.stringify(completeRes.data)}`,
+        );
         console.log(`╰${"─".repeat(55)}`);
         continue;
       }
@@ -1855,14 +2584,21 @@ async function main() {
       // matching. Send the venue coords so the server sees the "arrival".
       const objectiveLat = Number(obj.latitude);
       const objectiveLng = Number(obj.longitude);
-      const hasObjectiveLocation = obj.latitude != null && obj.longitude != null && Number.isFinite(objectiveLat) && Number.isFinite(objectiveLng);
+      const hasObjectiveLocation =
+        obj.latitude != null &&
+        obj.longitude != null &&
+        Number.isFinite(objectiveLat) &&
+        Number.isFinite(objectiveLng);
       if (hasObjectiveLocation) {
         const spoofRes = await api("POST", "/api/users/location", token, {
           lat: objectiveLat,
           lng: objectiveLng,
         });
         if (spoofRes.status === 200) locationSpoofCount++;
-        else console.log(`│  Location spoof failed (${spoofRes.status}): ${JSON.stringify(spoofRes.data)}`);
+        else
+          console.log(
+            `│  Location spoof failed (${spoofRes.status}): ${JSON.stringify(spoofRes.data)}`,
+          );
       }
 
       console.log(`│  Checking in...`);
@@ -1870,10 +2606,14 @@ async function main() {
         "POST",
         `/api/sidequests/${sidequestId}/objectives/${obj.id}/checkin`,
         token,
-        hasObjectiveLocation ? { latitude: objectiveLat, longitude: objectiveLng } : undefined,
+        hasObjectiveLocation
+          ? { latitude: objectiveLat, longitude: objectiveLng }
+          : undefined,
       );
       if (checkinRes.status < 200 || checkinRes.status >= 300) {
-        console.log(`│  Check-in failed (${checkinRes.status}): ${JSON.stringify(checkinRes.data)}`);
+        console.log(
+          `│  Check-in failed (${checkinRes.status}): ${JSON.stringify(checkinRes.data)}`,
+        );
         console.log(`╰${"─".repeat(55)}`);
         continue;
       }
@@ -1884,7 +2624,9 @@ async function main() {
     let isBreakthrough = false;
     let questMatchesBlocker = false;
     let blockerDetectionRan = false;
-    const blockerActiveForQuest = Boolean(activeBlocker && i >= activeBlocker.activateAfterQuest);
+    const blockerActiveForQuest = Boolean(
+      activeBlocker && i >= activeBlocker.activateAfterQuest,
+    );
     if (activeBlocker && blockerActiveForQuest && process.env.OPENAI_API_KEY) {
       console.log(`│`);
       blockerDetectionRan = true;
@@ -1900,15 +2642,21 @@ async function main() {
         // Blocker still active — persona fails
         blockerTriggered = true;
         blockerConsecutiveSuccesses = 0; // Reset streak
-        console.log(`│  Blocker: "${activeBlocker.description}" — TRIGGERED (streak reset to 0)`);
+        console.log(
+          `│  Blocker: "${activeBlocker.description}" — TRIGGERED (streak reset to 0)`,
+        );
       } else if (questMatchesBlocker && blockerResolved) {
         // Blocker resolved — this is a breakthrough or post-breakthrough success
         isBreakthrough = blockerResolvedAtQuest === null;
         if (isBreakthrough) blockerResolvedAtQuest = i;
-        console.log(`│  Blocker: "${activeBlocker.description}" — ${isBreakthrough ? "BREAKTHROUGH! First success!" : "POST-BREAKTHROUGH — completing normally"}`);
+        console.log(
+          `│  Blocker: "${activeBlocker.description}" — ${isBreakthrough ? "BREAKTHROUGH! First success!" : "POST-BREAKTHROUGH — completing normally"}`,
+        );
       } else {
         // Quest doesn't involve the blocked action
-        console.log(`│  Blocker: no match — normal completion (success streak: ${blockerConsecutiveSuccesses}/${blockerResolveThreshold})`);
+        console.log(
+          `│  Blocker: no match — normal completion (success streak: ${blockerConsecutiveSuccesses}/${blockerResolveThreshold})`,
+        );
       }
     }
 
@@ -1935,7 +2683,10 @@ async function main() {
         );
       }
       if (!journalEntry) {
-        journalEntry = BLOCKER_JOURNAL_FALLBACKS[Math.floor(rand() * BLOCKER_JOURNAL_FALLBACKS.length)];
+        journalEntry =
+          BLOCKER_JOURNAL_FALLBACKS[
+            Math.floor(rand() * BLOCKER_JOURNAL_FALLBACKS.length)
+          ];
       }
     } else if (isBreakthrough) {
       // Breakthrough: persona does the blocked action for the first time!
@@ -1953,16 +2704,28 @@ async function main() {
         );
       }
       if (!journalEntry) {
-        journalEntry = BREAKTHROUGH_JOURNAL_FALLBACKS[Math.floor(rand() * BREAKTHROUGH_JOURNAL_FALLBACKS.length)];
+        journalEntry =
+          BREAKTHROUGH_JOURNAL_FALLBACKS[
+            Math.floor(rand() * BREAKTHROUGH_JOURNAL_FALLBACKS.length)
+          ];
       }
     } else {
       // Normal completion
-      socialContext = generateSocialContext(currentSocialLevel, simSocialRate, rand);
+      socialContext = generateSocialContext(
+        currentSocialLevel,
+        simSocialRate,
+        rand,
+      );
       rating = generateRating(simRatingBias, rand);
       completedActivity = `Visited ${obj.venueName}`;
 
       // Generate journal — probability drops with low ratings
-      const journalProb = rating <= 2 ? simJournalProb * 0.4 : rating <= 3 ? simJournalProb * 0.7 : simJournalProb;
+      const journalProb =
+        rating <= 2
+          ? simJournalProb * 0.4
+          : rating <= 3
+            ? simJournalProb * 0.7
+            : simJournalProb;
       if (persona && process.env.OPENAI_API_KEY && rand() < journalProb) {
         journalEntry = await generateLLMJournal(
           persona,
@@ -1973,6 +2736,10 @@ async function main() {
           socialContext,
           i,
           simFearScore,
+          {
+            priorJourney: journey,
+            marketReflection: quest.marketReflection ?? null,
+          },
         );
       } else {
         journalEntry = generateJournal(simJournalProb, rating, rand);
@@ -1985,11 +2752,21 @@ async function main() {
     }
 
     // Track blocker resolution progress
-    if (activeBlocker && blockerActiveForQuest && blockerDetectionRan && !blockerResolved && !blockerTriggered && !questMatchesBlocker && rating >= 3) {
+    if (
+      activeBlocker &&
+      blockerActiveForQuest &&
+      blockerDetectionRan &&
+      !blockerResolved &&
+      !blockerTriggered &&
+      !questMatchesBlocker &&
+      rating >= 3
+    ) {
       blockerConsecutiveSuccesses++;
       if (blockerConsecutiveSuccesses >= blockerResolveThreshold) {
         blockerResolved = true;
-        console.log(`│  ★ BLOCKER READINESS — ${blockerConsecutiveSuccesses} adjacent successes. Persona is ready to face "${activeBlocker.description}" again.`);
+        console.log(
+          `│  ★ BLOCKER READINESS — ${blockerConsecutiveSuccesses} adjacent successes. Persona is ready to face "${activeBlocker.description}" again.`,
+        );
       }
     } else if (blockerTriggered) {
       blockerConsecutiveSuccesses = 0;
@@ -2007,14 +2784,21 @@ async function main() {
 
     // Save journal + social context + would-return (always fires immediately;
     // rating is deferred below).
-    const journalRes = await api("PUT", `/api/sidequests/objectives/${obj.id}/journal`, token, {
-      journalEntry: journalEntry ?? undefined,
-      socialContext,
-      completedActivity,
-      ...(wouldReturn !== undefined && { wouldReturn }),
-    });
+    const journalRes = await api(
+      "PUT",
+      `/api/sidequests/objectives/${obj.id}/journal`,
+      token,
+      {
+        journalEntry: journalEntry ?? undefined,
+        socialContext,
+        completedActivity,
+        ...(wouldReturn !== undefined && { wouldReturn }),
+      },
+    );
     if (journalRes.status < 200 || journalRes.status >= 300) {
-      console.log(`│  ⚠ Journal save failed (${journalRes.status}): ${JSON.stringify(journalRes.data)}`);
+      console.log(
+        `│  ⚠ Journal save failed (${journalRes.status}): ${JSON.stringify(journalRes.data)}`,
+      );
     }
 
     // Queue the rate for a future tick. Matches the UI's PendingReflectionCard
@@ -2041,7 +2825,9 @@ async function main() {
       isBreakthrough,
       rejections: rejectionsThisSlot,
     });
-    console.log(`│  ⌛ Checked in on tick ${tick}; rate scheduled for tick ${tick + delayTicks}.`);
+    console.log(
+      `│  ⌛ Checked in on tick ${tick}; rate scheduled for tick ${tick + delayTicks}.`,
+    );
     console.log(`╰${"─".repeat(55)}`);
 
     // Small delay between iterations
@@ -2053,7 +2839,11 @@ async function main() {
     tick++;
     const due = pendingRates
       .filter((p) => p.scheduledRateTick <= tick)
-      .sort((a, b) => a.scheduledRateTick - b.scheduledRateTick || a.completionIndex - b.completionIndex);
+      .sort(
+        (a, b) =>
+          a.scheduledRateTick - b.scheduledRateTick ||
+          a.completionIndex - b.completionIndex,
+      );
     if (due.length === 0) {
       // No ratings due yet — just advance the tick counter until the next one.
       const next = Math.min(...pendingRates.map((p) => p.scheduledRateTick));
@@ -2071,19 +2861,31 @@ async function main() {
 
   // 5. Final summary
   console.log(`\n${"═".repeat(80)}`);
-  console.log(`  SIMULATION COMPLETE — ${skipProfile ? email : persona!.name}`);
+  console.log(
+    `  SIMULATION ${abortedReason ? "ABORTED" : "COMPLETE"} — ${skipProfile ? email : persona!.name}`,
+  );
   console.log(`  Goal: ${skipProfile ? "(existing)" : persona!.primaryGoal}`);
+  if (abortedReason) {
+    console.log(`  Abort reason: ${abortedReason}`);
+  }
   console.log(`${"═".repeat(80)}`);
 
   // Stats
   const allScores = journey.map((j) => j.resonance);
-  const avgResonance = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
+  const avgResonance =
+    allScores.length > 0
+      ? allScores.reduce((a, b) => a + b, 0) / allScores.length
+      : 0;
   const peakResonance = allScores.length > 0 ? Math.max(...allScores) : 0;
 
-  console.log(`\n  Quests: ${journey.length} completed (${attempts} attempts, ${abandonmentCount} abandoned across ${tick} ticks)`);
+  console.log(
+    `\n  Quests: ${journey.length} completed (${attempts} attempts, ${abandonmentCount} abandoned across ${tick} ticks)`,
+  );
   console.log(`  Avg Resonance: ${avgResonance.toFixed(3)}`);
   console.log(`  Peak Resonance: ${peakResonance.toFixed(3)}`);
-  console.log(`  Comfort Radius: ${journey[0]?.comfortRadius.toFixed(1) ?? "?"} mi → ${journey[journey.length - 1]?.comfortRadius.toFixed(1) ?? "?"} mi`);
+  console.log(
+    `  Comfort Radius: ${journey[0]?.comfortRadius.toFixed(1) ?? "?"} mi → ${journey[journey.length - 1]?.comfortRadius.toFixed(1) ?? "?"} mi`,
+  );
   console.log(`  Sealed memories (promoted): ${promoteCount}`);
   console.log(`  Low-rated quests culled:    ${batchDeleteCount}`);
   console.log(`  Location spoofs sent:       ${locationSpoofCount}`);
@@ -2097,23 +2899,43 @@ async function main() {
     const breakthroughCount = journey.filter((j) => j.isBreakthrough).length;
     const blockerMatchCount = blockerCount + breakthroughCount;
     const nonBlockerCount = journey.length - blockerCount;
-    const blockerAvgRating = blockerCount > 0
-      ? journey.filter((j) => j.blockerTriggered).reduce((s, j) => s + j.rating, 0) / blockerCount
-      : 0;
-    const normalAvgRating = nonBlockerCount > 0
-      ? journey.filter((j) => !j.blockerTriggered).reduce((s, j) => s + j.rating, 0) / nonBlockerCount
-      : 0;
+    const blockerAvgRating =
+      blockerCount > 0
+        ? journey
+            .filter((j) => j.blockerTriggered)
+            .reduce((s, j) => s + j.rating, 0) / blockerCount
+        : 0;
+    const normalAvgRating =
+      nonBlockerCount > 0
+        ? journey
+            .filter((j) => !j.blockerTriggered)
+            .reduce((s, j) => s + j.rating, 0) / nonBlockerCount
+        : 0;
     console.log(`\n  Blocker Analysis: "${activeBlocker.description}"`);
-    console.log(`    Blocker-matching reps: ${blockerMatchCount}/${journey.length} (${((blockerMatchCount / journey.length) * 100).toFixed(0)}%)`);
-    console.log(`    Setbacks: ${blockerCount}; breakthroughs: ${breakthroughCount}`);
-    console.log(`    Avg rating (setbacks): ${blockerAvgRating.toFixed(1)} vs other reps: ${normalAvgRating.toFixed(1)}`);
-    console.log(`    Blocker active from quest ${activeBlocker.activateAfterQuest + 1} onward`);
+    console.log(
+      `    Blocker-matching reps: ${blockerMatchCount}/${journey.length} (${journey.length ? ((blockerMatchCount / journey.length) * 100).toFixed(0) : "0"}%)`,
+    );
+    console.log(
+      `    Setbacks: ${blockerCount}; breakthroughs: ${breakthroughCount}`,
+    );
+    console.log(
+      `    Avg rating (setbacks): ${blockerAvgRating.toFixed(1)} vs other reps: ${normalAvgRating.toFixed(1)}`,
+    );
+    console.log(
+      `    Blocker active from quest ${activeBlocker.activateAfterQuest + 1} onward`,
+    );
     if (blockerResolvedAtQuest != null) {
-      console.log(`    Breakthrough at quest ${blockerResolvedAtQuest + 1} (after ${blockerResolveThreshold} consecutive successes)`);
+      console.log(
+        `    Breakthrough at quest ${blockerResolvedAtQuest + 1} (after ${blockerResolveThreshold} consecutive successes)`,
+      );
     } else if (blockerResolved) {
-      console.log(`    Blocker resolved (${blockerConsecutiveSuccesses} successes) but no matching quest came up for breakthrough`);
+      console.log(
+        `    Blocker resolved (${blockerConsecutiveSuccesses} successes) but no matching quest came up for breakthrough`,
+      );
     } else {
-      console.log(`    Blocker NOT resolved (${blockerConsecutiveSuccesses}/${blockerResolveThreshold} consecutive successes)`);
+      console.log(
+        `    Blocker NOT resolved (${blockerConsecutiveSuccesses}/${blockerResolveThreshold} consecutive successes)`,
+      );
     }
   }
 
@@ -2124,43 +2946,67 @@ async function main() {
     const reasonCounts: Record<string, number> = {};
     for (const r of allRejections) reasonCounts[r] = (reasonCounts[r] ?? 0) + 1;
     console.log(`\n  Calibration Loop:`);
-    console.log(`    Completed slots with rejections: ${slotsWithRejections.length}/${journey.length} (${((slotsWithRejections.length / journey.length) * 100).toFixed(0)}%)`);
+    console.log(
+      `    Completed slots with rejections: ${slotsWithRejections.length}/${journey.length} (${((slotsWithRejections.length / journey.length) * 100).toFixed(0)}%)`,
+    );
     if (abandonedSlotsWithRejections > 0) {
-      console.log(`    Abandoned slots with rejections: ${abandonedSlotsWithRejections}/${abandonmentCount}`);
+      console.log(
+        `    Abandoned slots with rejections: ${abandonedSlotsWithRejections}/${abandonmentCount}`,
+      );
     }
     console.log(`    Total rejections: ${totalRejections}`);
     console.log(`    By reason:`);
-    for (const [reason, count] of Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])) {
+    for (const [reason, count] of Object.entries(reasonCounts).sort(
+      (a, b) => b[1] - a[1],
+    )) {
       console.log(`      ${reason.padEnd(18)} ${"█".repeat(count)} ${count}`);
     }
     // A recurring reason (3+ of the same kind) should trigger the pattern
     // detector in PrescriptionContextBuilder and clamp the next brief. Flag
     // it so you can eyeball whether the strategist actually adjusted.
-    const patternReasons = Object.entries(reasonCounts).filter(([, c]) => c >= 3);
+    const patternReasons = Object.entries(reasonCounts).filter(
+      ([, c]) => c >= 3,
+    );
     if (patternReasons.length > 0) {
-      console.log(`    ⚠ Pattern threshold hit (3+): ${patternReasons.map(([r, c]) => `${r} × ${c}`).join(", ")} — strategist should have clamped.`);
+      console.log(
+        `    ⚠ Pattern threshold hit (3+): ${patternReasons.map(([r, c]) => `${r} × ${c}`).join(", ")} — strategist should have clamped.`,
+      );
     }
   } else {
-    console.log(`\n  Calibration Loop: no rejections fired across ${journey.length} quests.`);
+    console.log(
+      `\n  Calibration Loop: no rejections fired across ${journey.length} quests.`,
+    );
   }
 
   // Expectancy calibration
-  const withPredictions = journey.filter((j) => j.predictedAnxiety != null || j.predictedDifficulty != null);
+  const withPredictions = journey.filter(
+    (j) => j.predictedAnxiety != null || j.predictedDifficulty != null,
+  );
   if (withPredictions.length > 0) {
-    console.log(`\n  Expectancy Calibration (${withPredictions.length} quests with predictions):`);
+    console.log(
+      `\n  Expectancy Calibration (${withPredictions.length} quests with predictions):`,
+    );
     const anxietyDeltas = withPredictions
       .filter((j) => j.predictedAnxiety != null && j.actualAnxiety != null)
       .map((j) => j.predictedAnxiety! - j.actualAnxiety!);
     const diffDeltas = withPredictions
-      .filter((j) => j.predictedDifficulty != null && j.actualDifficulty != null)
+      .filter(
+        (j) => j.predictedDifficulty != null && j.actualDifficulty != null,
+      )
       .map((j) => j.predictedDifficulty! - j.actualDifficulty!);
     if (anxietyDeltas.length > 0) {
-      const avgAnxDelta = anxietyDeltas.reduce((a, b) => a + b, 0) / anxietyDeltas.length;
-      console.log(`    Avg anxiety delta: ${avgAnxDelta > 0 ? "+" : ""}${avgAnxDelta.toFixed(2)} (${avgAnxDelta > 0.5 ? "overestimates" : avgAnxDelta < -0.5 ? "underestimates" : "well-calibrated"})`);
+      const avgAnxDelta =
+        anxietyDeltas.reduce((a, b) => a + b, 0) / anxietyDeltas.length;
+      console.log(
+        `    Avg anxiety delta: ${avgAnxDelta > 0 ? "+" : ""}${avgAnxDelta.toFixed(2)} (${avgAnxDelta > 0.5 ? "overestimates" : avgAnxDelta < -0.5 ? "underestimates" : "well-calibrated"})`,
+      );
     }
     if (diffDeltas.length > 0) {
-      const avgDiffDelta = diffDeltas.reduce((a, b) => a + b, 0) / diffDeltas.length;
-      console.log(`    Avg difficulty delta: ${avgDiffDelta > 0 ? "+" : ""}${avgDiffDelta.toFixed(2)} (${avgDiffDelta > 0.5 ? "overestimates" : avgDiffDelta < -0.5 ? "underestimates" : "well-calibrated"})`);
+      const avgDiffDelta =
+        diffDeltas.reduce((a, b) => a + b, 0) / diffDeltas.length;
+      console.log(
+        `    Avg difficulty delta: ${avgDiffDelta > 0 ? "+" : ""}${avgDiffDelta.toFixed(2)} (${avgDiffDelta > 0.5 ? "overestimates" : avgDiffDelta < -0.5 ? "underestimates" : "well-calibrated"})`,
+      );
     }
   }
 
@@ -2183,7 +3029,9 @@ async function main() {
     actCounts[act] = (actCounts[act] ?? 0) + 1;
   }
   console.log(`\n  Actionability Distribution:`);
-  for (const [act, count] of Object.entries(actCounts).sort((a, b) => b[1] - a[1])) {
+  for (const [act, count] of Object.entries(actCounts).sort(
+    (a, b) => b[1] - a[1],
+  )) {
     console.log(`    ${act.padEnd(14)} ${"█".repeat(count)} ${count}`);
   }
 
@@ -2194,8 +3042,98 @@ async function main() {
     capacityCounts[track] = (capacityCounts[track] ?? 0) + 1;
   }
   console.log(`\n  Capacity Track Distribution:`);
-  for (const [track, count] of Object.entries(capacityCounts).sort((a, b) => b[1] - a[1])) {
+  for (const [track, count] of Object.entries(capacityCounts).sort(
+    (a, b) => b[1] - a[1],
+  )) {
     console.log(`    ${track.padEnd(20)} ${"█".repeat(count)} ${count}`);
+  }
+
+  // Product-domain fit: are quests becoming offline-social reps, or generic outings?
+  const structuredContainerCount = journey.filter(
+    isStructuredOfflineContainer,
+  ).length;
+  const baseRecoveryCount = journey.filter(isBaseOrRecoveryQuest).length;
+  const initiativeRepCount = journey.filter(isInitiativeRep).length;
+  const lateJourney = journey.slice(Math.floor(journey.length / 2));
+  const lateStructuredCount = lateJourney.filter(
+    isStructuredOfflineContainer,
+  ).length;
+  const lateBaseRecoveryCount = lateJourney.filter(
+    isBaseOrRecoveryQuest,
+  ).length;
+  const lateParkCount = lateJourney.filter(
+    (j) => j.venueCategory === "Trail / Park",
+  ).length;
+  console.log(`\n  Offline-Social Fit:`);
+  console.log(
+    `    Structured containers: ${structuredContainerCount}/${journey.length} (${journey.length ? ((structuredContainerCount / journey.length) * 100).toFixed(0) : "0"}%)`,
+  );
+  console.log(
+    `    Initiative/social reps: ${initiativeRepCount}/${journey.length} (${journey.length ? ((initiativeRepCount / journey.length) * 100).toFixed(0) : "0"}%)`,
+  );
+  console.log(
+    `    Base/recovery outings:  ${baseRecoveryCount}/${journey.length} (${journey.length ? ((baseRecoveryCount / journey.length) * 100).toFixed(0) : "0"}%)`,
+  );
+  if (lateJourney.length > 0) {
+    console.log(
+      `    Late journey mix:      ${lateStructuredCount}/${lateJourney.length} structured, ${lateBaseRecoveryCount}/${lateJourney.length} base/recovery, ${lateParkCount}/${lateJourney.length} park-family`,
+    );
+  }
+  if (journey.length >= 8 && lateStructuredCount === 0) {
+    console.log(
+      `    ⚠ Late journey never reached classes/groups/clubs/workshops — likely still too generic.`,
+    );
+  }
+  if (journey.length >= 8 && lateBaseRecoveryCount > lateJourney.length / 2) {
+    console.log(
+      `    ⚠ Late journey is still dominated by base/recovery outings — needs sharper offline-social containers.`,
+    );
+  }
+
+  const goalClosureMilestones = journey.filter(
+    (j) => j.questRole === "milestone",
+  );
+  const directDatingRepCount = journey.filter(includesDirectDatingRep).length;
+  const regionalOpportunityCount = journey.filter(isRegionalOpportunity).length;
+  const unacknowledgedTravelLeaks = journey.filter(
+    (j) => isRegionalOpportunity(j) && !hasTravelFraming(j),
+  );
+  const structuredClaims = journey.filter(claimsStructuredContainer);
+  const weakStructuredClaims = structuredClaims.filter(
+    (j) => !isStructuredOfflineContainer(j),
+  );
+  console.log(`\n  Milestone / Regional Fit:`);
+  console.log(
+    `    Goal closure milestone fired: ${goalClosureMilestones.length > 0 ? "yes" : "no"} (${goalClosureMilestones.length})`,
+  );
+  console.log(
+    `    Direct dating reps:           ${directDatingRepCount}/${journey.length}`,
+  );
+  console.log(
+    `    Regional opportunity quests:  ${regionalOpportunityCount}/${journey.length}`,
+  );
+  console.log(
+    `    Unacknowledged travel leaks:  ${unacknowledgedTravelLeaks.length}/${regionalOpportunityCount}`,
+  );
+  console.log(
+    `    Structured-container claims:  ${structuredClaims.length}/${journey.length} (${weakStructuredClaims.length} weak/unverified by category)`,
+  );
+  if (
+    journey.length >= 10 &&
+    directDatingRepCount === 0 &&
+    goalClosureMilestones.length === 0
+  ) {
+    console.log(
+      `    ⚠ No goal-closure milestone or direct dating rep despite a long dating journey.`,
+    );
+  }
+  if (unacknowledgedTravelLeaks.length > 0) {
+    console.log(
+      `    ⚠ Regional/nearby travel appeared without explicit framing: ${unacknowledgedTravelLeaks
+        .slice(0, 3)
+        .map((j) => `"${j.title}" ${j.distanceFromHome.toFixed(1)}mi`)
+        .join(", ")}`,
+    );
   }
 
   // Quest Type/Role distribution
@@ -2207,40 +3145,66 @@ async function main() {
     roleCounts[role] = (roleCounts[role] ?? 0) + 1;
   }
   console.log(`\n  Quest Type Distribution:`);
-  for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+  for (const [type, count] of Object.entries(typeCounts).sort(
+    (a, b) => b[1] - a[1],
+  )) {
     console.log(`    ${type.padEnd(14)} ${"█".repeat(count)} ${count}`);
   }
   console.log(`\n  Quest Role Distribution:`);
-  for (const [role, count] of Object.entries(roleCounts).sort((a, b) => b[1] - a[1])) {
+  for (const [role, count] of Object.entries(roleCounts).sort(
+    (a, b) => b[1] - a[1],
+  )) {
     const marker = role === "enjoy" ? " ★" : "";
-    console.log(`    ${role.padEnd(14)} ${"█".repeat(count)} ${count}${marker}`);
+    console.log(
+      `    ${role.padEnd(14)} ${"█".repeat(count)} ${count}${marker}`,
+    );
   }
   const enjoyCount = roleCounts["enjoy"] ?? 0;
   if (enjoyCount > 0) {
-    console.log(`    → Enjoy quests appeared! (${enjoyCount}/${journey.length})`);
+    console.log(
+      `    → Enjoy quests appeared! (${enjoyCount}/${journey.length})`,
+    );
   } else if (journey.length >= 8) {
-    console.log(`    → No enjoy quests appeared despite ${journey.length} quests (may need thriving pathway)`);
+    console.log(
+      `    → No enjoy quests appeared despite ${journey.length} quests (may need thriving pathway)`,
+    );
   }
 
   // Case-study signals: does this look like durable life change?
-  const socialIndexes = journey.map((j) => SOCIAL_LADDER.indexOf(j.socialContext));
+  const socialIndexes = journey.map((j) =>
+    SOCIAL_LADDER.indexOf(j.socialContext),
+  );
   const firstSocial = socialIndexes.find((idx) => idx >= 0) ?? 0;
   const peakSocial = socialIndexes.length > 0 ? Math.max(...socialIndexes) : 0;
   const nonSoloCount = journey.filter((j) => j.socialContext !== "solo").length;
   const wouldReturnCount = journey.filter((j) => j.wouldReturn === true).length;
   const firstDeepenIndex = journey.findIndex((j) => j.questRole === "deepen");
-  const firstDfsSnapshot = pathwaySnapshots.find((s) => s.pathways.some((p) => p.phase === "dfs"));
+  const firstDfsSnapshot = pathwaySnapshots.find((s) =>
+    s.pathways.some((p) => p.phase === "dfs"),
+  );
   const lastSnapshot = pathwaySnapshots[pathwaySnapshots.length - 1];
   const anchorCount = lastSnapshot
-    ? lastSnapshot.pathways.filter((p) => p.phase === "dfs" || p.questCount >= 3).length
+    ? lastSnapshot.pathways.filter(
+        (p) => p.phase === "dfs" || p.questCount >= 3,
+      ).length
     : 0;
 
   console.log(`\n  Case Study Signals:`);
-  console.log(`    Anchors at end:       ${anchorCount} (${lastSnapshot?.globalPhase ?? "no pathways"})`);
-  console.log(`    First DFS signal:     ${firstDfsSnapshot ? `quest ${firstDfsSnapshot.questIndex + 1}` : "none yet"}`);
-  console.log(`    First deepen role:    ${firstDeepenIndex >= 0 ? `quest ${firstDeepenIndex + 1}` : "none yet"}`);
-  console.log(`    Would-return rate:    ${wouldReturnCount}/${journey.length} (${journey.length ? ((wouldReturnCount / journey.length) * 100).toFixed(0) : "0"}%)`);
-  console.log(`    Social lift:          ${SOCIAL_LADDER[firstSocial] ?? "unknown"} → ${SOCIAL_LADDER[peakSocial] ?? "unknown"} (${nonSoloCount}/${journey.length} non-solo reps)`);
+  console.log(
+    `    Anchors at end:       ${anchorCount} (${lastSnapshot?.globalPhase ?? "no pathways"})`,
+  );
+  console.log(
+    `    First DFS signal:     ${firstDfsSnapshot ? `quest ${firstDfsSnapshot.questIndex + 1}` : "none yet"}`,
+  );
+  console.log(
+    `    First deepen role:    ${firstDeepenIndex >= 0 ? `quest ${firstDeepenIndex + 1}` : "none yet"}`,
+  );
+  console.log(
+    `    Would-return rate:    ${wouldReturnCount}/${journey.length} (${journey.length ? ((wouldReturnCount / journey.length) * 100).toFixed(0) : "0"}%)`,
+  );
+  console.log(
+    `    Social lift:          ${SOCIAL_LADDER[firstSocial] ?? "unknown"} → ${SOCIAL_LADDER[peakSocial] ?? "unknown"} (${nonSoloCount}/${journey.length} non-solo reps)`,
+  );
 
   // Pathway progression
   if (pathwaySnapshots.length > 0) {
@@ -2252,8 +3216,11 @@ async function main() {
     for (const p of last.pathways) {
       const firstMatch = first.pathways.find((fp) => fp.theme === p.theme);
       const delta = firstMatch ? p.avgResonance - firstMatch.avgResonance : 0;
-      const deltaStr = delta !== 0 ? ` (${delta > 0 ? "+" : ""}${delta.toFixed(3)})` : "";
-      console.log(`      ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${p.avgResonance.toFixed(3)}${deltaStr}  quests=${p.questCount}`);
+      const deltaStr =
+        delta !== 0 ? ` (${delta > 0 ? "+" : ""}${delta.toFixed(3)})` : "";
+      console.log(
+        `      ${p.themeLabel.padEnd(16)} ${p.phase.padEnd(10)} res=${p.avgResonance.toFixed(3)}${deltaStr}  quests=${p.questCount}`,
+      );
     }
   }
 
@@ -2261,21 +3228,36 @@ async function main() {
   if (milestoneEvents.length > 0) {
     console.log(`\n  Milestone Timeline:`);
     for (const m of milestoneEvents) {
-      console.log(`    Quest ${m.questIndex + 1}: ${m.milestone} (${m.percentElapsed}% elapsed, ${m.remainingDays}d left) ${m.reflectionSaved ? "— reflection saved" : "— reflection failed"}`);
+      console.log(
+        `    Quest ${m.questIndex + 1}: ${m.milestone} (${m.percentElapsed}% elapsed, ${m.remainingDays}d left) ${m.reflectionSaved ? "— reflection saved" : "— reflection failed"}`,
+      );
     }
   }
 
   // Journey timeline
-  console.log(`\n  Journey Timeline:${activeBlocker ? "  (>> = setback, ★★ = breakthrough)" : ""}`);
-  console.log(`  ${"#".padEnd(4)} ${activeBlocker ? "MARK " : ""}${"Role".padEnd(10)} ${"Capacity".padEnd(13)} ${"Category".padEnd(14)} ${"Venue".padEnd(26)} ${"Diff".padEnd(5)} ${"Rate".padEnd(5)} ${"Resonance".padEnd(10)} ${"Social".padEnd(18)} Hook`);
+  console.log(
+    `\n  Journey Timeline:${activeBlocker ? "  (>> = setback, ★★ = breakthrough)" : ""}`,
+  );
+  console.log(
+    `  ${"#".padEnd(4)} ${activeBlocker ? "MARK " : ""}${"Role".padEnd(10)} ${"Capacity".padEnd(13)} ${"Category".padEnd(14)} ${"Venue".padEnd(26)} ${"Diff".padEnd(5)} ${"Rate".padEnd(5)} ${"Resonance".padEnd(10)} ${"Social".padEnd(18)} Hook`,
+  );
   console.log(`  ${"─".repeat(activeBlocker ? 158 : 154)}`);
   for (const j of journey) {
     const resonanceBar = "▓".repeat(Math.round(j.resonance * 10)).padEnd(10);
-    const venue = j.venueName.length > 24 ? j.venueName.slice(0, 23) + "…" : j.venueName;
+    const venue =
+      j.venueName.length > 24 ? j.venueName.slice(0, 23) + "…" : j.venueName;
     const hook = j.hook.length > 50 ? j.hook.slice(0, 49) + "…" : j.hook;
-    const role = (j.questRole ?? "—").slice(0, 8);
+    const role =
+      (j.questRole === "milestone" ? "MS:" : "") +
+      (j.questRole ?? "—").slice(0, 8);
     const capacity = (j.capacityTrack ?? "—").replace(/_/g, "-").slice(0, 12);
-    const blk = activeBlocker ? (j.blockerTriggered ? " >> " : j.isBreakthrough ? " ★★ " : "    ") : "";
+    const blk = activeBlocker
+      ? j.blockerTriggered
+        ? " >> "
+        : j.isBreakthrough
+          ? " ★★ "
+          : "    "
+      : "";
     console.log(
       `  ${String(j.index).padEnd(4)}${blk}${role.padEnd(10)} ${capacity.padEnd(13)} ${j.venueCategory.padEnd(14)} ${venue.padEnd(26)} ${String(j.difficulty).padEnd(5)} ${String(j.rating).padEnd(5)} ${resonanceBar} ${j.socialContext.padEnd(18)} ${hook}`,
     );
@@ -2285,20 +3267,48 @@ async function main() {
   console.log(`\n  Resonance Components (avg across all quests):`);
   if (journey.length > 0) {
     const avgComponents = {
-      ratingSignal: journey.reduce((s, j) => s + j.resonanceComponents.ratingSignal, 0) / journey.length,
-      journalDepth: journey.reduce((s, j) => s + j.resonanceComponents.journalDepth, 0) / journey.length,
-      sentimentSignal: journey.reduce((s, j) => s + j.resonanceComponents.sentimentSignal, 0) / journey.length,
-      socialEscalation: journey.reduce((s, j) => s + j.resonanceComponents.socialEscalation, 0) / journey.length,
-      speedSignal: journey.reduce((s, j) => s + j.resonanceComponents.speedSignal, 0) / journey.length,
-      difficultyAlignment: journey.reduce((s, j) => s + j.resonanceComponents.difficultyAlignment, 0) / journey.length,
+      ratingSignal:
+        journey.reduce((s, j) => s + j.resonanceComponents.ratingSignal, 0) /
+        journey.length,
+      journalDepth:
+        journey.reduce((s, j) => s + j.resonanceComponents.journalDepth, 0) /
+        journey.length,
+      sentimentSignal:
+        journey.reduce((s, j) => s + j.resonanceComponents.sentimentSignal, 0) /
+        journey.length,
+      socialEscalation:
+        journey.reduce(
+          (s, j) => s + j.resonanceComponents.socialEscalation,
+          0,
+        ) / journey.length,
+      speedSignal:
+        journey.reduce((s, j) => s + j.resonanceComponents.speedSignal, 0) /
+        journey.length,
+      difficultyAlignment:
+        journey.reduce(
+          (s, j) => s + j.resonanceComponents.difficultyAlignment,
+          0,
+        ) / journey.length,
     };
     const weights = DEFAULT_QUEST_CONFIG.resonance.weights;
-    console.log(`    Rating Signal:        ${avgComponents.ratingSignal.toFixed(3)}  (weight: ${(weights.rating * 100).toFixed(0)}%)`);
-    console.log(`    Journal Depth:        ${avgComponents.journalDepth.toFixed(3)}  (weight: ${(weights.journalDepth * 100).toFixed(0)}%)`);
-    console.log(`    Sentiment Signal:     ${avgComponents.sentimentSignal.toFixed(3)}  (weight: ${(weights.sentiment * 100).toFixed(0)}%)`);
-    console.log(`    Social Escalation:    ${avgComponents.socialEscalation.toFixed(3)}  (weight: ${(weights.socialEscalation * 100).toFixed(0)}%)`);
-    console.log(`    Speed to Completion:  ${avgComponents.speedSignal.toFixed(3)}  (weight: ${(weights.speedToCompletion * 100).toFixed(0)}%)`);
-    console.log(`    Difficulty Alignment: ${avgComponents.difficultyAlignment.toFixed(3)}  (weight: ${(weights.difficultyAlignment * 100).toFixed(0)}%)`);
+    console.log(
+      `    Rating Signal:        ${avgComponents.ratingSignal.toFixed(3)}  (weight: ${(weights.rating * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `    Journal Depth:        ${avgComponents.journalDepth.toFixed(3)}  (weight: ${(weights.journalDepth * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `    Sentiment Signal:     ${avgComponents.sentimentSignal.toFixed(3)}  (weight: ${(weights.sentiment * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `    Social Escalation:    ${avgComponents.socialEscalation.toFixed(3)}  (weight: ${(weights.socialEscalation * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `    Speed to Completion:  ${avgComponents.speedSignal.toFixed(3)}  (weight: ${(weights.speedToCompletion * 100).toFixed(0)}%)`,
+    );
+    console.log(
+      `    Difficulty Alignment: ${avgComponents.difficultyAlignment.toFixed(3)}  (weight: ${(weights.difficultyAlignment * 100).toFixed(0)}%)`,
+    );
   } else {
     console.log("    No completed quests.");
   }
@@ -2316,8 +3326,139 @@ async function main() {
   // World size
   const worldRes = await api("GET", "/api/sidequests/world-size", token);
   if (worldRes.data) {
-    console.log(`\n  World Size: ${worldRes.data.worldSizeSqMiles?.toFixed(2) ?? "?"} sq mi`);
-    console.log(`  Furthest from home: ${worldRes.data.furthestFromHomeMiles?.toFixed(2) ?? "?"} mi`);
+    const areaSqMiles =
+      worldRes.data.areaSqMiles ?? worldRes.data.worldSizeSqMiles;
+    const furthestMiles =
+      worldRes.data.furthestMiles ?? worldRes.data.furthestFromHomeMiles;
+    console.log(
+      `\n  World Size: ${typeof areaSqMiles === "number" ? areaSqMiles.toFixed(2) : "?"} sq mi`,
+    );
+    console.log(
+      `  Furthest from home: ${typeof furthestMiles === "number" ? furthestMiles.toFixed(2) : "?"} mi`,
+    );
+  }
+
+  const acceptanceMetrics = {
+    totalQuests: journey.length,
+    goalClosureMilestoneFired: journey.some((j) => j.questRole === "milestone"),
+    directDatingReps: journey.filter(includesDirectDatingRep).length,
+    regionalOpportunityQuests: journey.filter(isRegionalOpportunity).length,
+    unacknowledgedTravelLeaks: journey.filter(
+      (j) => isRegionalOpportunity(j) && !hasTravelFraming(j),
+    ).length,
+    structuredContainerClaims: journey.filter(claimsStructuredContainer).length,
+    weakStructuredContainerClaims: journey.filter(
+      (j) => claimsStructuredContainer(j) && !isStructuredOfflineContainer(j),
+    ).length,
+    enjoyQuests: journey.filter((j) => j.questRole === "enjoy").length,
+    lateStructuredCount,
+    lateBaseRecoveryCount,
+    lateParkCount,
+    lateJourneyCount: lateJourney.length,
+  };
+  const acceptanceFailures: string[] = [];
+  if (assertMode) {
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 10 &&
+      !acceptanceMetrics.goalClosureMilestoneFired
+    ) {
+      acceptanceFailures.push(
+        "Expected at least one questRole=milestone after readiness.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 10 &&
+      acceptanceMetrics.directDatingReps === 0
+    ) {
+      acceptanceFailures.push(
+        "Expected at least one directGoalTouch/direct dating rep.",
+      );
+    }
+    if (acceptanceMetrics.unacknowledgedTravelLeaks > 0) {
+      acceptanceFailures.push(
+        "Expected all nearby/regional opportunity quests to include travel framing.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 8 &&
+      acceptanceMetrics.enjoyQuests === 0
+    ) {
+      acceptanceFailures.push(
+        "Expected enjoy quests to still appear in longer simulations.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateStructuredCount < 3
+    ) {
+      acceptanceFailures.push(
+        "Expected at least 3 structured-container quests in the late journey.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateBaseRecoveryCount >
+        Math.floor(acceptanceMetrics.lateJourneyCount * 0.6)
+    ) {
+      acceptanceFailures.push(
+        "Expected late journey to avoid being dominated by base/recovery outings.",
+      );
+    }
+    if (
+      personaKey === "dating-dylan" &&
+      questCount >= 20 &&
+      acceptanceMetrics.lateJourneyCount >= 10 &&
+      acceptanceMetrics.lateParkCount >
+        Math.ceil(acceptanceMetrics.lateJourneyCount / 3)
+    ) {
+      acceptanceFailures.push(
+        "Expected park-family quests to stay capped in the late journey.",
+      );
+    }
+  }
+  const reportPath = `/tmp/sidequest-sim-report-${personaKey || "custom"}-${seed}.json`;
+  fs.writeFileSync(
+    reportPath,
+    JSON.stringify(
+      {
+        personaKey,
+        questCount,
+        seed,
+        assertMode,
+        metrics: acceptanceMetrics,
+        failures: acceptanceFailures,
+        journey: journey.map((j) => ({
+          index: j.index,
+          title: j.title,
+          questRole: j.questRole,
+          capacityTrack: j.capacityTrack,
+          venueName: j.venueName,
+          venueCategory: j.venueCategory,
+          distanceFromHome: j.distanceFromHome,
+          opportunityScope: j.opportunityScope,
+          travelRationale: j.travelRationale,
+          directGoalTouch: j.directGoalTouch,
+          goalActionType: j.goalActionType,
+          rating: j.rating,
+          resonance: j.resonance,
+        })),
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`\n  JSON report: ${reportPath}`);
+  if (acceptanceFailures.length > 0) {
+    console.log(`\n  Assertion failures:`);
+    for (const failure of acceptanceFailures) console.log(`    - ${failure}`);
+    process.exitCode = 1;
   }
 
   console.log(`\n  Done.`);

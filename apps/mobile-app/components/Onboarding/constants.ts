@@ -77,6 +77,47 @@ export const BUDGET_OPTIONS = [
   { key: "flexible", label: "Not worried about it" },
 ];
 
+// \u2500\u2500 About-you options (StepAboutYou) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+export const GENDER_OPTIONS = [
+  { key: "woman", label: "Woman" },
+  { key: "man", label: "Man" },
+  { key: "nonbinary", label: "Nonbinary" },
+  { key: "other", label: "Other" },
+  { key: "private", label: "Prefer not to say" },
+];
+
+export const TIME_IN_AREA_OPTIONS = [
+  { key: "less_than_year", label: "Less than a year" },
+  { key: "1_to_3_years", label: "1\u20133 years" },
+  { key: "3_plus_years", label: "3+ years" },
+  { key: "lifelong", label: "Lifelong local" },
+];
+
+export const WORK_SITUATION_OPTIONS = [
+  { key: "remote", label: "Remote" },
+  { key: "in_office", label: "In office" },
+  { key: "hybrid", label: "Hybrid" },
+  { key: "freelance", label: "Freelance" },
+  { key: "between_jobs", label: "Between jobs" },
+  { key: "student", label: "Student" },
+];
+
+export const LIVING_SITUATION_OPTIONS = [
+  { key: "alone", label: "Alone" },
+  { key: "with_partner", label: "With partner" },
+  { key: "with_roommates", label: "With roommates" },
+  { key: "with_family", label: "With family" },
+];
+
+export const LOOKING_FOR_OPTIONS = [
+  { key: "friends", label: "Friends" },
+  { key: "dating", label: "Dating" },
+  { key: "community", label: "A community" },
+  { key: "shared_interests", label: "Shared interests" },
+  { key: "exploring", label: "Just exploring" },
+];
+
 // ── Activity options ────────────────────────────────────────
 
 export const ACTIVITY_OPTIONS = [

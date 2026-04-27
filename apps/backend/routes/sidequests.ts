@@ -32,6 +32,8 @@ import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
+
+const REACH_MODES = ["local_only", "nearby_mix", "best_opportunities"] as const;
 import { withErrorHandling, requireAuth } from "../utils/handlerUtils";
 import { generateFearLadder } from "../services/FearLadderGenerationService";
 import { generateBarriers } from "../services/BarrierGenerationService";
@@ -57,7 +59,9 @@ sidequestRouter.get(
   "/comfort-zone",
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
-    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const comfortZoneService = c.get(
+      "comfortZoneService",
+    ) as ComfortZoneService;
     return c.json(await comfortZoneService.getComfortZone(user.id));
   }),
 );
@@ -66,7 +70,9 @@ sidequestRouter.get(
   "/world-size",
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
-    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const comfortZoneService = c.get(
+      "comfortZoneService",
+    ) as ComfortZoneService;
     return c.json(await comfortZoneService.getWorldSize(user.id));
   }),
 );
@@ -83,12 +89,21 @@ sidequestRouter.post(
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
     const body = await c.req.json<{ latitude: number; longitude: number }>();
-    if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+    if (
+      typeof body.latitude !== "number" ||
+      typeof body.longitude !== "number"
+    ) {
       return c.json({ error: "latitude and longitude are required" }, 400);
     }
 
-    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
-    await comfortZoneService.detectHomeAnchor(user.id, body.latitude, body.longitude);
+    const comfortZoneService = c.get(
+      "comfortZoneService",
+    ) as ComfortZoneService;
+    await comfortZoneService.detectHomeAnchor(
+      user.id,
+      body.latitude,
+      body.longitude,
+    );
     return c.json(await comfortZoneService.getComfortZone(user.id));
   }),
 );
@@ -118,11 +133,18 @@ sidequestRouter.post(
       activities: string[];
     }>();
 
-    if (!body.primaryGoal || typeof body.primaryGoal !== "string" || body.primaryGoal.trim().length === 0) {
+    if (
+      !body.primaryGoal ||
+      typeof body.primaryGoal !== "string" ||
+      body.primaryGoal.trim().length === 0
+    ) {
       return c.json({ error: "primaryGoal is required" }, 400);
     }
     if (body.primaryGoal.length > 500) {
-      return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
+      return c.json(
+        { error: "primaryGoal must be 500 characters or fewer" },
+        400,
+      );
     }
 
     const openAIService = c.get("openAIService");
@@ -143,16 +165,25 @@ sidequestRouter.post(
     requireAuth(c);
     const body = await c.req.json<{ primaryGoal: string }>();
 
-    if (!body.primaryGoal || typeof body.primaryGoal !== "string" || body.primaryGoal.trim().length === 0) {
+    if (
+      !body.primaryGoal ||
+      typeof body.primaryGoal !== "string" ||
+      body.primaryGoal.trim().length === 0
+    ) {
       return c.json({ error: "primaryGoal is required" }, 400);
     }
     if (body.primaryGoal.length > 500) {
-      return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
+      return c.json(
+        { error: "primaryGoal must be 500 characters or fewer" },
+        400,
+      );
     }
 
     const openAIService = c.get("openAIService");
     return c.json(
-      await generateBarriers(openAIService, { primaryGoal: body.primaryGoal.trim() }),
+      await generateBarriers(openAIService, {
+        primaryGoal: body.primaryGoal.trim(),
+      }),
     );
   }),
 );
@@ -171,7 +202,7 @@ sidequestRouter.put(
         goalTags?: string[];
         primaryGoal?: string;
       };
-      onboardingProfile?: { activities: string[] };
+      onboardingProfile?: { activities: string[]; pace?: string };
       fearLadder?: {
         overallScore: number;
         dimensionScores: Record<string, number>;
@@ -191,6 +222,7 @@ sidequestRouter.put(
         transportation?: string;
         budget?: string;
       };
+      reachMode?: "local_only" | "nearby_mix" | "best_opportunities" | null;
       onboardingPhase?: number;
     }>();
 
@@ -201,17 +233,38 @@ sidequestRouter.put(
         400,
       );
     }
-    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile && !body.socialSituation && body.onboardingPhase === undefined) {
+    if (
+      body.reachMode !== undefined &&
+      body.reachMode !== null &&
+      !REACH_MODES.includes(body.reachMode)
+    ) {
+      return c.json(
+        { error: `reachMode must be one of: ${REACH_MODES.join(", ")}` },
+        400,
+      );
+    }
+    if (
+      !body.pacePreference &&
+      !body.comfortProfile &&
+      !body.fearLadder &&
+      !body.onboardingProfile &&
+      !body.socialSituation &&
+      body.reachMode === undefined &&
+      body.onboardingPhase === undefined
+    ) {
       return c.json({ error: "No fields to update" }, 400);
     }
 
-    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const comfortZoneService = c.get(
+      "comfortZoneService",
+    ) as ComfortZoneService;
     await comfortZoneService.updateComfortProfile(user.id, {
       pacePreference: body.pacePreference,
       comfortProfile: body.comfortProfile,
       fearLadder: body.fearLadder,
       onboardingProfile: body.onboardingProfile,
       socialSituation: body.socialSituation,
+      reachMode: body.reachMode,
       onboardingPhase: body.onboardingPhase,
     });
 

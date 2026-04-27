@@ -64,6 +64,14 @@ export const CAPACITY_TRACK_LABELS: Record<CapacityTrack, string> = {
   [CapacityTrack.IDENTITY_EVIDENCE]: "Identity Evidence",
 };
 
+export type GoalActionType =
+  | "none"
+  | "dating_app_invite"
+  | "suggest_coffee"
+  | "ask_contact"
+  | "natural_invitation"
+  | "other_direct_goal_action";
+
 @Entity("sidequests")
 export class Sidequest {
   @PrimaryGeneratedColumn("uuid")
@@ -217,6 +225,9 @@ export class Sidequest {
   @Column({ name: "ai_reflection", type: "text", nullable: true })
   aiReflection?: string;
 
+  @Column({ name: "market_reflection", type: "text", nullable: true })
+  marketReflection?: string;
+
   // ── Capacity rep (Slice C) ──
   // The strategist picks ONE capacity track per prescription before selecting
   // a venue. `repIntent` is the strategist's one-line description of what
@@ -232,6 +243,42 @@ export class Sidequest {
 
   @Column({ name: "rep_intent", type: "varchar", length: 500, nullable: true })
   repIntent?: string;
+
+  /** GoalProgram capability ID exercised by this quest (e.g. "micro_conversation"). */
+  @Column({
+    name: "capability_id",
+    type: "varchar",
+    length: 128,
+    nullable: true,
+  })
+  capabilityId?: string;
+
+  /** Specific enactment pattern within the capability (e.g. "micro_conversation_context_questions"). */
+  @Column({
+    name: "enactment_pattern_id",
+    type: "varchar",
+    length: 128,
+    nullable: true,
+  })
+  enactmentPatternId?: string;
+
+  @Column({ name: "opportunity_scope", type: "varchar", length: 50, nullable: true })
+  opportunityScope?: string;
+
+  @Column({ name: "travel_rationale", type: "text", nullable: true })
+  travelRationale?: string;
+
+  @Column({ name: "goal_milestone_key", type: "varchar", length: 100, nullable: true })
+  goalMilestoneKey?: string;
+
+  @Column({ name: "goal_milestone_title", type: "varchar", length: 200, nullable: true })
+  goalMilestoneTitle?: string;
+
+  @Column({ name: "direct_goal_touch", type: "boolean", nullable: true })
+  directGoalTouch?: boolean;
+
+  @Column({ name: "goal_action_type", type: "varchar", length: 50, nullable: true })
+  goalActionType?: GoalActionType;
 
   @Column({
     name: "distance_from_home",

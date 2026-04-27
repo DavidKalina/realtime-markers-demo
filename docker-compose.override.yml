@@ -8,6 +8,8 @@ services:
     working_dir: /app/apps/backend
     environment:
       ENABLE_SIMULATION_BYPASS: "true"
+      DEBUG_DATING_PROGRESSION: "${DEBUG_DATING_PROGRESSION:-false}"
+      DISABLE_DATING_MILESTONE_POLICY: "${DISABLE_DATING_MILESTONE_POLICY:-false}"
     ports:
       - "3000:3000"
     labels: []
@@ -18,6 +20,9 @@ services:
 
   worker:
     working_dir: /app/apps/backend
+    environment:
+      DEBUG_DATING_PROGRESSION: "${DEBUG_DATING_PROGRESSION:-false}"
+      DISABLE_DATING_MILESTONE_POLICY: "${DISABLE_DATING_MILESTONE_POLICY:-false}"
     volumes:
       - ./apps/backend:/app/apps/backend
       - /app/apps/backend/node_modules

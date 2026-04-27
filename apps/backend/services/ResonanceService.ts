@@ -415,12 +415,16 @@ Evaluate the journal entry and return a JSON object with exactly these fields:
    0.5: Somewhat positive (enjoyment, satisfaction)
    1.0: Very positive (joy, gratitude, feeling alive)
 
-- "tags" (array of strings): Zero to three labels from this set:
+- "tags" (array of strings): Zero to four labels from this set:
   "growth_narrative" — describes personal growth or overcoming a barrier
   "self_awareness" — shows insight into own patterns, feelings, or behavior
   "social_connection" — reflects meaningfully on interaction with others
   "discomfort_processed" — acknowledges discomfort but processes it constructively
   "surface_level" — minimal reflection, mostly factual
+  "coverage_complaint" — user explicitly says this rep isn't moving them toward their actual goal (e.g. "this isn't getting me closer to dating", "I'm not sure how this translates to what I really want", "this doesn't feel like real progress")
+  "readiness_mismatch" — user explicitly indicates this rep was below their level or already in their comfort zone (e.g. "I already do this all the time", "this was too easy", "I was hoping for something more challenging")
+
+The "coverage_complaint" and "readiness_mismatch" tags are signals that the user is succeeding at the rep but ready for more — apply them only when the user expresses this directly. Do not apply them for general venting or for "this was hard" sentiment.
 
 Return ONLY the JSON object, no other text.`;
 
@@ -436,7 +440,7 @@ export async function analyzeJournalReflection(
         { role: "user", content: journalEntry },
       ],
       temperature: 0,
-      max_tokens: 150,
+      max_tokens: 200,
       response_format: { type: "json_object" },
     },
     "journal_reflection_analysis",

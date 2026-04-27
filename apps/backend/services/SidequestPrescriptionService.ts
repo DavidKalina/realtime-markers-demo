@@ -11,7 +11,10 @@ import { haversineDistance } from "@realtime-markers/shared";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
-import type { GooglePlacesService, VerifiedVenue } from "./shared/GooglePlacesService";
+import type {
+  GooglePlacesService,
+  VerifiedVenue,
+} from "./shared/GooglePlacesService";
 import type { OverpassService, Trail } from "./shared/OverpassService";
 import type { EmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";
@@ -27,8 +30,33 @@ import {
   type PrescriptionPromptContext,
 } from "./prompts/PrescriptionPromptRegistry";
 import { MultiAgentStrategy } from "./prescription/MultiAgentStrategy";
-import type { PrescriptionStrategyInput } from "./prescription/PrescriptionStrategy";
+import type {
+  PrescriptionStrategyInput,
+  StrategyBrief,
+} from "./prescription/PrescriptionStrategy";
 import { resolveGoalTags } from "./shared/QuestConfig";
+import { buildOfflineSocialFrameworkPlan } from "./prescription/OfflineSocialFramework";
+import {
+  buildGoalMilestoneContext,
+  detectGoalActionType,
+  isConcreteGoalActionType,
+  normalizeGoalActionType,
+} from "./prescription/GoalMilestoneContext";
+import { buildJourneyDiversityContext } from "./prescription/JourneyDiversityContext";
+import { buildWillingnessContext } from "./prescription/WillingnessContext";
+import {
+  qualitiesFromSocialSituation,
+  qualitiesFromUserPrefs,
+  mergeQualityProfiles,
+} from "./prescription/VenueQualities";
+import {
+  type TraceCollector,
+  type TraceContext,
+  NOOP_TRACE,
+} from "./TraceCollector";
+import { resolveJourneyPhase } from "./prescription/JourneyPhasePolicy";
+import { analyzeOpportunityZones } from "./prescription/OpportunityZonePolicy";
+import { buildDatingProgressionContext } from "./prescription/DatingProgressionPolicy";
 
 // ── Extracted modules ──────────────────────────────────────────────
 import {
@@ -41,6 +69,7 @@ import {
   buildSiblingInstructions,
   buildIndividualRoleInstructions,
   buildSocialSituationContext,
+  buildVenueVisitHistory,
   computeFearLadderReadiness,
   determineIndividualQuestRole,
   loadRecentRejections,
@@ -51,7 +80,10 @@ import {
 } from "./prescription/PrescriptionContextBuilder";
 
 // ── Re-exports (keep public API stable) ────────────────────────────
-export type { FearLadderReadiness, BlockerDetectionResult } from "./prescription/PrescriptionContextBuilder";
+export type {
+  FearLadderReadiness,
+  BlockerDetectionResult,
+} from "./prescription/PrescriptionContextBuilder";
 
 export type SidequestProgressCallback = (
   progress: number,
@@ -75,10 +107,20 @@ export interface SiblingContext {
   batchId: string;
   batchIndex: number;
   totalInBatch: number;
-  questRole: "deepen" | "explore" | "discover" | "stretch" | "enjoy";
+  questRole:
+    | "deepen"
+    | "explore"
+    | "discover"
+    | "stretch"
+    | "enjoy"
+    | "milestone";
   difficultyTier?: "easy" | "medium" | "stretch";
   targetPathway?: { id: string; theme: string; label: string; phase: string };
-  previousSiblings: { title: string; venueCategory: string; venueName: string }[];
+  previousSiblings: {
+    title: string;
+    venueCategory: string;
+    venueName: string;
+  }[];
 }
 
 // ─── LLM Types (only used by prescription) ──────────────────────────
@@ -103,12 +145,15 @@ interface LLMItemRaw {
   tr?: string | null;
   mvw?: string | null;
   er?: string | null;
+  dgt?: boolean | null;
+  gat?: string | null;
 }
 
 interface LLMResponseRaw {
   t: string;
   s: string;
   sn?: string;
+  mr?: string | null;
   items: LLMItemRaw[];
 }
 
@@ -132,12 +177,15 @@ interface LLMItem {
   tinyRep: string | null;
   minViableWin: string | null;
   exitRamp: string | null;
+  directGoalTouch: boolean | null;
+  goalActionType: string | null;
 }
 
 interface LLMResponse {
   title: string;
   summary: string;
   strategyNote?: string;
+  marketReflection?: string;
   items: LLMItem[];
 }
 
@@ -146,6 +194,7 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
     title: raw.t,
     summary: raw.s,
     strategyNote: raw.sn ?? undefined,
+    marketReflection: raw.mr ?? undefined,
     items: raw.items.map((i) => ({
       title: i.t,
       description: i.d,
@@ -160,13 +209,79 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
       actionItems: i.ai ?? null,
       journalPrompt: i.jp ?? null,
       difficulty: i.df ?? null,
-      actionability: (["actionable", "suggestive", "milestone"].includes(i.act ?? "") ? i.act : "suggestive") as LLMItem["actionability"],
+      actionability: (["actionable", "suggestive", "milestone"].includes(
+        i.act ?? "",
+      )
+        ? i.act
+        : "suggestive") as LLMItem["actionability"],
       smallerRep: i.sr ?? null,
       tinyRep: i.tr ?? null,
       minViableWin: i.mvw ?? null,
       exitRamp: i.er ?? null,
+      directGoalTouch: i.dgt ?? null,
+      goalActionType: i.gat ?? null,
     })),
   };
+}
+
+function buildDecisionTraceNote(input: {
+  baseNote?: string;
+  questRole: string | undefined;
+  strategyBrief: StrategyBrief;
+  datingProgression: Awaited<ReturnType<typeof buildDatingProgressionContext>>;
+  journeyPhase: ReturnType<typeof resolveJourneyPhase>;
+}): string | undefined {
+  const pieces = [input.baseNote?.trim()].filter(Boolean) as string[];
+  const venueTrace = input.strategyBrief.venueSelectionTrace;
+  if (venueTrace?.attempts.length) {
+    const finalAttempt =
+      venueTrace.attempts[venueTrace.attempts.length - 1] ??
+      venueTrace.attempts[0];
+    const searchSummary = finalAttempt.searches
+      .filter((search) => search.tool === "search_places")
+      .slice(0, 4)
+      .map(
+        (search) =>
+          `"${search.query}"→${search.acceptedNew ?? search.returned}/${search.returned}`,
+      )
+      .join("; ");
+    const candidateSummary = finalAttempt.submittedCandidates
+      .slice(0, 5)
+      .map(
+        (candidate) =>
+          `${candidate.name}(${candidate.category}${typeof candidate.distanceMiles === "number" ? ` ${candidate.distanceMiles}mi` : ""})`,
+      )
+      .join(", ");
+    const winner = venueTrace.finalWinner;
+    const rejected = finalAttempt.rejectionReasons.slice(0, 2).join(" | ");
+    pieces.push(
+      `Venue trace: searches=${searchSummary || "none captured"}; candidates=${candidateSummary || "none submitted"}; selected=${winner ? `${winner.name}(${winner.category}${typeof winner.distanceMiles === "number" ? ` ${winner.distanceMiles}mi` : ""})` : "none"}${rejected ? `; rejected=${rejected}` : ""}.`,
+    );
+  }
+  if (!input.datingProgression.isRelevant) {
+    return pieces.join(" ");
+  }
+
+  const debug = input.datingProgression.debug;
+  const adapters = [
+    debug.stagePromotedByGoalClosure ? "goal-closure-promotion" : null,
+    debug.bridgedToDraftInvite ? "draft-invite-bridge" : null,
+    debug.stageLoweredByBlocker ? "blocker-dose-lowering" : null,
+    debug.stageLoweredByRecentDirectRep ? "direct-rep-cooldown" : null,
+    input.questRole === "enjoy" ? "goal-owned-enjoy" : null,
+    input.journeyPhase.requireMilestoneQuest ? "milestone-due" : null,
+  ].filter(Boolean);
+  const options = input.datingProgression.preferredRepShapes.join("/");
+  const searches = input.strategyBrief.searchQueries.slice(0, 3).join(" | ");
+  const categories = input.strategyBrief.suggestedCategories
+    .slice(0, 4)
+    .join("/");
+
+  pieces.push(
+    `Decision trace: role=${input.questRole ?? "explore"}; capability=${input.datingProgression.capabilityId}; pattern=${input.datingProgression.currentPatternId ?? "none"}; shape=${input.strategyBrief.datingRepShape ?? input.datingProgression.questContract?.repShape ?? "none"}; direct=${input.strategyBrief.allowDirectDatingRep === true ? "yes" : "no"}; options=${options || "none"}; adapters=${adapters.join(",") || "none"}; categories=${categories || "none"}; searches=${searches || "none"}.`,
+  );
+
+  return pieces.join(" ");
 }
 
 interface GeocodedData {
@@ -191,6 +306,7 @@ interface SidequestPrescriptionServiceDeps {
   coverageService?: CoverageService;
   resonanceService?: ResonanceService;
   pathwayService?: PathwayService;
+  traceCollector?: TraceCollector;
   promptRegistry?: PrescriptionPromptRegistry;
   promptVersion?: string;
   /** Model to use for quest prescription. Defaults to GPT54Mini. */
@@ -217,6 +333,7 @@ export class SidequestPrescriptionService {
   private prescriptionModel?: string;
   private multiAgentStrategy: MultiAgentStrategy;
   private contextDeps: PrescriptionContextDeps;
+  private traceCollector?: TraceCollector;
 
   constructor(deps: SidequestPrescriptionServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -231,9 +348,11 @@ export class SidequestPrescriptionService {
     this.resonanceService = deps.resonanceService;
     this.pathwayService = deps.pathwayService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
-    this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
+    this.promptRegistry =
+      deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
     this.prescriptionModel = deps.prescriptionModel;
+    this.traceCollector = deps.traceCollector;
     this.multiAgentStrategy = new MultiAgentStrategy({
       openAIService: deps.openAIService,
       agent: this.agent,
@@ -241,6 +360,7 @@ export class SidequestPrescriptionService {
       placesService: deps.placesService,
       overpassService: deps.overpassService,
       promptRegistry: this.promptRegistry,
+      redisService: deps.redisService,
     });
     this.contextDeps = {
       dataSource: deps.dataSource,
@@ -269,6 +389,11 @@ export class SidequestPrescriptionService {
       throw new Error("ComfortZoneService required for prescribeQuest");
     }
 
+    const trace: TraceContext = this.traceCollector
+      ? await this.traceCollector.start({ userId })
+      : NOOP_TRACE;
+    let prescriptionFailed = false;
+
     const repo = this.dataSource.getRepository(Sidequest);
     const objectiveRepo = this.dataSource.getRepository(Objective);
 
@@ -295,15 +420,18 @@ export class SidequestPrescriptionService {
         "comfortProfile",
         "onboardingProfile",
         "pacePreference",
+        "reachMode",
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
         "socialSituation",
+        "venueQualities",
       ],
     });
 
     if (!user) throw new Error("User not found");
 
+    const goalTags = resolveGoalTags(user.comfortProfile);
     const homeLat = Number(user.homeLatitude ?? input.latitude);
     const homeLng = Number(user.homeLongitude ?? input.longitude);
 
@@ -322,10 +450,26 @@ export class SidequestPrescriptionService {
     let searchLat = isAwayFromHome ? currentLat : homeLat;
     let searchLng = isAwayFromHome ? currentLng : homeLng;
 
+    // Keep the user's actual home city separate from the active search city.
+    // Coverage expansion may later shift `city` toward a nearby opportunity
+    // zone, but recalibration clamps must still know where home base is.
+    let homeCity = "Unknown";
+    try {
+      homeCity = await this.geocodingService.reverseGeocodeCityState(
+        homeLat,
+        homeLng,
+      );
+    } catch {
+      // Fall through with Unknown
+    }
+
     // Reverse geocode for city name early — coverage expansion may override searchLat/searchLng and re-geocode
     let city = "Unknown";
     try {
-      city = await this.geocodingService.reverseGeocodeCityState(searchLat, searchLng);
+      city = await this.geocodingService.reverseGeocodeCityState(
+        searchLat,
+        searchLng,
+      );
     } catch {
       // Fall through with Unknown
     }
@@ -335,15 +479,25 @@ export class SidequestPrescriptionService {
       this.contextDeps,
       userId,
       user.behavioralProfile ?? null,
-      resolveGoalTags(user.comfortProfile),
+      goalTags,
+      user.comfortProfile ?? null,
+    );
+    const venueVisitHistory = await buildVenueVisitHistory(
+      this.dataSource,
+      userId,
     );
 
     // 2a. Calibration feedback (Slice B) — if the user just rejected a prescription,
     // surface the most recent reason so the strategist and validator can recalibrate.
     // Anything older than 15 minutes is history, not an active lever.
     // Slice F — also pull up to 5 rejections to detect recurring patterns.
-    const recentRejections = await loadRecentRejections(this.dataSource, userId, 5);
-    const freshRejection = recentRejections.find((r) => r.ageMinutes <= 15) ?? null;
+    const recentRejections = await loadRecentRejections(
+      this.dataSource,
+      userId,
+      5,
+    );
+    const freshRejection =
+      recentRejections.find((r) => r.ageMinutes <= 15) ?? null;
     const lastRejection = freshRejection
       ? {
           reason: freshRejection.reason,
@@ -354,20 +508,231 @@ export class SidequestPrescriptionService {
       : null;
     const rejectionPattern = detectRejectionPattern(recentRejections);
     if (rejectionPattern) {
-      console.log(`[prescribeQuest] Rejection pattern detected: ${rejectionPattern.reason} × ${rejectionPattern.count}${rejectionPattern.categories.length ? ` (categories: ${rejectionPattern.categories.join(", ")})` : ""}`);
+      console.log(
+        `[prescribeQuest] Rejection pattern detected: ${rejectionPattern.reason} × ${rejectionPattern.count}${rejectionPattern.categories.length ? ` (categories: ${rejectionPattern.categories.join(", ")})` : ""}`,
+      );
     }
 
     // Slice E — early calibration mode. First 5 completed quests get tighter
     // guardrails: stay inside the user's radius, keep social load low, ensure
     // a tiny version and exit ramp exist. Trust is the product here, not growth.
     const completedQuestCount = await this.countCompletedQuests(userId);
-    const isEarlyCalibration = completedQuestCount < 5;
+    const attemptedQuestCount = await this.countAttemptedQuests(userId);
+    // TEMP: forced off so we can observe raw redirect behavior without the
+    // early-calibration trust-zone protection. Restore to
+    // `attemptedQuestCount < 5` once we're satisfied with the redirect.
+    void attemptedQuestCount;
+    const isEarlyCalibration = false;
+    const offlineSocialFramework = buildOfflineSocialFrameworkPlan({
+      comfortProfile: user.comfortProfile,
+      goalTags,
+      completedQuestCount,
+    });
 
     // 2b. Compute fear ladder readiness from actual user feedback
-    const fearLadderReadiness = await computeFearLadderReadiness(this.dataSource, userId);
+    const fearLadderReadiness = await computeFearLadderReadiness(
+      this.dataSource,
+      userId,
+    );
 
     // 2b2. Detect recurring blockers from quest history
-    const { promptText: blockerContext, blocker: blockerMeta } = await buildBlockerContext(this.contextDeps, userId);
+    const { promptText: blockerContext, blocker: blockerMeta } =
+      await buildBlockerContext(this.contextDeps, userId);
+
+    // 2b3. Goal-closure milestones. This is intentionally prompt-derived for
+    // v1: no migration, recomputed from profile/history each prescription.
+    const goalMilestone = await buildGoalMilestoneContext({
+      dataSource: this.dataSource,
+      userId,
+      comfortProfile: user.comfortProfile,
+      goalTags,
+      completedQuestCount,
+      blockerMeta,
+    });
+    const journeyDiversity = await buildJourneyDiversityContext({
+      dataSource: this.dataSource,
+      userId,
+      completedQuestCount,
+    });
+    const willingness = await buildWillingnessContext({
+      dataSource: this.dataSource,
+      userId,
+      completedQuestCount,
+    });
+    await trace.emit("willingness", {
+      output: {
+        signal: willingness.willingnessSignal,
+        totalCompletedQuests: willingness.totalCompletedQuests,
+        maxObservedTravelMiles: willingness.maxObservedTravelMiles,
+        recentMaxTravelMiles: willingness.recentMaxTravelMiles,
+        completedLocalCount: willingness.completedLocalCount,
+        completedNearbyCount: willingness.completedNearbyCount,
+        completedRegionalCount: willingness.completedRegionalCount,
+        recentStretchRepCount: willingness.recentStretchRepCount,
+        questsSinceStretchRep: willingness.questsSinceStretchRep,
+        hasEverTraveledNearby: willingness.hasEverTraveledNearby,
+        hasEverTraveledRegional: willingness.hasEverTraveledRegional,
+        promptBlock: willingness.promptBlock,
+      },
+    });
+    await trace.emit("context.builder", {
+      output: {
+        completedQuestCount,
+        isEarlyCalibration,
+        radius,
+        homeCoords: { lat: homeLat, lng: homeLng },
+        goalTags,
+        journeyDiversity: {
+          recentCategories: journeyDiversity.recentCategories,
+          recentVenueNames: journeyDiversity.recentVenueNames,
+          dominantRecentCategory: journeyDiversity.dominantRecentCategory,
+          consecutiveSameVenueCount: journeyDiversity.consecutiveSameVenueCount,
+          questsSinceDirectGoalTouch:
+            journeyDiversity.questsSinceDirectGoalTouch,
+        },
+      },
+    });
+    const datingProgression = await buildDatingProgressionContext({
+      dataSource: this.dataSource,
+      userId,
+      comfortProfile: user.comfortProfile,
+      goalTags,
+      completedQuestCount: goalMilestone.effectiveCompletedQuestCount,
+      milestoneQuestSeen: goalMilestone.milestoneQuestSeen,
+      goalClosureDue: goalMilestone.goalClosureDue,
+      blockerMeta,
+      city: homeCity && homeCity !== "Unknown" ? homeCity : city,
+      rejectionPattern: rejectionPattern
+        ? {
+            reason: rejectionPattern.reason,
+            count: rejectionPattern.count,
+          }
+        : null,
+    });
+    if (
+      datingProgression.isRelevant &&
+      process.env.DEBUG_DATING_PROGRESSION === "true"
+    ) {
+      console.log(
+        "[prescribeQuest] Dating progression:",
+        JSON.stringify(
+          {
+            stage: datingProgression.stage,
+            capabilityId: datingProgression.capabilityId,
+            enactmentMode: datingProgression.enactmentMode,
+            currentPatternId: datingProgression.currentPatternId,
+            questContract: datingProgression.questContract
+              ? {
+                  capabilityId: datingProgression.questContract.capabilityId,
+                  enactmentPatternId:
+                    datingProgression.questContract.enactmentPatternId,
+                  repIntent: datingProgression.questContract.repIntent,
+                  directGoalTouch:
+                    datingProgression.questContract.directGoalTouch,
+                }
+              : null,
+            allowDirectDatingRep: datingProgression.allowDirectDatingRep,
+            cooldownActive: datingProgression.cooldownActive,
+            preferredRepShapes: datingProgression.preferredRepShapes,
+            recentRepShapes: datingProgression.recentRepShapes,
+            recentDirectDatingRepCount:
+              datingProgression.recentDirectDatingRepCount,
+            recentDraftDatingRepCount:
+              datingProgression.recentDraftDatingRepCount,
+            questsSinceDirectDatingRep:
+              datingProgression.questsSinceDirectDatingRep,
+            debug: datingProgression.debug,
+          },
+          null,
+          0,
+        ),
+      );
+    }
+    const journeyPhase = resolveJourneyPhase({
+      completedQuestCount,
+      isEarlyCalibration,
+      goalClosureDue: goalMilestone.goalClosureDue,
+      directGoalTouched: goalMilestone.directGoalTouched,
+      postGoalClosureWindow: journeyDiversity.postGoalClosureWindow,
+      shouldCooldownMilestone: journeyDiversity.shouldCooldownMilestone,
+      shouldForceStructuredNext: journeyDiversity.shouldForceStructuredNext,
+      recentBaseRecoveryCount: journeyDiversity.recentBaseRecoveryCount,
+      recentStructuredCount: journeyDiversity.recentStructuredCount,
+      dominantRecentFamily: journeyDiversity.dominantRecentFamily,
+    });
+    let opportunityZones = null;
+    try {
+      const nearbyCities = await this.overpassService.fetchNearbyCities(
+        homeLat,
+        homeLng,
+        100000,
+        12,
+      );
+      opportunityZones = analyzeOpportunityZones({
+        homeCity: homeCity ?? city,
+        nearbyCities,
+        goalTags,
+        completedQuestCount,
+        isEarlyCalibration,
+        journeyPhase: journeyPhase.phase,
+      });
+      await trace.emit("opportunity_zones", {
+        input: {
+          homeCity: homeCity ?? city,
+          nearbyCityCount: nearbyCities.length,
+          goalTags,
+          completedQuestCount,
+          isEarlyCalibration,
+          journeyPhase: journeyPhase.phase,
+        },
+        output: {
+          homeBaseViability: opportunityZones.homeBaseViability,
+          recommendedCity: opportunityZones.recommendedCity,
+          fallbackCity: opportunityZones.fallbackCity,
+          zones: opportunityZones.zones,
+        },
+      });
+    } catch (err) {
+      console.error("[prescribeQuest] Opportunity zone analysis failed:", err);
+      await trace.emit("opportunity_zones", {
+        status: "error",
+        meta: { error: (err as Error).message },
+      });
+    }
+
+    // 2b2. Redirect search anchor when home base is too sparse to be viable.
+    // The user lives in Frederick (or wherever); activities live in Longmont
+    // (or wherever the recommendedCity is). Move the search to the neighbor
+    // so Google Places returns viable venues instead of the local USPS.
+    // The user's home stays unchanged for distance scoring and "would_return"
+    // anchoring; only the *search* pivots.
+    if (
+      opportunityZones?.homeBaseViability === "weak" &&
+      opportunityZones.recommendedCity &&
+      opportunityZones.recommendedCity.toLowerCase() !==
+        (homeCity ?? city).toLowerCase()
+    ) {
+      const recommendedZone = opportunityZones.zones.find(
+        (zone) =>
+          zone.city.toLowerCase() ===
+          opportunityZones!.recommendedCity!.toLowerCase(),
+      );
+      if (
+        recommendedZone &&
+        Number.isFinite(recommendedZone.lat) &&
+        Number.isFinite(recommendedZone.lng) &&
+        !(recommendedZone.lat === 0 && recommendedZone.lng === 0)
+      ) {
+        searchLat = recommendedZone.lat;
+        searchLng = recommendedZone.lng;
+        city = recommendedZone.city;
+        console.log(
+          `[prescribeQuest] Home base "${homeCity}" is weak for this goal — ` +
+            `redirecting search to "${recommendedZone.city}" ` +
+            `(${recommendedZone.distanceMiles.toFixed(1)}mi, pop ${recommendedZone.population ?? "?"})`,
+        );
+      }
+    }
 
     // 2b3. Build social micro-rep context (contextual social scaffolding)
     const socialMicroRepContext = await buildSocialMicroRepContext(
@@ -375,7 +740,7 @@ export class SidequestPrescriptionService {
       userId,
       user.fearLadder ?? null,
       fearLadderReadiness,
-      resolveGoalTags(user.comfortProfile),
+      goalTags,
       blockerMeta,
     );
 
@@ -385,7 +750,8 @@ export class SidequestPrescriptionService {
     let expansionTarget = "";
     if (this.coverageService) {
       try {
-        const coverage = await this.coverageService.buildLLMCoverageContext(userId);
+        const coverage =
+          await this.coverageService.buildLLMCoverageContext(userId);
         coverageContext = coverage.context;
         explorationProfileLabel = coverage.profile.label;
 
@@ -394,17 +760,53 @@ export class SidequestPrescriptionService {
         // Force a fresh snapshot to avoid stale cache from early quests.
         const snapshot = await this.coverageService.recomputeSnapshot(userId);
         const completedCount = await this.countCompletedQuests(userId);
-        const snapshotGaps = (snapshot.directionalGaps ?? []) as { direction: string; angleDeg: number; gapWidthDeg: number }[];
-        console.log(`[prescribeQuest] Expansion check: ${completedCount} quests, radius ${radius.toFixed(1)}mi, ${snapshotGaps.length} gaps, clusters ${snapshot.clusterCount}`);
+        const snapshotGaps = (snapshot.directionalGaps ?? []) as {
+          direction: string;
+          angleDeg: number;
+          gapWidthDeg: number;
+        }[];
+        console.log(
+          `[prescribeQuest] Expansion check: ${completedCount} quests, radius ${radius.toFixed(1)}mi, ${snapshotGaps.length} gaps, clusters ${snapshot.clusterCount}`,
+        );
         if (snapshotGaps.length > 0) {
-          console.log(`[prescribeQuest] Gaps: ${snapshotGaps.map(g => `${g.direction}(${g.gapWidthDeg.toFixed(0)}deg)`).join(", ")}`);
+          console.log(
+            `[prescribeQuest] Gaps: ${snapshotGaps.map((g) => `${g.direction}(${g.gapWidthDeg.toFixed(0)}deg)`).join(", ")}`,
+          );
         }
-        if (snapshotGaps.length > 0 && completedCount >= 5 && radius >= 2.5) {
-          const biggestGap = [...snapshotGaps].sort((a, b) => b.gapWidthDeg - a.gapWidthDeg)[0];
+        const needsViableStructuredContainers =
+          offlineSocialFramework.phase === "container_bfs" &&
+          offlineSocialFramework.containers.some((container) =>
+            [
+              "structured_class",
+              "recurring_club",
+              "movement_group",
+              "creative_workshop",
+              "volunteering",
+              "singles_event",
+            ].includes(container),
+          );
+        if (needsViableStructuredContainers) {
+          expansionTarget =
+            "\nFRAMEWORK SEARCH PRIORITY: The user has reached container BFS. Prioritize viable structured social containers (classes, clubs, meetups, workshops, movement groups, volunteering, dating-adjacent events) over geographic gap-filling. Do not drift into generic cafes, bakeries, tea houses, or dessert shops unless this is an explicit recovery recalibration.\n";
+        }
+        if (
+          snapshotGaps.length > 0 &&
+          completedCount >= 5 &&
+          radius >= 2.5 &&
+          !needsViableStructuredContainers
+        ) {
+          const biggestGap = [...snapshotGaps].sort(
+            (a, b) => b.gapWidthDeg - a.gapWidthDeg,
+          )[0];
           if (biggestGap.gapWidthDeg >= 45) {
             // Project a point at the edge of comfort radius in the gap direction
             const targetDistMiles = Math.max(4, radius * 0.85);
-            const targetPoint = this.projectPoint(homeLat, homeLng, biggestGap.angleDeg, targetDistMiles);
+            const targetPoint = this.projectPoint(
+              homeLat,
+              homeLng,
+              biggestGap.angleDeg,
+              targetDistMiles,
+            );
 
             // Shift search location to the projected point
             searchLat = targetPoint.lat;
@@ -412,10 +814,11 @@ export class SidequestPrescriptionService {
 
             // Re-geocode the new search location for the city name
             try {
-              const targetCity = await this.geocodingService.reverseGeocodeCityState(
-                targetPoint.lat,
-                targetPoint.lng,
-              );
+              const targetCity =
+                await this.geocodingService.reverseGeocodeCityState(
+                  targetPoint.lat,
+                  targetPoint.lng,
+                );
               if (targetCity && targetCity !== "Unknown") {
                 city = targetCity;
               }
@@ -425,10 +828,11 @@ export class SidequestPrescriptionService {
 
             console.log(
               `[prescribeQuest] Expansion: shifting search ${targetDistMiles.toFixed(1)}mi ${biggestGap.direction} ` +
-              `to (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)}) = "${city}" (gap ${biggestGap.gapWidthDeg.toFixed(0)}deg)`,
+                `to (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)}) = "${city}" (gap ${biggestGap.gapWidthDeg.toFixed(0)}deg)`,
             );
 
-            expansionTarget = `\nEXPANSION TARGET: The user has a ${biggestGap.gapWidthDeg.toFixed(0)}-degree unexplored gap to the ${biggestGap.direction.toUpperCase()}. ` +
+            expansionTarget =
+              `\nEXPANSION TARGET: The user has a ${biggestGap.gapWidthDeg.toFixed(0)}-degree unexplored gap to the ${biggestGap.direction.toUpperCase()}. ` +
               `You are searching ${targetDistMiles.toFixed(1)} miles ${biggestGap.direction} of their home. ` +
               `Search for venues near (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)}) in or around "${city}". ` +
               `Do NOT search in Frederick — explore this new area.`;
@@ -454,16 +858,83 @@ export class SidequestPrescriptionService {
 
     // 3. Determine quest role — from sibling context (pack) or auto-detected (individual)
     let questRole: string | undefined;
-    let roleTargetPathway: { id: string; theme: string; label: string; phase: string } | undefined;
+    let roleTargetPathway:
+      | { id: string; theme: string; label: string; phase: string }
+      | undefined;
 
     if (siblingContext) {
       questRole = siblingContext.questRole;
       roleTargetPathway = siblingContext.targetPathway;
     } else {
-      // Auto-detect role for individual venue prescriptions
-      const autoRole = determineIndividualQuestRole(fearLadderReadiness, phaseForRole?.pathways);
+      // Auto-detect role for individual venue prescriptions. Phase signal is
+      // sourced from the user's active CapabilityProgress (via datingProgression),
+      // NOT from Pathway.phase — pathway is venue-keyed and the wrong axis.
+      const capabilitySignal = datingProgression.isRelevant
+        ? {
+            capabilityId: datingProgression.capabilityId,
+            capabilityLabel: datingProgression.capabilityLabel,
+            phase: datingProgression.enactmentMode,
+          }
+        : undefined;
+      const autoRole = determineIndividualQuestRole(
+        fearLadderReadiness,
+        capabilitySignal,
+      );
       questRole = autoRole.role;
       roleTargetPathway = autoRole.targetPathway;
+    }
+    if (
+      offlineSocialFramework.phase === "container_bfs" &&
+      questRole === "deepen"
+    ) {
+      questRole = "explore";
+      roleTargetPathway = undefined;
+    }
+    const autoRoleIsEnjoy = !siblingContext && questRole === "enjoy";
+    if (!siblingContext && journeyPhase.requireMilestoneQuest) {
+      if (autoRoleIsEnjoy) {
+        console.log(
+          `[prescribeQuest] Journey phase ${journeyPhase.phase}: ${goalMilestone.activeMilestoneTitle ?? "milestone"} is due, but the role cycle is granting a goal-owned enjoy beat.`,
+        );
+      } else {
+        questRole = "milestone";
+        roleTargetPathway = undefined;
+        console.log(
+          `[prescribeQuest] Journey phase ${journeyPhase.phase}: ${goalMilestone.activeMilestoneTitle ?? "milestone"} is due — overriding quest role to milestone`,
+        );
+      }
+    } else if (
+      !siblingContext &&
+      datingProgression.isRelevant &&
+      datingProgression.questContract?.directGoalTouch &&
+      !journeyDiversity.shouldCooldownMilestone
+    ) {
+      questRole = "milestone";
+      roleTargetPathway = undefined;
+      console.log(
+        `[prescribeQuest] Dating progression: ${datingProgression.capabilityId} is direct-goal-touchable — overriding quest role to milestone`,
+      );
+    } else if (
+      !siblingContext &&
+      goalMilestone.goalClosureDue &&
+      journeyDiversity.shouldCooldownMilestone
+    ) {
+      console.log(
+        "[prescribeQuest] Goal-closure milestone is due, but a direct-goal rep just landed — cooling down milestone pressure for one beat.",
+      );
+    }
+    if (
+      !siblingContext &&
+      journeyPhase.requireStructuredNonEnjoy &&
+      questRole !== "enjoy" &&
+      questRole !== "milestone"
+    ) {
+      if (questRole === "deepen") {
+        questRole = "stretch";
+      }
+      console.log(
+        "[prescribeQuest] Late-journey structured floor is due — biasing the next non-enjoy quest toward a real social container.",
+      );
     }
 
     // 4. Create the sidequest record
@@ -507,12 +978,23 @@ export class SidequestPrescriptionService {
       if (siblingContext) {
         roleInstructions = buildSiblingInstructions(siblingContext);
       } else if (questRole && questRole !== "explore") {
-        roleInstructions = buildIndividualRoleInstructions(questRole, roleTargetPathway, user.onboardingProfile?.activities);
+        roleInstructions = buildIndividualRoleInstructions(
+          questRole,
+          roleTargetPathway,
+          user.onboardingProfile?.activities,
+        );
       }
 
       const isStretch = questRole === "stretch";
       const isEnjoy = questRole === "enjoy";
       const difficultyTier = siblingContext?.difficultyTier;
+
+      // Compose user-level venue quality preferences from saved overrides +
+      // budget/accessibility signals on socialSituation.
+      const userVenueQualities = mergeQualityProfiles(
+        qualitiesFromSocialSituation(user.socialSituation),
+        qualitiesFromUserPrefs(user.venueQualities),
+      );
 
       // Build prompt via registry
       const promptCtx: PrescriptionPromptContext = {
@@ -520,27 +1002,150 @@ export class SidequestPrescriptionService {
           comfortProfile: user.comfortProfile ?? null,
           onboardingProfile: user.onboardingProfile ?? null,
           pacePreference: user.pacePreference ?? null,
+          reachMode: user.reachMode ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
           socialSituation: user.socialSituation ?? null,
         },
-        homeLat, homeLng, searchLat, searchLng, city,
-        isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
+        homeLat,
+        homeLng,
+        searchLat,
+        searchLng,
+        city,
+        homeCity,
+        isAwayFromHome,
+        distFromHome,
+        radius,
+        pace,
+        hour,
+        dayOfWeek,
         historyContext,
+        venueVisitHistory,
         coverageContext,
         explorationProfileLabel,
         expansionTarget,
         phaseContext,
         timelineContext: "",
         fearLadderContext: user.fearLadder
-          ? buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
+          ? buildFearLadderContext(user.fearLadder, fearLadderReadiness)
+          : "",
         expectancyContext: user.expectancyCalibration
-          ? buildExpectancyContext(user.expectancyCalibration) : "",
-        difficultyGuidance: buildDifficultyGuidance(pace, fearLadderReadiness, isStretch, isEnjoy, difficultyTier),
+          ? buildExpectancyContext(user.expectancyCalibration)
+          : "",
+        difficultyGuidance: buildDifficultyGuidance(
+          pace,
+          fearLadderReadiness,
+          isStretch,
+          isEnjoy,
+          difficultyTier,
+        ),
         siblingInstructions: roleInstructions,
         blockerContext,
         socialMicroRepContext,
-        socialSituationContext: buildSocialSituationContext(user.socialSituation, city),
+        socialSituationContext: buildSocialSituationContext(
+          user.socialSituation,
+          city,
+        ),
+        offlineSocialFrameworkContext: offlineSocialFramework.promptBlock,
+        offlineSocialFrameworkPlan: {
+          phase: offlineSocialFramework.phase,
+          primaryLens: offlineSocialFramework.primaryLens,
+          containers: offlineSocialFramework.containers,
+          searchSeeds: offlineSocialFramework.searchSeeds,
+        },
+        opportunityZoneContext: opportunityZones?.promptBlock ?? "",
+        opportunityZones: opportunityZones
+          ? {
+              homeBaseViability: opportunityZones.homeBaseViability,
+              recommendedCity: opportunityZones.recommendedCity,
+              fallbackCity: opportunityZones.fallbackCity,
+              zones: opportunityZones.zones,
+            }
+          : null,
+        journeyPhaseContext: journeyPhase.promptBlock,
+        journeyPhase: {
+          phase: journeyPhase.phase,
+          requireMilestoneQuest: journeyPhase.requireMilestoneQuest,
+          requireStructuredNonEnjoy: journeyPhase.requireStructuredNonEnjoy,
+          forbidParkForNonEnjoy: journeyPhase.forbidParkForNonEnjoy,
+          fallbackLane: journeyPhase.fallbackLane,
+        },
+        journeyDiversityContext: journeyDiversity.promptBlock,
+        journeyDiversity: {
+          recentCategories: journeyDiversity.recentCategories,
+          recentFamilies: journeyDiversity.recentFamilies,
+          recentVenueNames: journeyDiversity.recentVenueNames,
+          recentRoles: journeyDiversity.recentRoles,
+          recentMilestoneCount: journeyDiversity.recentMilestoneCount,
+          recentDirectGoalTouchCount:
+            journeyDiversity.recentDirectGoalTouchCount,
+          recentDirectDatingRepCount:
+            journeyDiversity.recentDirectDatingRepCount,
+          recentStructuredCount: journeyDiversity.recentStructuredCount,
+          recentBaseRecoveryCount: journeyDiversity.recentBaseRecoveryCount,
+          questsSinceDirectGoalTouch:
+            journeyDiversity.questsSinceDirectGoalTouch,
+          questsSinceDirectDatingRep:
+            journeyDiversity.questsSinceDirectDatingRep,
+          questsSinceMilestone: journeyDiversity.questsSinceMilestone,
+          consecutiveSameCategoryCount:
+            journeyDiversity.consecutiveSameCategoryCount,
+          consecutiveSameFamilyCount:
+            journeyDiversity.consecutiveSameFamilyCount,
+          consecutiveSameVenueCount: journeyDiversity.consecutiveSameVenueCount,
+          dominantRecentCategory: journeyDiversity.dominantRecentCategory,
+          dominantRecentFamily: journeyDiversity.dominantRecentFamily,
+          postGoalClosureWindow: journeyDiversity.postGoalClosureWindow,
+          shouldCooldownMilestone: journeyDiversity.shouldCooldownMilestone,
+          shouldForceStructuredNext: journeyDiversity.shouldForceStructuredNext,
+        },
+        userVenueQualities,
+        willingnessContext: willingness.promptBlock,
+        willingness: {
+          totalCompletedQuests: willingness.totalCompletedQuests,
+          maxObservedTravelMiles: willingness.maxObservedTravelMiles,
+          recentMaxTravelMiles: willingness.recentMaxTravelMiles,
+          completedLocalCount: willingness.completedLocalCount,
+          completedNearbyCount: willingness.completedNearbyCount,
+          completedRegionalCount: willingness.completedRegionalCount,
+          recentStretchRepCount: willingness.recentStretchRepCount,
+          questsSinceStretchRep: willingness.questsSinceStretchRep,
+          willingnessSignal: willingness.willingnessSignal,
+          hasEverTraveledNearby: willingness.hasEverTraveledNearby,
+          hasEverTraveledRegional: willingness.hasEverTraveledRegional,
+        },
+        datingProgressionContext: datingProgression.promptBlock,
+        datingProgression: {
+          isRelevant: datingProgression.isRelevant,
+          stage: datingProgression.stage,
+          capabilityId: datingProgression.capabilityId,
+          capabilityLabel: datingProgression.capabilityLabel,
+          enactmentMode: datingProgression.enactmentMode,
+          currentPatternId: datingProgression.currentPatternId,
+          currentPatternLabel: datingProgression.currentPatternLabel,
+          questContract: datingProgression.questContract,
+          allowDirectDatingRep: datingProgression.allowDirectDatingRep,
+          cooldownActive: datingProgression.cooldownActive,
+          preferredRepShapes: datingProgression.preferredRepShapes,
+          preferredPatternIds: datingProgression.preferredPatternIds,
+          recentRepShapes: datingProgression.recentRepShapes,
+          recentDirectDatingRepCount:
+            datingProgression.recentDirectDatingRepCount,
+          recentDraftDatingRepCount:
+            datingProgression.recentDraftDatingRepCount,
+          questsSinceDirectDatingRep:
+            datingProgression.questsSinceDirectDatingRep,
+        },
+        goalMilestoneContext: goalMilestone.promptBlock,
+        activeGoalMilestone: {
+          key: goalMilestone.activeMilestoneKey,
+          title: goalMilestone.activeMilestoneTitle,
+          goalClosureDue: goalMilestone.goalClosureDue,
+          directGoalTouched: goalMilestone.directGoalTouched,
+          milestoneQuestSeen: goalMilestone.milestoneQuestSeen,
+        },
+        goalTags,
+        questRole: questRole ?? null,
         isStretch,
         isEnjoy,
         siblingContext: siblingContext ?? null,
@@ -567,15 +1172,24 @@ export class SidequestPrescriptionService {
         prescriptionModel: this.prescriptionModel,
         inputModelOverride: input.model,
         onProgress,
+        trace,
       };
 
-      const strategyResult = await this.multiAgentStrategy.execute(strategyInput);
+      const strategyResult =
+        await this.multiAgentStrategy.execute(strategyInput);
       const agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
       const allVenues = strategyResult.allVenues;
       const allTrails = strategyResult.allTrails;
       const strategyBrief = strategyResult.brief;
 
       const llmResult = expandLLMResponse(agentRaw);
+      const strategyNote = buildDecisionTraceNote({
+        baseNote: llmResult.strategyNote,
+        questRole,
+        strategyBrief,
+        datingProgression,
+        journeyPhase,
+      });
 
       // Validate and enrich objectives
       const cityCenter = { lat: homeLat, lng: homeLng };
@@ -604,10 +1218,7 @@ export class SidequestPrescriptionService {
 
       // Assign rarity (with coverage gap boost)
       let rarity = "common";
-      if (
-        distanceFromHome != null &&
-        primaryItem?.item.venueCategory
-      ) {
+      if (distanceFromHome != null && primaryItem?.item.venueCategory) {
         let inCoverageGap = false;
         if (this.coverageService && objLat && objLng) {
           try {
@@ -660,13 +1271,45 @@ export class SidequestPrescriptionService {
       // Update sidequest with results
       sidequest.title = llmResult.title;
       sidequest.summary = llmResult.summary;
-      sidequest.strategyNote = llmResult.strategyNote ?? undefined;
+      sidequest.strategyNote = strategyNote ?? undefined;
+      sidequest.marketReflection = llmResult.marketReflection ?? undefined;
       sidequest.status = SidequestStatus.READY;
       // Rarity stays null until "Seal Memory" (promote) — computed from resonance + reflection tags
       sidequest.distanceFromHome = distanceFromHome;
       // Slice C — capacity rep attribution
       sidequest.capacityTrack = strategyBrief.capacityTrack;
       sidequest.repIntent = strategyBrief.repIntent;
+      sidequest.capabilityId =
+        strategyBrief.questContract?.capabilityId ?? undefined;
+      sidequest.enactmentPatternId =
+        strategyBrief.questContract?.enactmentPatternId ?? undefined;
+      sidequest.opportunityScope = strategyBrief.opportunityScope ?? undefined;
+      sidequest.travelRationale = strategyBrief.travelRationale ?? undefined;
+      sidequest.goalMilestoneKey =
+        goalMilestone.activeMilestoneKey ?? undefined;
+      sidequest.goalMilestoneTitle =
+        goalMilestone.activeMilestoneTitle ?? undefined;
+      const goalActionText = [
+        primaryItem?.item.description,
+        ...(primaryItem?.item.actionItems ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const writerGoalActionType = normalizeGoalActionType(
+        primaryItem?.item.goalActionType,
+      );
+      const contractAllowsDirectGoal =
+        strategyBrief.questContract?.directGoalTouch !== false;
+      const detectedGoalActionType =
+        writerGoalActionType !== "none"
+          ? writerGoalActionType
+          : contractAllowsDirectGoal
+            ? detectGoalActionType(goalActionText)
+            : "none";
+      sidequest.goalActionType = detectedGoalActionType;
+      sidequest.directGoalTouch = isConcreteGoalActionType(
+        detectedGoalActionType,
+      );
 
       // Generate category tags inline so the client always has them
       try {
@@ -728,6 +1371,18 @@ export class SidequestPrescriptionService {
         `[SidequestPrescriptionService] Prescribed quest ${sidequest.id} for user ${userId}: "${llmResult.title}" (${rarity}, ${distanceFromHome?.toFixed(1) ?? "?"}mi from home)`,
       );
 
+      trace.setSummary({
+        sidequestId: sidequest.id,
+        venueName: primaryItem?.item.venueName ?? undefined,
+        venueCategory: primaryItem?.item.venueCategory ?? undefined,
+        distanceFromHome,
+        capacityTrack: strategyBrief.capacityTrack ?? undefined,
+        repIntent: strategyBrief.repIntent ?? undefined,
+        homeBaseViability: opportunityZones?.homeBaseViability ?? undefined,
+        recommendedCity: opportunityZones?.recommendedCity ?? undefined,
+        effectiveReachMode: strategyBrief.searchEnvelope?.reachMode ?? undefined,
+      });
+
       // Reload with objectives
       const loaded = await repo.findOne({
         where: { id: sidequest.id },
@@ -736,10 +1391,19 @@ export class SidequestPrescriptionService {
       });
       return loaded ?? sidequest;
     } catch (error) {
-      console.error("[SidequestPrescriptionService] Prescription failed:", error);
+      console.error(
+        "[SidequestPrescriptionService] Prescription failed:",
+        error,
+      );
+      prescriptionFailed = true;
+      await trace.finish("failure", error as Error);
       sidequest.status = SidequestStatus.FAILED;
       await repo.save(sidequest);
       throw error;
+    } finally {
+      if (!prescriptionFailed) {
+        await trace.finish("success");
+      }
     }
   }
 
@@ -762,6 +1426,7 @@ export class SidequestPrescriptionService {
         "comfortProfile",
         "onboardingProfile",
         "pacePreference",
+        "reachMode",
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
@@ -771,13 +1436,17 @@ export class SidequestPrescriptionService {
 
     if (!user) throw new Error("User not found");
 
+    const goalTags = resolveGoalTags(user.comfortProfile);
     const homeLat = Number(user.homeLatitude ?? input.latitude);
     const homeLng = Number(user.homeLongitude ?? input.longitude);
 
     // Reverse geocode for city (used in context, not for venue search)
     let city = "Unknown";
     try {
-      city = await this.geocodingService.reverseGeocodeCityState(homeLat, homeLng);
+      city = await this.geocodingService.reverseGeocodeCityState(
+        homeLat,
+        homeLng,
+      );
     } catch {
       // Fall through
     }
@@ -787,11 +1456,22 @@ export class SidequestPrescriptionService {
       this.contextDeps,
       userId,
       user.behavioralProfile ?? null,
-      resolveGoalTags(user.comfortProfile),
+      goalTags,
+      user.comfortProfile ?? null,
+    );
+    const venueVisitHistory = await buildVenueVisitHistory(
+      this.dataSource,
+      userId,
     );
 
-    const fearLadderReadiness = await computeFearLadderReadiness(this.dataSource, userId);
-    const { promptText: blockerContext } = await buildBlockerContext(this.contextDeps, userId);
+    const fearLadderReadiness = await computeFearLadderReadiness(
+      this.dataSource,
+      userId,
+    );
+    const { promptText: blockerContext } = await buildBlockerContext(
+      this.contextDeps,
+      userId,
+    );
 
     let phaseContext = "";
     if (this.pathwayService) {
@@ -832,6 +1512,11 @@ export class SidequestPrescriptionService {
       // a dinner party" as quest 2.
       const completedChallengeCount = await this.countCompletedQuests(userId);
       const isEarlyCalibration = completedChallengeCount < 5;
+      const offlineSocialFramework = buildOfflineSocialFrameworkPlan({
+        comfortProfile: user.comfortProfile,
+        goalTags,
+        completedQuestCount: completedChallengeCount,
+      });
 
       // Build prompt via registry (challenge version)
       const promptCtx: PrescriptionPromptContext = {
@@ -839,31 +1524,54 @@ export class SidequestPrescriptionService {
           comfortProfile: user.comfortProfile ?? null,
           onboardingProfile: user.onboardingProfile ?? null,
           pacePreference: user.pacePreference ?? null,
+          reachMode: user.reachMode ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
           socialSituation: user.socialSituation ?? null,
         },
-        homeLat, homeLng,
-        searchLat: homeLat, searchLng: homeLng,
+        homeLat,
+        homeLng,
+        searchLat: homeLat,
+        searchLng: homeLng,
         city,
         isAwayFromHome: false,
         distFromHome: 0,
-        radius, pace, hour, dayOfWeek,
+        radius,
+        pace,
+        hour,
+        dayOfWeek,
         historyContext,
+        venueVisitHistory,
         coverageContext: "",
         explorationProfileLabel: "",
         expansionTarget: "",
         phaseContext,
         timelineContext: "",
         fearLadderContext: user.fearLadder
-          ? buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
+          ? buildFearLadderContext(user.fearLadder, fearLadderReadiness)
+          : "",
         expectancyContext: user.expectancyCalibration
-          ? buildExpectancyContext(user.expectancyCalibration) : "",
-        difficultyGuidance: buildDifficultyGuidance(pace, fearLadderReadiness, false, false),
+          ? buildExpectancyContext(user.expectancyCalibration)
+          : "",
+        difficultyGuidance: buildDifficultyGuidance(
+          pace,
+          fearLadderReadiness,
+          false,
+          false,
+        ),
         siblingInstructions: "",
         blockerContext,
         socialMicroRepContext: "",
-        socialSituationContext: buildSocialSituationContext(user.socialSituation, city),
+        socialSituationContext: buildSocialSituationContext(
+          user.socialSituation,
+          city,
+        ),
+        offlineSocialFrameworkContext: offlineSocialFramework.promptBlock,
+        opportunityZoneContext: "",
+        opportunityZones: null,
+        goalMilestoneContext: "",
+        activeGoalMilestone: null,
+        goalTags,
         isStretch: false,
         isEnjoy: false,
         siblingContext: null,
@@ -891,30 +1599,83 @@ export class SidequestPrescriptionService {
             type: "object" as const,
             properties: {
               t: { type: "string", description: "Challenge title (3-6 words)" },
-              s: { type: "string", description: "Summary (1-2 sentences, why this matters)" },
+              s: {
+                type: "string",
+                description: "Summary (1-2 sentences, why this matters)",
+              },
               items: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
                     t: { type: "string", description: "Challenge title" },
-                    d: { type: "string", description: "Full rep — what to do, concrete and specific" },
-                    sr: { type: "string", description: "Smaller rep — reduced-intensity fallback version" },
-                    tr: { type: "string", description: "Tiny rep — minimum viable action, almost impossible to fail" },
-                    mvw: { type: "string", description: "Minimum viable win — one short line describing what counts as done" },
-                    er: { type: "string", description: "Exit ramp — one short line describing how to leave without failure" },
+                    d: {
+                      type: "string",
+                      description:
+                        "Full rep — what to do, concrete and specific",
+                    },
+                    sr: {
+                      type: "string",
+                      description:
+                        "Smaller rep — reduced-intensity fallback version",
+                    },
+                    tr: {
+                      type: "string",
+                      description:
+                        "Tiny rep — minimum viable action, almost impossible to fail",
+                    },
+                    mvw: {
+                      type: "string",
+                      description:
+                        "Minimum viable win — one short line describing what counts as done",
+                    },
+                    er: {
+                      type: "string",
+                      description:
+                        "Exit ramp — one short line describing how to leave without failure",
+                    },
                     e: { type: "string", description: "Emoji" },
-                    vc: { type: "string", description: "Challenge category (social_reach, vulnerability, hosting, reconnection)" },
-                    hook: { type: "string", description: "Why this challenge matters for their growth" },
+                    vc: {
+                      type: "string",
+                      description:
+                        "Challenge category (social_reach, vulnerability, hosting, reconnection)",
+                    },
+                    hook: {
+                      type: "string",
+                      description:
+                        "Why this challenge matters for their growth",
+                    },
                     sa: {
                       type: "array",
                       items: { type: "string" },
-                      description: "2-3 emoji-prefixed tips for how to approach this",
+                      description:
+                        "2-3 emoji-prefixed tips for how to approach this",
                     },
-                    jp: { type: "string", description: "Journal prompt — reflective question for after completing the challenge" },
-                    df: { type: "number", description: "Difficulty 1-10 (social/emotional difficulty)" },
+                    jp: {
+                      type: "string",
+                      description:
+                        "Journal prompt — reflective question for after completing the challenge",
+                    },
+                    df: {
+                      type: "number",
+                      description:
+                        "Difficulty 1-10 (social/emotional difficulty)",
+                    },
                   },
-                  required: ["t", "d", "sr", "tr", "mvw", "er", "e", "vc", "hook", "sa", "jp", "df"],
+                  required: [
+                    "t",
+                    "d",
+                    "sr",
+                    "tr",
+                    "mvw",
+                    "er",
+                    "e",
+                    "vc",
+                    "hook",
+                    "sa",
+                    "jp",
+                    "df",
+                  ],
                 },
                 maxItems: 1,
                 minItems: 1,
@@ -926,7 +1687,12 @@ export class SidequestPrescriptionService {
         },
       ];
 
-      const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<{ output: string; terminal?: boolean; rejection?: string }>> = {
+      const toolHandlers: Record<
+        string,
+        (
+          args: Record<string, unknown>,
+        ) => Promise<{ output: string; terminal?: boolean; rejection?: string }>
+      > = {
         submit_challenge: async (args) => {
           const data = args as unknown as LLMResponseRaw;
           if (data.items && data.items.length > 1) {
@@ -967,10 +1733,12 @@ export class SidequestPrescriptionService {
       // a graceful downgrade path.
       for (const item of llmResult.items) {
         if (!item.smallerRep?.trim()) {
-          item.smallerRep = "A lighter version of the same action. Do less, not nothing.";
+          item.smallerRep =
+            "A lighter version of the same action. Do less, not nothing.";
         }
         if (!item.tinyRep?.trim()) {
-          item.tinyRep = "The smallest possible step in the same direction — opening the app, drafting without sending, reading back.";
+          item.tinyRep =
+            "The smallest possible step in the same direction — opening the app, drafting without sending, reading back.";
         }
         if (!item.minViableWin?.trim()) {
           item.minViableWin = "You started.";
@@ -1007,6 +1775,7 @@ export class SidequestPrescriptionService {
       sidequest.title = llmResult.title;
       sidequest.summary = llmResult.summary;
       sidequest.strategyNote = llmResult.strategyNote ?? undefined;
+      sidequest.marketReflection = llmResult.marketReflection ?? undefined;
       sidequest.status = SidequestStatus.READY;
       // Slice C — map challenge category to a capacity track. Rough mapping;
       // can be LLM-chosen later if challenge prompts learn to emit it.
@@ -1019,12 +1788,16 @@ export class SidequestPrescriptionService {
       sidequest.capacityTrack =
         challengeCategoryToTrack[input.challengeCategory ?? "social_reach"] ??
         CapacityTrack.MICRO_INTERACTION;
-      sidequest.repIntent = llmResult.strategyNote ?? llmResult.summary ?? undefined;
+      sidequest.repIntent =
+        llmResult.strategyNote ?? llmResult.summary ?? undefined;
 
       // Generate category tags
       try {
         const stopsForCategories = objectives
-          .map((obj) => `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`)
+          .map(
+            (obj) =>
+              `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`,
+          )
           .join("; ");
 
         const catCompletion = await this.openAIService.executeChatCompletion({
@@ -1076,7 +1849,10 @@ export class SidequestPrescriptionService {
       });
       return loaded ?? sidequest;
     } catch (error) {
-      console.error("[SidequestPrescriptionService] Challenge prescription failed:", error);
+      console.error(
+        "[SidequestPrescriptionService] Challenge prescription failed:",
+        error,
+      );
       sidequest.status = SidequestStatus.FAILED;
       await repo.save(sidequest);
       throw error;
@@ -1102,7 +1878,11 @@ export class SidequestPrescriptionService {
       await Promise.all(
         items.map(async (item) => {
           // Trail items: match against OSM trail data
-          if (item.venueCategory && /trail|hike|hiking/i.test(item.venueCategory) && item.venueName) {
+          if (
+            item.venueCategory &&
+            /trail|hike|hiking/i.test(item.venueCategory) &&
+            item.venueName
+          ) {
             const matchedTrail = trailByName.get(item.venueName.toLowerCase());
             if (matchedTrail) {
               return {
@@ -1126,7 +1906,10 @@ export class SidequestPrescriptionService {
             // Fuzzy: check if any pre-fetched venue name contains or is contained by the item name
             if (!matched) {
               for (const [venueName, venue] of venueByName) {
-                if (venueName.includes(itemNameLower) || itemNameLower.includes(venueName)) {
+                if (
+                  venueName.includes(itemNameLower) ||
+                  itemNameLower.includes(venueName)
+                ) {
                   matched = venue;
                   break;
                 }
@@ -1157,12 +1940,11 @@ export class SidequestPrescriptionService {
           if (!searchQuery) return { item, geo: null };
 
           try {
-            const placeResult =
-              await this.placesService.searchPlaceForFrontend(
-                searchQuery,
-                cityCenter,
-                knownCityState,
-              );
+            const placeResult = await this.placesService.searchPlaceForFrontend(
+              searchQuery,
+              cityCenter,
+              knownCityState,
+            );
 
             if (placeResult.success && placeResult.place) {
               if (
@@ -1269,8 +2051,9 @@ export class SidequestPrescriptionService {
         if (stopsText) parts.push(...Array(3).fill(stopsText));
         if (summary) parts.push(summary);
 
-        const embeddingSql =
-          await this.embeddingService.getEmbeddingSql(parts.join(". "));
+        const embeddingSql = await this.embeddingService.getEmbeddingSql(
+          parts.join(". "),
+        );
         updates.embedding = embeddingSql;
       } catch (error) {
         console.error(
@@ -1334,7 +2117,8 @@ export class SidequestPrescriptionService {
     }
 
     // 4. Find entry points for trails, parks, and attractions
-    const entryPointPattern = /trail|park|hike|hiking|nature|scenic|outdoor|attraction/i;
+    const entryPointPattern =
+      /trail|park|hike|hiking|nature|scenic|outdoor|attraction/i;
     const objectivesNeedingEntryPoints = sortedObjectives.filter(
       (obj) =>
         obj.latitude != null &&
@@ -1348,12 +2132,11 @@ export class SidequestPrescriptionService {
       const entryPointResults = await Promise.all(
         objectivesNeedingEntryPoints.map(async (obj) => {
           try {
-            const entryPoint =
-              await this.placesService.searchEntryPoint(
-                Number(obj.latitude),
-                Number(obj.longitude),
-                obj.venueCategory!,
-              );
+            const entryPoint = await this.placesService.searchEntryPoint(
+              Number(obj.latitude),
+              Number(obj.longitude),
+              obj.venueCategory!,
+            );
             return { objId: obj.id, entryPoint };
           } catch (error) {
             console.warn(
@@ -1380,12 +2163,26 @@ export class SidequestPrescriptionService {
     if (Object.keys(updates).length > 0) {
       await repo.update(sidequestId, updates as Record<string, unknown>);
     }
-
   }
 
   private async countCompletedQuests(userId: string): Promise<number> {
     const result = await this.dataSource.query(
       `SELECT COUNT(*)::int as count FROM sidequests WHERE user_id = $1 AND completed_at IS NOT NULL AND deleted_at IS NULL`,
+      [userId],
+    );
+    return result[0]?.count ?? 0;
+  }
+
+  // Counts every prescribed quest, including rejected/deleted ones. A
+  // rejection still counts as calibration signal — the user saw a
+  // prescription and reacted to it. Excluding deleted rows would let a
+  // chain of rejections keep the user in "early calibration" forever, which
+  // is exactly the lock-in we're trying to escape. Used as the signal for
+  // "is this user still in early calibration?" — completion lags by 1-3
+  // ticks (deferred rating), so attempts is the timely signal.
+  private async countAttemptedQuests(userId: string): Promise<number> {
+    const result = await this.dataSource.query(
+      `SELECT COUNT(*)::int as count FROM sidequests WHERE user_id = $1`,
       [userId],
     );
     return result[0]?.count ?? 0;
@@ -1404,7 +2201,8 @@ export class SidequestPrescriptionService {
     const lng1 = (lng * Math.PI) / 180;
 
     const lat2 = Math.asin(
-      Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng),
+      Math.sin(lat1) * Math.cos(d) +
+        Math.cos(lat1) * Math.sin(d) * Math.cos(brng),
     );
     const lng2 =
       lng1 +
@@ -1427,5 +2225,4 @@ export class SidequestPrescriptionService {
   ): number {
     return haversineDistance(lat1, lon1, lat2, lon2, "miles");
   }
-
 }

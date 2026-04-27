@@ -27,10 +27,16 @@ interface OverpassServiceDeps {
 }
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours — trail data doesn't change often
+/**
+ * Endpoint order matters. The canonical overpass-api.de is the most reliable
+ * and goes first; mirrors are fallbacks for when it rate-limits us. The old
+ * `maps.mail.ru/osm/tools/overpass` mirror was kept as fallback #2 but has
+ * been returning 403 on every request (it now requires API keys / has changed
+ * policy), so it's removed entirely.
+ */
 const OVERPASS_ENDPOINTS = [
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
 ];
 let currentEndpointIdx = 0;
 
@@ -123,18 +129,18 @@ export class OverpassService {
           return (await response.json()) as OverpassResponse;
         }
 
+        // Rotate on ANY non-2xx, not just 429/504. Mirrors return 403 / 410 /
+        // other status codes when they go offline or change policy, and the
+        // old code would `return null` instead of advancing to the next mirror.
         const status = response.status;
-        if (status === 429 || status === 504) {
-          // Rotate to a different mirror on rate limit or timeout
-          rotateEndpoint();
-          if (attempt < MAX_RETRIES) {
-            const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
-            console.warn(
-              `[OverpassService] Got ${status} from ${url}, rotating & retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
-            );
-            await new Promise((r) => setTimeout(r, delay));
-            continue;
-          }
+        rotateEndpoint();
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
+          console.warn(
+            `[OverpassService] Got ${status} from ${url}, rotating & retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
+          );
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
         }
 
         console.error(`[OverpassService] API returned ${status} from ${url}`);
