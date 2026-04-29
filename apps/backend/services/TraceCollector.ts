@@ -33,6 +33,7 @@ export type TraceStage =
   | "scout.submit_candidates"
   // Validator + ranker
   | "quality_match"
+  | "interest_alignment.gate"
   | "validator.attempt"
   | "candidate_ranker"
   // Verification (live web research on winner)

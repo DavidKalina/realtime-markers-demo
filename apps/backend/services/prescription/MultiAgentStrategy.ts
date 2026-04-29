@@ -36,6 +36,10 @@ import { applyGoalMilestonePolicy } from "./GoalMilestonePolicy";
 import { applyContainerOpportunityPolicy } from "./ContainerOpportunityPolicy";
 import { classifyJourneyCategoryFamily } from "./JourneyDiversityContext";
 import { applyOpportunityZonePolicy } from "./OpportunityZonePolicy";
+import {
+  applyInterestAlignmentGate,
+  buildInterestSignals,
+} from "./InterestAlignmentSelectionGate";
 import { buildSearchEnvelope } from "./SearchEnvelope";
 import { VenueScoutAgent } from "./VenueScoutAgent";
 import { QuestWriterAgent } from "./QuestWriterAgent";
@@ -353,6 +357,8 @@ export class MultiAgentStrategy {
     let qualityRetryHint: string | null = null;
     const maxRetries = 2;
     const selectionAttempts: VenueSelectionAttemptTrace[] = [];
+    const interestSignals = buildInterestSignals(promptContext.user);
+    const completedQuestCount = promptContext.completedQuestCount ?? 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (onProgress)
@@ -483,6 +489,44 @@ export class MultiAgentStrategy {
             `[multi-agent] QualityMatch: dropped ${droppedNames.length} candidate(s) for hard-avoid hits: ${droppedNames.join(", ")}`,
           );
         }
+      }
+
+      // Interest-alignment gate — enforces a hard interest floor for the
+      // user's first 5 prescriptions. On `use_slate`, replace the candidate
+      // pool with the front-loaded slate so the validator sees aligned
+      // venues first. On `passthrough` (past first-5, or floor unmet in
+      // this slice), the existing fallback path runs unchanged.
+      const gateInputCandidateCount = scoutResult.candidates.length;
+      const gateDecision = applyInterestAlignmentGate({
+        candidates: scoutResult.candidates,
+        signals: interestSignals,
+        completedQuestCount,
+      });
+      if (gateDecision.kind === "use_slate") {
+        scoutResult.candidates = gateDecision.slate;
+        console.log(
+          `[multi-agent] InterestAlignmentGate: use_slate (${gateDecision.alignedCount} aligned of ${gateDecision.slate.length})`,
+        );
+      }
+      if (trace) {
+        await trace.emit("interest_alignment.gate", {
+          input: {
+            signals: interestSignals,
+            candidateCount: gateInputCandidateCount,
+            completedQuestCount,
+          },
+          output:
+            gateDecision.kind === "use_slate"
+              ? {
+                  decision: "use_slate",
+                  alignedCount: gateDecision.alignedCount,
+                  slateSize: gateDecision.slate.length,
+                }
+              : {
+                  decision: "passthrough",
+                  reason: gateDecision.reason,
+                },
+        });
       }
 
       const validation = validateCandidates({
